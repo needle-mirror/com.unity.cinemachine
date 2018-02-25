@@ -322,7 +322,7 @@ namespace Cinemachine
                     if (components[i].Stage == stage)
                     {
                         components[i].enabled = false;
-                        DestroyImmediate(components[i]);
+                        RuntimeUtility.DestroyObject(components[i]);
                     }
                 }
             }
@@ -341,7 +341,7 @@ namespace Cinemachine
                     if (c is T)
                     {
                         c.enabled = false;
-                        DestroyImmediate(c);
+                        RuntimeUtility.DestroyObject(c);
                         InvalidateComponentPipeline();
                     }
                 }
@@ -350,15 +350,6 @@ namespace Cinemachine
 
         /// <summary>API for the editor, to make the dragging of position handles behave better.</summary>
         public bool UserIsDragging { get; set; }
-
-        /// <summary>API for the editor, to process a position drag from the user.</summary>
-        public void OnPositionDragged(Vector3 delta)
-        {
-            CinemachineComponentBase[] components = GetComponentPipeline();
-            if (components != null)
-                for (int i = 0; i < components.Length; ++i)
-                    components[i].OnPositionDragged(delta);
-        }
 
         CameraState m_State = CameraState.Default; // Current state this frame
 
