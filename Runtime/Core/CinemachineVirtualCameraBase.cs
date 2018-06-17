@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Cinemachine
 {
@@ -27,11 +28,6 @@ namespace Cinemachine
     [SaveDuringPlay]
     public abstract class CinemachineVirtualCameraBase : MonoBehaviour, ICinemachineCamera
     {
-        /// <summary>This is deprecated.  It is here to support the soon-to-be-removed
-        /// Cinemachine Debugger in the Editor.</summary>
-        [HideInInspector, NoSaveDuringPlay]
-        public Action CinemachineGUIDebuggerCallback = null;
-
         /// <summary>Inspector control - Use for hiding sections of the Inspector UI.</summary>
         [HideInInspector, SerializeField, NoSaveDuringPlay]
         public string[] m_ExcludedPropertiesInInspector = new string[] { "m_Script" };
@@ -58,6 +54,29 @@ namespace Cinemachine
         [NoSaveDuringPlay]
         [Tooltip("The priority will determine which camera becomes active based on the state of other cameras and this camera.  Higher numbers have greater priority.")]
         public int m_Priority = 10;
+
+        /// <summary>
+        /// How often to update a virtual camera when it is in Standby mode
+        /// </summary>
+        public enum StandbyUpdateMode
+        {
+            /// <summary>Only update if the virtual camera is Live</summary>
+            Never,
+            /// <summary>Update the virtual camera every frame, even when it is not Live</summary>
+            Always,
+            /// <summary>Update the virtual camera occasionally, the exact frequency depends 
+            /// on how many other virtual cameras are in Standby</summary>
+            RoundRobin
+        };
+        
+        /// <summary>When the virtual camera is not live, this is how often the virtual camera will 
+        /// be updated.  Set this to tune for performance. Most of the time Never is fine, unless 
+        /// the virtual camera is doing shot evaluation.
+        /// </summary>
+        [Tooltip("When the virtual camera is not live, this is how often the virtual camera will be updated.  "
+            + "Set this to tune for performance. Most of the time Never is fine, "
+            + "unless the virtual camera is doing shot evaluation.")]
+        public StandbyUpdateMode m_StandbyUpdate = StandbyUpdateMode.RoundRobin;
 
         /// <summary>
         /// A delegate to hook into the state calculation pipeline.
@@ -127,27 +146,34 @@ namespace Cinemachine
         /// in the CinemachineCore's queue of eligible shots.</summary>
         public int Priority { get { return m_Priority; } set { m_Priority = value; } }
 
-        /// <summary>Hint for blending positions to and from this virtual camera</summary>
-        public enum PositionBlendMethod
+        /// <summary>Hint for blending to and from this virtual camera</summary>
+        public enum BlendHint
         {
-            /// <summary>Standard linear position blend</summary>
-            Linear,
-            /// <summary>Spherical blend about LookAt target position, if there is a LookAt target</summary>
-            Spherical,
-            /// <summary>Cylindrical blend about LookAt target position, if there is a LookAt target.  Vertical co-ordinate is linearly interpolated.</summary>
-            Cylindrical
+            /// <summary>Standard linear position and aim blend</summary>
+            None,
+            /// <summary>Spherical blend about LookAt target position if there is a LookAt target, linear blend between LookAt targets</summary>
+            SphericalPosition,
+            /// <summary>Cylindrical blend about LookAt target position if there is a LookAt target (vertical co-ordinate is linearly interpolated), linear blend between LookAt targets</summary>
+            CylindricalPosition,
+            /// <summary>Standard linear position blend, radial blend between LookAt targets</summary>
+            ScreenSpaceAimWhenTargetsDiffer
         }
 
         /// <summary>Applies a position blend hint to the camera state</summary>
-        protected void SetPositionBlendMethod(ref CameraState state, PositionBlendMethod m)
+        protected void ApplyPositionBlendMethod(ref CameraState state, BlendHint hint)
         {
-            switch (m)
+            switch (hint)
             {
-                case PositionBlendMethod.Spherical: 
+                default:
+                    break;
+                case BlendHint.SphericalPosition: 
                     state.BlendHint |= CameraState.BlendHintValue.SphericalPositionBlend; 
                     break;
-                case PositionBlendMethod.Cylindrical: 
+                case BlendHint.CylindricalPosition: 
                     state.BlendHint |= CameraState.BlendHintValue.CylindricalPositionBlend; 
+                    break;
+                case BlendHint.ScreenSpaceAimWhenTargetsDiffer: 
+                    state.BlendHint |= CameraState.BlendHintValue.RadialAimBlend; 
                     break;
             }
         }
@@ -163,12 +189,11 @@ namespace Cinemachine
             }
         }
 
+        public bool IsValid { get { return !(this == null); } }
+
         /// <summary>The CameraState object holds all of the information
         /// necessary to position the Unity camera.  It is the output of this class.</summary>
         public abstract CameraState State { get; }
-
-        /// <summary>Just returns self.</summary>
-        public virtual ICinemachineCamera LiveChildOrSelf { get { return this; } }
 
         /// <summary>Support for meta-virtual-cameras.  This is the situation where a
         /// virtual camera is in fact the public face of a private army of virtual cameras, which
@@ -243,6 +268,25 @@ namespace Cinemachine
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than 0)</param>
         public abstract void InternalUpdateCameraState(Vector3 worldUp, float deltaTime);
 
+        /// <summary> Collection of parameters that influence how this virtual camera transitions from 
+        /// other virtual cameras </summary>
+        [Serializable]
+        public struct TransitionParams
+        {
+            /// <summary>Hint for blending positions to and from this virtual camera</summary>
+            [Tooltip("Hint for blending positions to and from this virtual camera")]
+            [FormerlySerializedAs("m_PositionBlending")]
+            public BlendHint m_BlendHint;
+
+            /// <summary>When this virtual camera goes Live, attempt to force the position to be the same as the current position of the Unity Camera</summary>
+            [Tooltip("When this virtual camera goes Live, attempt to force the position to be the same as the current position of the Unity Camera")]
+            public bool m_InheritPosition;
+
+            /// <summary>This event fires when the virtual camera goes Live</summary>
+            [Tooltip("This event fires when the virtual camera goes Live")]
+            public CinemachineBrain.VcamEvent m_OnCameraLive;
+        }
+        
         /// <summary>Notification that this virtual camera is going live.
         /// Base class implementationmust be called by any overridden method.</summary>
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
@@ -255,15 +299,24 @@ namespace Cinemachine
                 PreviousStateIsValid = false;
         }
 
-        /// <summary>Base class implementation does nothing.</summary>
-        protected virtual void Start()
-        {
-        }
-
-        /// <summary>Base class implementation removes the virtual camera from the priority queue.</summary>
+        /// <summary>Maintains the global vcam registry.  Always call the base class implementation.</summary>
         protected virtual void OnDestroy()
         {
             CinemachineCore.Instance.RemoveActiveCamera(this);
+        }
+
+        /// <summary>Base class implementation makes sure the priority queue remains up-to-date.</summary>
+        protected virtual void OnTransformParentChanged()
+        {
+            CinemachineCore.Instance.CameraDestroyed(this);
+            CinemachineCore.Instance.CameraAwakened(this);
+            UpdateSlaveStatus();
+            UpdateVcamPoolStatus();
+        }
+
+        /// <summary>Base class implementation does nothing.</summary>
+        protected virtual void Start()
+        {
         }
 
         /// <summary>Enforce bounds for fields, when changed in inspector.  
@@ -295,12 +348,14 @@ namespace Cinemachine
             UpdateVcamPoolStatus();    // Add to queue
             if (!CinemachineCore.Instance.IsLive(this))
                 PreviousStateIsValid = false;
+            CinemachineCore.Instance.CameraAwakened(this);
         }
 
         /// <summary>Base class implementation makes sure the priority queue remains up-to-date.</summary>
         protected virtual void OnDisable()
         {
             UpdateVcamPoolStatus();    // Remove from queue
+            CinemachineCore.Instance.CameraDestroyed(this);
         }
 
         /// <summary>Base class implementation makes sure the priority queue remains up-to-date.</summary>
@@ -310,21 +365,6 @@ namespace Cinemachine
                 UpdateVcamPoolStatus();
         }
 
-        /// <summary>Base class implementation makes sure the priority queue remains up-to-date.</summary>
-        protected virtual void OnTransformParentChanged()
-        {
-            UpdateSlaveStatus();
-            UpdateVcamPoolStatus();
-        }
-
-#if UNITY_EDITOR
-        /// <summary>Support for the deprecated CinemachineDebugger.</summary>
-        protected virtual void OnGUI()
-        {
-            if (CinemachineGUIDebuggerCallback != null)
-                CinemachineGUIDebuggerCallback();
-        }
-#endif
         private bool mSlaveStatusUpdated = false;
         private CinemachineVirtualCameraBase m_parentVcam = null;
 
@@ -364,22 +404,10 @@ namespace Cinemachine
         private int m_QueuePriority = int.MaxValue;
         private void UpdateVcamPoolStatus()
         {
-            m_QueuePriority = int.MaxValue;
             CinemachineCore.Instance.RemoveActiveCamera(this);
-            CinemachineCore.Instance.RemoveChildCamera(this);
-            if (m_parentVcam == null)
-            {
-                if (isActiveAndEnabled)
-                {
-                    CinemachineCore.Instance.AddActiveCamera(this);
-                    m_QueuePriority = m_Priority;
-                }
-            }
-            else
-            {
-                if (isActiveAndEnabled)
-                    CinemachineCore.Instance.AddChildCamera(this);
-            }
+            if (m_parentVcam == null && isActiveAndEnabled)
+                CinemachineCore.Instance.AddActiveCamera(this);
+            m_QueuePriority = m_Priority;
         }
 
         /// <summary>When multiple virtual cameras have the highest priority, there is
@@ -407,6 +435,59 @@ namespace Cinemachine
             if (extensions != null)
                 for (int i = 0; i < extensions.Length; ++i)
                     extensions[i].OnTargetObjectWarped(target, positionDelta);
+        }
+
+        /// <summary>Create a blend between 2 virtual cameras, taking into account 
+        /// any existing active blend.</summary>
+        protected CinemachineBlend CreateBlend(
+            ICinemachineCamera camA, ICinemachineCamera camB, 
+            CinemachineBlendDefinition blendDef,
+            CinemachineBlend activeBlend)
+        {
+            if (blendDef.BlendCurve == null || blendDef.m_Time <= 0 || (camA == null && camB == null))
+                return null;
+            if (activeBlend != null)
+            {
+                if (activeBlend.Uses(camB))
+                    camA = new StaticPointVirtualCamera(activeBlend.State, "Mid-Blend");
+                else
+                    camA = new BlendSourceVirtualCamera(activeBlend);
+            }
+            else if (camA == null)
+                camA = new StaticPointVirtualCamera(State, "(none)");
+            return new CinemachineBlend(camA, camB, blendDef.BlendCurve, blendDef.m_Time, 0);
+        }    
+
+        /// <summary>
+        /// Create a camera state based on the current transform of this vcam
+        /// </summary>
+        /// <param name="worldUp">Current World Up direction, as provided by the brain</param>
+        /// <param name="lens">Lens settings to serve as base, will be combined with lens from brain, if any</param>
+        /// <returns></returns>
+        protected CameraState PullStateFromVirtualCamera(Vector3 worldUp, LensSettings lens)
+        {
+            CameraState state = CameraState.Default;
+            state.RawPosition = transform.position;
+            state.RawOrientation = transform.rotation;
+            state.ReferenceUp = worldUp;
+
+            lens.Orthographic = false;
+            lens.IsPhysicalCamera = false;
+            lens.SensorSize = Vector2.one;
+
+            CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);
+            if (brain != null)
+            {
+                lens.Orthographic = brain.OutputCamera.orthographic;
+                lens.SensorSize = new Vector2(brain.OutputCamera.aspect, 1f);
+#if UNITY_2018_2_OR_NEWER
+                lens.IsPhysicalCamera = brain.OutputCamera.usePhysicalProperties;
+                if (lens.IsPhysicalCamera)
+                    lens.SensorSize = brain.OutputCamera.sensorSize;
+#endif
+            }
+            state.Lens = lens;
+            return state;
         }
     }
 }

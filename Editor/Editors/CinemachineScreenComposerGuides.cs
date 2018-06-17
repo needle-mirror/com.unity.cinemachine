@@ -34,17 +34,22 @@ namespace Cinemachine.Editor
 
         public void OnGUI_DrawGuides(bool isLive, Camera outputCamera, LensSettings lens, bool showHardGuides)
         {
-            Rect cameraRect = outputCamera.pixelRect;
+            Rect gateRect = outputCamera.pixelRect;
+            Rect cameraRect = gateRect;
             float screenWidth = cameraRect.width;
-            float screenHeight = cameraRect.height;
+            float screenHeight = screenWidth / lens.Aspect;
             cameraRect.yMax = Screen.height - cameraRect.yMin;
             cameraRect.yMin = cameraRect.yMax - screenHeight;
+            cameraRect.position += new Vector2(0, (gateRect.y - cameraRect.y) / 2);
+
+            // Shift the guides along with the lens
+            cameraRect.position += new Vector2(
+                -screenWidth * lens.LensShift.x, screenHeight * lens.LensShift.y);
 
             // Rotate the guides along with the dutch
             Matrix4x4 oldMatrix = GUI.matrix;
             GUI.matrix = Matrix4x4.Translate(cameraRect.min);
             GUIUtility.RotateAroundPivot(lens.Dutch, cameraRect.center);
-
             Color hardBarsColour = CinemachineSettings.ComposerSettings.HardBoundsOverlayColour;
             Color softBarsColour = CinemachineSettings.ComposerSettings.SoftBoundsOverlayColour;
             float overlayOpacity = CinemachineSettings.ComposerSettings.OverlayOpacity;

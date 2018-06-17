@@ -18,8 +18,11 @@ namespace Cinemachine.Utility
         /// <param name="bindingAttr">The mask to filter the attributes.
         /// Only those fields that get caught in the filter will be copied</param>
         public static void CopyFields(
-            Object src, Object dst,
-            System.Reflection.BindingFlags bindingAttr = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            System.Object src, System.Object dst,
+            System.Reflection.BindingFlags bindingAttr 
+                = System.Reflection.BindingFlags.Public 
+                | System.Reflection.BindingFlags.NonPublic 
+                | System.Reflection.BindingFlags.Instance)
         {
             if (src != null && dst != null)
             {
@@ -31,7 +34,6 @@ namespace Cinemachine.Utility
             }
         }
 
-#if UNITY_EDITOR
         /// <summary>Search the assembly for all types that match a predicate</summary>
         /// <param name="assembly">The assembly to search</param>
         /// <param name="predicate">The type to look for</param>
@@ -121,7 +123,6 @@ namespace Cinemachine.Utility
             }
             return false;
         }
-#endif
 
         /// <summary>Cheater extension to access internal field of an object</summary>
         /// <param name="type">The type of the field</param>
@@ -146,6 +147,31 @@ namespace Cinemachine.Utility
                 return default(T);
         }
 
+#if false
+        /// <summary>Cheater extension to access internal property of an object</summary>
+        /// <param name="type">The type of the field</param>
+        /// <param name="obj">The object to access</param>
+        /// <param name="memberName">The string name of the field to access</param>
+        /// <returns>The value of the field in the objects</returns>
+        public static T AccessInternalProperty<T>(this Type type, object obj, string memberName)
+        {
+            if (string.IsNullOrEmpty(memberName) || (type == null))
+                return default(T);
+
+            System.Reflection.BindingFlags bindingFlags = System.Reflection.BindingFlags.NonPublic;
+            if (obj != null)
+                bindingFlags |= System.Reflection.BindingFlags.Instance;
+            else
+                bindingFlags |= System.Reflection.BindingFlags.Static;
+
+            PropertyInfo pi = type.GetProperty(memberName, bindingFlags);
+            if ((pi != null) && (pi.PropertyType == typeof(T)))
+                return (T)pi.GetValue(obj, null);
+            else
+                return default(T);
+        }
+#endif
+
         /// <summary>Get the object owner of a field.  This method processes
         /// the '.' separator to get from the object that owns the compound field
         /// to the object that owns the leaf field</summary>
@@ -158,7 +184,9 @@ namespace Cinemachine.Utility
                 return obj;
 
             var info = obj.GetType().GetField(
-                    fields[0], System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    fields[0], System.Reflection.BindingFlags.Public 
+                        | System.Reflection.BindingFlags.NonPublic 
+                        | System.Reflection.BindingFlags.Instance);
             obj = info.GetValue(obj);
 
             return GetParentObject(string.Join(".", fields, 1, fields.Length - 1), obj);

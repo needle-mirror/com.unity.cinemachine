@@ -172,11 +172,13 @@ namespace Cinemachine
         public float UpdateHeading(float deltaTime, Vector3 up, ref AxisState axis)
         {
             // Only read joystick when game is playing
-            if (deltaTime >= 0 || CinemachineCore.Instance.IsLive(VirtualCamera))
+            if (deltaTime < 0 || !CinemachineCore.Instance.IsLive(VirtualCamera))
             {
-                if (axis.Update(deltaTime))
-                    m_RecenterToTargetHeading.CancelRecentering();
+                axis.Reset();
+                m_RecenterToTargetHeading.CancelRecentering();
             }
+            else if (axis.Update(deltaTime))
+                m_RecenterToTargetHeading.CancelRecentering();
 
             float targetHeading = GetTargetHeading(axis.Value, GetReferenceOrientation(up), deltaTime);
             if (m_BindingMode != BindingMode.SimpleFollowWithWorldUp)
@@ -220,7 +222,6 @@ namespace Cinemachine
         /// <param name="deltaTime">Used for damping.  If less than 0, no damping is done.</param>
         public override void MutateCameraState(ref CameraState curState, float deltaTime)
         {
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineOrbitalTransposer.MutateCameraState");
             InitPrevFrameStateInfo(ref curState, deltaTime);
 
             // Update the heading
@@ -262,7 +263,6 @@ namespace Cinemachine
                 mHeadingPrevFrame = (m_BindingMode == BindingMode.SimpleFollowWithWorldUp) ? Quaternion.identity : headingRot;
                 mOffsetPrevFrame = offset;
             }
-            //UnityEngine.Profiling.Profiler.EndSample();
         }
 
         static string GetFullName(GameObject current)

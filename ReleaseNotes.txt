@@ -1,3 +1,39 @@
+<size=20><b>Version 2.2.0</b></size>
+
+- New Cinemachine Impulse module for event-driven camera shakes
+- New Event Helper script CinemachineTriggerAction takes action on Collider and Collider2D enter/exit events, and exposes them as UnityEvents
+- New performance-tuning feature: Standby Update.  Controls how often to update the vcam when it's in Standby.  
+- New NoiseSettings editor with signal preview
+- Added Focal Length or Named FOV presets for Camera Lens
+- Added support for Physical Camera: focal length and Lens Offset
+- New improved Group framing algorithm: tighter group framing in GroupComposer and FramingTransposer
+- Collider: now returns TargetIsObscured if the target is offscreen (great for cameras with fixed aim)
+- Collider: added Minimum Occlusion Time setting, to ignore fleeting obstructions
+- Collider: added Transparent Layers mask, to specify solid objects that don't obstruct view
+- Collider: damping will no longer take the camera through obstacles
+- Collider: Added separate damping setting for when target is being occluded vs when camera is being returned to its normal position
+- Collider: added Smoothing setting, to reduce camera jumpiness in environements with lots of obstacles
+- NoiseSettings: added checkbox for pure sine-wave instead of Perlin wave
+- If no LookAt target, PostProcessing FocusTracksTarget offset is relative to camera
+- TrackedDolly: Default up mode sets Up to World Up
+- Virtual Camera: New Transitions section in inspector that gives more control over blending:
+  - Blend Hint provides some control over how the position and rotation are interpolated
+  - Inherit Position checkbox to ensure smooth positional handoff from outgoing camera
+  - OnCameraLive event gets fired when the camera activates.  Useful for custom handlers.
+- Added ScreenSpaceAimWhenTargetsDiffer as a vcam blend hint.  This influences what happens when blending between vcams with different LookAt targets
+- Increased stability of vcams with very small FOVs
+- Framing Transposer no longer requires LookAt to be null
+- LensSettings Aspect, Orthographic, IsPhysicalCamera, SensorSize properties no longer internal
+- Noise Profiles: don't magically create assets.  Prompt user for filename and location of new or cloned profiles
+- Refactored interaction between timeline and CM brain, to improve handling of edge cases (fogbugz case 1048497)
+- Bugfix: StateDrivenCamera Editor was not finding states if target was OverrideController
+- Bugfix when dragging orbital transposer transform: take bias into account
+- Bugfix: SaveDuringPlay was not handling asset fields correctly - was sometimes crushing assets
+- Bugfix: SimpleFollow transposers were not initilizing their position correctly at game start
+- Bugfix: Timeline with CM shot was causing jitter in some FixedUpdate situations
+- Bugfix: Multiple brains with heterogeneous update methods were not behaving correctly.  CM will now support this, but you must make sure that the brains have different layer masks.
+- Example scenes now include use of CinemachineTriggerAction script.  
+
 <size=20><b>Version 2.1.13</b></size>
 
 - Bugfix: Custom Blends "Any to Any" was not working (regression)

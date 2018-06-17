@@ -2,10 +2,11 @@
 using UnityEditor;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Cinemachine.Editor
 {
-    public class InspectorUtility
+    internal class InspectorUtility
     {
         /// <summary>Put multiple properties on a single inspector line, with 
         /// optional label overrides.  Passing null as a label (or sublabel) override will 
@@ -119,6 +120,37 @@ namespace Cinemachine.Editor
                 curve.keys = keys;
             }
             return curve;
+        }
+
+        public static string NicifyClassName(string name)
+        {
+            if (name.StartsWith("Cinemachine"))
+                name = name.Substring(11); // Trim the prefix
+            return ObjectNames.NicifyVariableName(name);
+        }
+
+        public static void AddAssetsFromPackageSubDirectory(
+            Type type, List<ScriptableObject> assets, string path)
+        {
+            try 
+            {
+                path = "/" + path;
+                var info = new DirectoryInfo(ScriptableObjectUtility.CinemachineInstallPath + path);
+                path = ScriptableObjectUtility.kPackageRoot + path + "/";
+                var fileInfo = info.GetFiles();
+                foreach (var file in fileInfo)
+                {
+                    if (file.Extension != ".asset")
+                        continue;
+                    string name = path + file.Name;
+                    ScriptableObject a = AssetDatabase.LoadAssetAtPath(name, type) as ScriptableObject;
+                    if (a != null)
+                        assets.Add(a);
+                }
+            }
+            catch 
+            {
+            }
         }
     }
 }

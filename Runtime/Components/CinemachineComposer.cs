@@ -14,16 +14,11 @@ namespace Cinemachine
     /// to use the virtual camera's Body section.
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-    [ExecuteInEditMode] // for OnGUI
     [AddComponentMenu("")] // Don't display in add component menu
     [RequireComponent(typeof(CinemachinePipeline))]
     [SaveDuringPlay]
     public class CinemachineComposer : CinemachineComponentBase
     {
-        /// <summary>Used by the Inspector Editor to display on-screen guides.</summary>
-        [NoSaveDuringPlay, HideInInspector]
-        public Action OnGUICallback = null;
-
         /// <summary>Target offset from the object's center in LOCAL space which
         /// the Composer tracks. Use this to fine-tune the tracking target position
         /// when the desired area is not in the tracked object's center</summary>
@@ -82,12 +77,12 @@ namespace Cinemachine
         /// <summary>Camera will not rotate horizontally if the target is within this range of the position</summary>
         [Range(0f, 1f)]
         [Tooltip("Camera will not rotate horizontally if the target is within this range of the position.")]
-        public float m_DeadZoneWidth = 0.1f;
+        public float m_DeadZoneWidth = 0f;
 
         /// <summary>Camera will not rotate vertically if the target is within this range of the position</summary>
         [Range(0f, 1f)]
         [Tooltip("Camera will not rotate vertically if the target is within this range of the position.")]
-        public float m_DeadZoneHeight = 0.1f;
+        public float m_DeadZoneHeight = 0f;
 
         /// <summary>When target is within this region, camera will gradually move to re-align
         /// towards the desired position, depending onm the damping speed</summary>
@@ -137,13 +132,9 @@ namespace Cinemachine
             TrackedPoint = (m_LookaheadTime > 0)
                 ? m_Predictor.PredictPosition(m_LookaheadTime) : pos;
 
-            return pos;
+            return TrackedPoint;
         }
         
-#if UNITY_EDITOR
-        private void OnGUI() { if (OnGUICallback != null) OnGUICallback(); }
-#endif
-
         /// <summary>State information for damping</summary>
         Vector3 m_CameraPosPrevFrame = Vector3.zero;
         Vector3 m_LookAtPrevFrame = Vector3.zero;
@@ -194,7 +185,6 @@ namespace Cinemachine
                 return;  // navel-gazing, get outa here
             }
 
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineComposer.MutateCameraState");
             float fov, fovH;
             if (curState.Lens.Orthographic)
             {
@@ -245,11 +235,10 @@ namespace Cinemachine
                 m_LookAtPrevFrame - curState.CorrectedPosition, curState.ReferenceUp);
 
             curState.RawOrientation = m_CameraOrientationPrevFrame;
-            //UnityEngine.Profiling.Profiler.EndSample();
         }
 
         /// <summary>Internal API for the inspector editor</summary>
-        public Rect SoftGuideRect
+        internal Rect SoftGuideRect
         {
             get
             {
@@ -269,7 +258,7 @@ namespace Cinemachine
         }
 
         /// <summary>Internal API for the inspector editor</summary>
-        public Rect HardGuideRect
+        internal Rect HardGuideRect
         {
             get
             {
@@ -301,21 +290,21 @@ namespace Cinemachine
         private Rect ScreenToFOV(Rect rScreen, float fov, float fovH, float aspect)
         {
             Rect r = new Rect(rScreen);
-            Matrix4x4 persp = Matrix4x4.Perspective(fov, aspect, 0.01f, 10000f).inverse;
+            Matrix4x4 persp = Matrix4x4.Perspective(fov, aspect, 0.0001f, 2f).inverse;
 
-            Vector3 p = persp.MultiplyPoint(new Vector3(0, (r.yMin * 2f) - 1f, 0.1f)); p.z = -p.z;
+            Vector3 p = persp.MultiplyPoint(new Vector3(0, (r.yMin * 2f) - 1f, 0.5f)); p.z = -p.z;
             float angle = UnityVectorExtensions.SignedAngle(Vector3.forward, p, Vector3.left);
             r.yMin = ((fov / 2) + angle) / fov;
 
-            p = persp.MultiplyPoint(new Vector3(0, (r.yMax * 2f) - 1f, 0.1f)); p.z = -p.z;
+            p = persp.MultiplyPoint(new Vector3(0, (r.yMax * 2f) - 1f, 0.5f)); p.z = -p.z;
             angle = UnityVectorExtensions.SignedAngle(Vector3.forward, p, Vector3.left);
             r.yMax = ((fov / 2) + angle) / fov;
 
-            p = persp.MultiplyPoint(new Vector3((r.xMin * 2f) - 1f, 0, 0.1f));  p.z = -p.z;
+            p = persp.MultiplyPoint(new Vector3((r.xMin * 2f) - 1f, 0, 0.5f));  p.z = -p.z;
             angle = UnityVectorExtensions.SignedAngle(Vector3.forward, p, Vector3.up);
             r.xMin = ((fovH / 2) + angle) / fovH;
 
-            p = persp.MultiplyPoint(new Vector3((r.xMax * 2f) - 1f, 0, 0.1f));  p.z = -p.z;
+            p = persp.MultiplyPoint(new Vector3((r.xMax * 2f) - 1f, 0, 0.5f));  p.z = -p.z;
             angle = UnityVectorExtensions.SignedAngle(Vector3.forward, p, Vector3.up);
             r.xMax = ((fovH / 2) + angle) / fovH;
             return r;
@@ -383,7 +372,7 @@ namespace Cinemachine
         /// </summary>
         private bool ClampVerticalBounds(ref Rect r, Vector3 dir, Vector3 up, float fov)
         {
-            float angle = Vector3.Angle(dir, up);
+            float angle = UnityVectorExtensions.Angle(dir, up);
             float halfFov = (fov / 2f) + 1; // give it a little extra to accommodate precision errors
             if (angle < halfFov)
             {

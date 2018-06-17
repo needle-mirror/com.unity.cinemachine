@@ -1,13 +1,11 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
-using System.IO;
-using UnityEngine.SceneManagement;
 
 namespace Cinemachine.Editor
 {
     [CustomPropertyDrawer(typeof(NoiseSettingsPropertyAttribute))]
-    public sealed class NoiseSettingsPropertyDrawer : PropertyDrawer
+    internal sealed class NoiseSettingsPropertyDrawer : PropertyDrawer
     {
         public override void OnGUI(Rect rect, SerializedProperty property, GUIContent label)
         {
@@ -18,7 +16,7 @@ namespace Cinemachine.Editor
             int preset = sNoisePresets.IndexOf((NoiseSettings)property.objectReferenceValue);
             preset = EditorGUI.Popup(rect, label, preset, sNoisePresetNames);
             string labelText = label.text;
-            NoiseSettings newProfile = preset < 0 ? null : sNoisePresets[preset];
+            NoiseSettings newProfile = preset < 0 ? null : sNoisePresets[preset] as NoiseSettings;
             if ((NoiseSettings)property.objectReferenceValue != newProfile)
             {
                 property.objectReferenceValue = newProfile;
@@ -34,11 +32,15 @@ namespace Cinemachine.Editor
                         => Selection.activeObject = property.objectReferenceValue);
                     menu.AddItem(new GUIContent("Clone"), false, () => 
                         {
-                            property.objectReferenceValue = CreateProfile(
+                            NoiseSettings pp = CreateProfile(
                                 property, labelText,
                                 (NoiseSettings)property.objectReferenceValue);
-                            property.serializedObject.ApplyModifiedProperties();
-                            InvalidateProfileList();
+                            if (pp != null)
+                            {
+                                property.objectReferenceValue = pp;
+                                property.serializedObject.ApplyModifiedProperties();
+                                InvalidateProfileList();
+                            }
                         });
                     menu.AddItem(new GUIContent("Locate"), false, () 
                         => EditorGUIUtility.PingObject(property.objectReferenceValue));
@@ -46,15 +48,19 @@ namespace Cinemachine.Editor
                 menu.AddItem(new GUIContent("New"), false, () => 
                     { 
                         //Undo.RecordObject(Target, "Change Noise Profile");
-                        property.objectReferenceValue = CreateProfile(property, labelText, null);
-                        property.serializedObject.ApplyModifiedProperties();
-                        InvalidateProfileList();
+                        NoiseSettings pp = CreateProfile(property, labelText, null);
+                        if (pp != null)
+                        {
+                            property.objectReferenceValue = pp;
+                            property.serializedObject.ApplyModifiedProperties();
+                            InvalidateProfileList();
+                        }
                     });
                 menu.ShowAsContext();
             }
         }
 
-        static List<NoiseSettings> sNoisePresets;
+        static List<ScriptableObject> sNoisePresets;
         static GUIContent[] sNoisePresetNames;
         static float sLastPresetRebuildTime = 0;
 
@@ -73,7 +79,8 @@ namespace Cinemachine.Editor
 
             sNoisePresets = FindAssetsByType<NoiseSettings>();
 #if UNITY_2018_1_OR_NEWER
-            AddAssetsFromPackageSubDirectory(sNoisePresets, "Presets/Noise");
+            InspectorUtility.AddAssetsFromPackageSubDirectory(
+                typeof(NoiseSettings), sNoisePresets, "Presets/Noise");
 #endif
             sNoisePresets.Insert(0, null);
             List<GUIContent> presetNameList = new List<GUIContent>();
@@ -83,69 +90,48 @@ namespace Cinemachine.Editor
             sLastPresetRebuildTime = Time.realtimeSinceStartup;
         }
 
-        static List<T> FindAssetsByType<T>() where T : UnityEngine.Object
+        static List<ScriptableObject> FindAssetsByType<T>() where T : UnityEngine.Object
         {
-            List<T> assets = new List<T>();
+            List<ScriptableObject> assets = new List<ScriptableObject>();
             string[] guids = AssetDatabase.FindAssets(string.Format("t:{0}", typeof(T)));
             for (int i = 0; i < guids.Length; i++)
             {
                 string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
-                T asset = AssetDatabase.LoadAssetAtPath<T>(assetPath);
+                ScriptableObject asset = AssetDatabase.LoadAssetAtPath<T>(assetPath) as ScriptableObject;
                 if (asset != null)
                     assets.Add(asset);
             }
             return assets;
         }
 
-        static void AddAssetsFromPackageSubDirectory<T>(List<T> assets, string path) 
-            where T : UnityEngine.Object
-        {
-            try 
-            {
-                path = "/" + path;
-                var info = new DirectoryInfo(ScriptableObjectUtility.CinemachineInstallPath + path);
-                path = ScriptableObjectUtility.kPackageRoot + path + "/";
-                var fileInfo = info.GetFiles();
-                foreach (var file in fileInfo)
-                {
-                    if (file.Extension != ".asset")
-                        continue;
-                    string name = path + file.Name;
-                    T a = AssetDatabase.LoadAssetAtPath(name, typeof(T)) as T;
-                    if (a != null)
-                        assets.Add(a);
-                }
-            }
-            catch 
-            {
-            }
-        }
-
         NoiseSettings CreateProfile(SerializedProperty property, string label, NoiseSettings copyFrom)
         {
-            var path = string.Empty;
-            var scene = SceneManager.GetActiveScene();
-            if (string.IsNullOrEmpty(scene.path))
-                path = "Assets/";
-            else
+            string path = GetObjectName(property) + " " + label;
+            path = EditorUtility.SaveFilePanelInProject(
+                    "Create Noise Profile asset", path, "asset", 
+                    "This asset will generate a procedural noise signal");
+            if (!string.IsNullOrEmpty(path))
             {
-                var scenePath = Path.GetDirectoryName(scene.path);
-                var extPath = scene.name + "_Profiles";
-                var profilePath = scenePath + "/" + extPath;
-                if (!AssetDatabase.IsValidFolder(profilePath))
-                    AssetDatabase.CreateFolder(scenePath, extPath);
-                path = profilePath + "/";
+                NoiseSettings profile = null;
+                if (copyFrom != null)
+                {
+                    string fromPath = AssetDatabase.GetAssetPath(copyFrom);
+                    if (AssetDatabase.CopyAsset(fromPath, path))
+                    {
+                        profile = AssetDatabase.LoadAssetAtPath(
+                            path, typeof(NoiseSettings)) as NoiseSettings;
+                    }
+                }
+                else
+                {
+                    profile = ScriptableObjectUtility.CreateAt(
+                        typeof(NoiseSettings), path) as NoiseSettings;
+                }
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                return profile;
             }
-
-            var profile = ScriptableObject.CreateInstance<NoiseSettings>();
-            if (copyFrom != null)
-                profile.CopyFrom(copyFrom);
-            path += GetObjectName(property) + " " + label + ".asset";
-            path = AssetDatabase.GenerateUniqueAssetPath(path);
-            AssetDatabase.CreateAsset(profile, path);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            return profile;
+            return null;
         }
 
         static string GetObjectName(SerializedProperty property)

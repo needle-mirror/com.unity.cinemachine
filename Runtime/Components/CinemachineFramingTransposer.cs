@@ -1,4 +1,3 @@
-using System;
 using Cinemachine.Utility;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -28,16 +27,11 @@ namespace Cinemachine
     /// well with persective cameras and can be used in 3D environments.
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-    [ExecuteInEditMode] // for OnGUI
     [AddComponentMenu("")] // Don't display in add component menu
     [RequireComponent(typeof(CinemachinePipeline))]
     [SaveDuringPlay]
     public class CinemachineFramingTransposer : CinemachineComponentBase
     {
-        /// <summary>Used by the Inspector Editor to display on-screen guides.</summary>
-        [NoSaveDuringPlay, HideInInspector]
-        public Action OnGUICallback = null;
-
         /// <summary>This setting will instruct the composer to adjust its target offset based
         /// on the motion of the target.  The composer will look at a point where it estimates
         /// the target will be this many seconds into the future.  Note that this setting is sensitive
@@ -216,7 +210,7 @@ namespace Cinemachine
         public float m_MaximumOrthoSize = 100;
 
         /// <summary>Internal API for the inspector editor</summary>
-        public Rect SoftGuideRect
+        internal Rect SoftGuideRect
         {
             get
             {
@@ -236,7 +230,7 @@ namespace Cinemachine
         }
 
         /// <summary>Internal API for the inspector editor</summary>
-        public Rect HardGuideRect
+        internal Rect HardGuideRect
         {
             get
             {
@@ -269,7 +263,7 @@ namespace Cinemachine
             m_CameraDistance = Mathf.Max(m_CameraDistance, kMinimumCameraDistance);
             m_DeadZoneDepth = Mathf.Max(m_DeadZoneDepth, 0);
 
-            m_GroupFramingSize = Mathf.Max(Epsilon, m_GroupFramingSize);
+            m_GroupFramingSize = Mathf.Max(0.001f, m_GroupFramingSize);
             m_MaxDollyIn = Mathf.Max(0, m_MaxDollyIn);
             m_MaxDollyOut = Mathf.Max(0, m_MaxDollyOut);
             m_MinimumDistance = Mathf.Max(0, m_MinimumDistance);
@@ -280,12 +274,8 @@ namespace Cinemachine
             m_MaximumOrthoSize = Mathf.Max(m_MinimumOrthoSize, m_MaximumOrthoSize);
         }
 
-#if UNITY_EDITOR
-        private void OnGUI() { if (OnGUICallback != null) OnGUICallback(); }
-#endif
-
         /// <summary>True if component is enabled and has a valid Follow target</summary>
-        public override bool IsValid { get { return enabled && FollowTarget != null && LookAtTarget == null; } }
+        public override bool IsValid { get { return enabled && FollowTarget != null; } }
 
         /// <summary>Get the Cinemachine Pipeline stage that this component implements.
         /// Always returns the Body stage</summary>
@@ -329,14 +319,15 @@ namespace Cinemachine
             if (!IsValid)
                 return;
 
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineFramingTransposer.MutateCameraState");
             Vector3 camPosWorld = m_PreviousCameraPosition;
-            curState.ReferenceLookAt = FollowTargetPosition;
+            Vector3 followTargetPosition = FollowTargetPosition;
+            if (!curState.HasLookAt)
+                curState.ReferenceLookAt = followTargetPosition;
             m_Predictor.IgnoreY = m_LookaheadIgnoreY;
             m_Predictor.Smoothing = m_LookaheadSmoothing;
-            m_Predictor.AddPosition(curState.ReferenceLookAt);
+            m_Predictor.AddPosition(followTargetPosition);
             TrackedPoint = (m_LookaheadTime > 0) 
-                ? m_Predictor.PredictPosition(m_LookaheadTime) : curState.ReferenceLookAt;
+                ? m_Predictor.PredictPosition(m_LookaheadTime) : followTargetPosition;
 
             // Work in camera-local space
             Quaternion localToWorld = curState.RawOrientation;
@@ -354,16 +345,16 @@ namespace Cinemachine
                 cameraOffset.z = targetPos.z - cameraMax;
 
             // Adjust for group framing
-            CinemachineTargetGroup group = TargetGroup;
+            CinemachineTargetGroup group = FollowTargetGroup;
             if (group != null && m_GroupFramingMode != FramingMode.None)
-                cameraOffset.z += AdjustCameraDepthAndLensForGroupFraming(
+                cameraOffset += AdjustCameraPositionAndLensForGroupFraming(
                     group, targetPos.z - cameraOffset.z, ref curState, deltaTime);
 
             // Move along the XY plane
-            targetPos.z -= cameraOffset.z;
             float screenSize = curState.Lens.Orthographic 
                 ? curState.Lens.OrthographicSize 
-                : Mathf.Tan(0.5f * curState.Lens.FieldOfView * Mathf.Deg2Rad) * targetPos.z;
+                : Mathf.Tan(0.5f * curState.Lens.FieldOfView * Mathf.Deg2Rad) 
+                    * (targetPos.z - cameraOffset.z);
             Rect softGuideOrtho = ScreenToOrtho(SoftGuideRect, screenSize, curState.Lens.Aspect);
             if (deltaTime < 0)
             {
@@ -390,7 +381,6 @@ namespace Cinemachine
                     cameraOffset - hard, new Vector3(m_XDamping, m_YDamping, m_ZDamping), deltaTime);
             }
             curState.RawPosition = m_PreviousCameraPosition = localToWorld * (cameraPos + cameraOffset);
-            //UnityEngine.Profiling.Profiler.EndSample();
         }
 
         // Convert from screen coords to normalized orthographic distance coords
@@ -422,39 +412,65 @@ namespace Cinemachine
         float m_prevTargetHeight; // State for frame damping
 
         /// <summary>For editor visulaization of the calculated bounding box of the group</summary>
-        public Bounds m_LastBounds { get; private set; }
+        public Bounds LastBounds { get; private set; }
 
         /// <summary>For editor visualization of the calculated bounding box of the group</summary>
-        public Matrix4x4 m_lastBoundsMatrix { get; private set; }
+        public Matrix4x4 LastBoundsMatrix { get; private set; }
 
-        /// <summary>Get Follow target as CinemachineTargetGroup, or null if target is not a group</summary>
-        public CinemachineTargetGroup TargetGroup 
-        { 
-            get
-            {
-                Transform follow = FollowTarget;
-                if (follow != null)
-                    return follow.GetComponent<CinemachineTargetGroup>();
-                return null;
-            }
-        }
-
-        float AdjustCameraDepthAndLensForGroupFraming(
-            CinemachineTargetGroup group, float targetZ, 
+        Vector3 AdjustCameraPositionAndLensForGroupFraming(
+            CinemachineTargetGroup group, float initialZ, 
             ref CameraState curState, float deltaTime)
         {
-            float cameraOffset = 0;
+            Vector3 cameraOffset = Vector3.zero;
 
-            // Get the bounding box from that POV in view space, and find its height
-            Bounds bounds = group.BoundingBox;
+            bool canMoveCameraInZ
+                = !curState.Lens.Orthographic 
+                    && m_AdjustmentMode != AdjustmentMode.ZoomOnly;
+
+            // Work in camera-local space
             Vector3 fwd = curState.RawOrientation * Vector3.forward;
-            m_lastBoundsMatrix = Matrix4x4.TRS(
-                    bounds.center - (fwd * bounds.extents.magnitude),
-                    curState.RawOrientation, Vector3.one);
-            m_LastBounds = group.GetViewSpaceBoundingBox(m_lastBoundsMatrix);
-            float targetHeight = GetTargetHeight(m_LastBounds);
+            Vector3 cameraWorldStartPos = TrackedPoint - (fwd * initialZ);
+            LastBoundsMatrix = Matrix4x4.TRS(cameraWorldStartPos, curState.RawOrientation, Vector3.one);
+
+            // Get the bounding box from camera's direction in view space
+            Bounds b = group.GetViewSpaceBoundingBox(LastBoundsMatrix);
+            LastBounds = b;
+
+            // Recenter the camera in x-y, don't touch the depth
+            cameraOffset = b.center; 
+            cameraOffset.z = 0;
+
+            float firstApproxCameraOffsetZ = 0;
+            if (!curState.Lens.Orthographic)
+            {
+                // Now get a more refined bounding box in screen space
+                if (canMoveCameraInZ)
+                {   
+                    float newZ = GetPositionForNearBounds(
+                        b, GetTargetHeight(b), curState.Lens.FieldOfView, false);
+                    firstApproxCameraOffsetZ = Mathf.Clamp(newZ, -m_MaxDollyOut, m_MaxDollyIn);
+                    cameraOffset.z = firstApproxCameraOffsetZ;
+                }
+                Vector3 worldObserverPos = LastBoundsMatrix.MultiplyPoint3x4(cameraOffset);
+                Vector3 localPosAdustmentXY;
+                b = GetScreenSpaceGroupBoundingBox(
+                    group, ref worldObserverPos, curState.RawOrientation, out localPosAdustmentXY);
+                cameraOffset += localPosAdustmentXY;
+                // worldObserverPos has been adjusted
+                LastBoundsMatrix = Matrix4x4.TRS(worldObserverPos, curState.RawOrientation, Vector3.one);
+                LastBounds = b;
+            }
+            // Bring it back to local space
+            b.center += cameraOffset;
+            cameraOffset.z = 0;
+
+            // Adjust bounds for framing size
+            Vector3 extents = b.extents / m_GroupFramingSize;
+            extents.z = Mathf.Min(b.extents.z, extents.z);
+            b.extents = extents;
 
             // Apply damping
+            float targetHeight = GetTargetHeight(b);
             if (deltaTime >= 0)
             {
                 float delta = targetHeight - m_prevTargetHeight;
@@ -463,56 +479,93 @@ namespace Cinemachine
             }
             m_prevTargetHeight = targetHeight;
 
-            // Move the camera
-            if (!curState.Lens.Orthographic && m_AdjustmentMode != AdjustmentMode.ZoomOnly)
+            // Move the camera in Z
+            if (canMoveCameraInZ)
             {
-                // What distance would be needed to get the target height, at the current FOV
-                float desiredDistance 
-                    = targetHeight / (2f * Mathf.Tan(curState.Lens.FieldOfView * Mathf.Deg2Rad / 2f));
-
-                // target the near surface of the bounding box
-                desiredDistance += m_LastBounds.extents.z;
-
-                // Clamp to respect min/max distance settings
-                desiredDistance = Mathf.Clamp(
-                        desiredDistance, targetZ - m_MaxDollyIn, targetZ + m_MaxDollyOut);
-                desiredDistance = Mathf.Clamp(desiredDistance, m_MinimumDistance, m_MaximumDistance);
-
-                // Apply
-                cameraOffset += desiredDistance - targetZ;
+                float newZ = GetPositionForNearBounds(
+                    new Bounds(b.center - new Vector3(0, 0, firstApproxCameraOffsetZ), b.size), 
+                        targetHeight, curState.Lens.FieldOfView, true);
+                newZ += firstApproxCameraOffsetZ;
+                cameraOffset.z = Mathf.Clamp(newZ, -m_MaxDollyOut, m_MaxDollyIn);
             }
 
             // Apply zoom
             if (curState.Lens.Orthographic || m_AdjustmentMode != AdjustmentMode.DollyOnly)
             {
-                float nearBoundsDistance = (targetZ + cameraOffset) - m_LastBounds.extents.z;
+                float targetDistance = b.center.z - cameraOffset.z;
                 float currentFOV = 179;
-                if (nearBoundsDistance > Epsilon)
-                    currentFOV = 2f * Mathf.Atan(targetHeight / (2 * nearBoundsDistance)) * Mathf.Rad2Deg;
+                if (targetDistance > Epsilon)
+                    currentFOV = 2f * Mathf.Atan(targetHeight / (2 * targetDistance)) * Mathf.Rad2Deg;
 
                 LensSettings lens = curState.Lens;
                 lens.FieldOfView = Mathf.Clamp(currentFOV, m_MinimumFOV, m_MaximumFOV);
                 lens.OrthographicSize = Mathf.Clamp(targetHeight / 2, m_MinimumOrthoSize, m_MaximumOrthoSize);
                 curState.Lens = lens;
             }
-            return -cameraOffset;
+
+            return cameraOffset;
         }
 
         float GetTargetHeight(Bounds b)
         {
-            float framingSize = Mathf.Max(Epsilon, m_GroupFramingSize);
             switch (m_GroupFramingMode)
             {
                 case FramingMode.Horizontal:
-                    return b.size.x / (framingSize * VcamState.Lens.Aspect);
+                    return b.size.x / VcamState.Lens.Aspect;
                 case FramingMode.Vertical:
-                    return b.size.y / framingSize;
+                    return b.size.y;
                 default:
                 case FramingMode.HorizontalAndVertical:
-                    return Mathf.Max(
-                        b.size.x / (framingSize * VcamState.Lens.Aspect), 
-                        b.size.y / framingSize);
+                    return Mathf.Max(b.size.x / VcamState.Lens.Aspect, b.size.y);
             }
         }
+
+        float GetPositionForNearBounds(Bounds b, float targetHeight, float FOV, bool scale)
+        {
+            // What distance would be needed to get the target height, at the current FOV
+            float depth = b.extents.z;
+            float nearTargetHeight = targetHeight;
+            if (scale)
+            {
+                float d = Mathf.Max(b.center.z, depth + 0.1f);
+                nearTargetHeight = targetHeight * (d - depth) / d;
+            }
+            float nearTargetDistance = nearTargetHeight / (2f * Mathf.Tan(FOV * Mathf.Deg2Rad / 2f));
+
+            // Clamp to respect min/max distance settings to the near surface of the bounds
+            float cameraDistance = nearTargetDistance;
+            cameraDistance = Mathf.Clamp(cameraDistance, m_MinimumDistance, m_MaximumDistance);
+            cameraDistance += depth;
+
+            return b.center.z - cameraDistance;
+        }
+
+        // Pos is adjusted to recenter the box
+        static Bounds GetScreenSpaceGroupBoundingBox(
+            CinemachineTargetGroup group, ref Vector3 pos, Quaternion orientation,
+            out Vector3 localPosAdustment) 
+        {
+            Matrix4x4 observer = Matrix4x4.TRS(pos, orientation, Vector3.one);
+            Vector2 minAngles, maxAngles, zRange;
+            group.GetViewSpaceAngularBounds(observer, out minAngles, out maxAngles, out zRange);
+
+            Quaternion q = Quaternion.identity.ApplyCameraRotation((minAngles + maxAngles) / 2, Vector3.up);
+            localPosAdustment = q * new Vector3(0, 0, (zRange.y + zRange.x)/2);
+            localPosAdustment.z = 0;
+            pos = observer.MultiplyPoint3x4(localPosAdustment);
+            observer = Matrix4x4.TRS(pos, orientation, Vector3.one);
+            group.GetViewSpaceAngularBounds(observer, out minAngles, out maxAngles, out zRange);
+
+            float zSize = zRange.y - zRange.x;
+            float z = zRange.x + (zSize / 2);
+            Vector2 angles = new Vector2(89.5f, 89.5f);
+            if (zRange.x > 0)
+            {
+                angles = Vector3.Max(maxAngles, UnityVectorExtensions.Abs(minAngles)) * Mathf.Deg2Rad;
+                angles = Vector2.Min(angles, new Vector2(89.5f, 89.5f));
+            }
+            return new Bounds(new Vector3(0, 0, z), 
+                new Vector3(Mathf.Tan(angles.y) * z * 2, Mathf.Tan(angles.x) * z * 2, zSize));
+        }   
     }
 }

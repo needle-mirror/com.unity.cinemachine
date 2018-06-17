@@ -132,9 +132,6 @@ namespace Cinemachine
         /// <summary>Not used</summary>
         override public Transform Follow { get; set; }
 
-        /// <summary>Return the live child.</summary>
-        public override ICinemachineCamera LiveChildOrSelf { get { return LiveChild; } }
-
         /// <summary>This is called to notify the vcam that a target got warped,
         /// so that the vcam can update its internal state to make the camera 
         /// also warp seamlessy.</summary>
@@ -232,7 +229,6 @@ namespace Cinemachine
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than 0)</param>
         public override void InternalUpdateCameraState(Vector3 worldUp, float deltaTime)
         {
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineMixingCamera.InternalUpdateCameraState");
             CinemachineVirtualCameraBase[] children = ChildCameras;
             LiveChild = null;
             float highestWeight = 0;
@@ -260,7 +256,6 @@ namespace Cinemachine
                 }
             }
             InvokePostPipelineStageCallback(this, CinemachineCore.Stage.Finalize, ref m_State, deltaTime);
-            //UnityEngine.Profiling.Profiler.EndSample();
         }
     }
 }

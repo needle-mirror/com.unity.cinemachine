@@ -10,7 +10,7 @@ namespace Cinemachine.Editor
     /// Base class for virtual camera editors.
     /// Handles drawing the header and the basic properties.
     /// </summary>
-    public class CinemachineVirtualCameraBaseEditor<T> : BaseEditor<T> where T : CinemachineVirtualCameraBase
+    internal class CinemachineVirtualCameraBaseEditor<T> : BaseEditor<T> where T : CinemachineVirtualCameraBase
     {
         static Type[] sExtensionTypes;  // First entry is null
         static string[] sExtensionNames;
@@ -165,7 +165,7 @@ namespace Cinemachine.Editor
                 UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
             }
             GUI.color = color;
-            if (isSolo)
+            if (isSolo && !Application.isPlaying)
                 UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
 
             if (labelWidth > 0)

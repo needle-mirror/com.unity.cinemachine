@@ -20,7 +20,7 @@ namespace Cinemachine.Editor
                 excluded.Add(FieldPath(x => x.m_BiasX));
                 excluded.Add(FieldPath(x => x.m_BiasY));
             }
-            CinemachineTargetGroup group = Target.TargetGroup;
+            CinemachineTargetGroup group = Target.FollowTargetGroup;
             if (group == null || Target.m_GroupFramingMode == CinemachineFramingTransposer.FramingMode.None)
             {
                 excluded.Add(FieldPath(x => x.m_GroupFramingSize));
@@ -83,14 +83,14 @@ namespace Cinemachine.Editor
             mScreenGuideEditor.SetSoftGuide = (Rect r) => { Target.SoftGuideRect = r; };
             mScreenGuideEditor.Target = () => { return serializedObject; };
 
-            Target.OnGUICallback += OnGUI;
+            CinemachineDebug.OnGUIHandlers -= OnGUI;
+            CinemachineDebug.OnGUIHandlers += OnGUI;
             UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
         }
 
         protected virtual void OnDisable()
         {
-            if (Target != null)
-                Target.OnGUICallback -= OnGUI;
+            CinemachineDebug.OnGUIHandlers -= OnGUI;
             UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
         }
 
@@ -100,10 +100,6 @@ namespace Cinemachine.Editor
             if (Target.FollowTarget == null)
                 EditorGUILayout.HelpBox(
                     "Framing Transposer requires a Follow target.  Change Body to Do Nothing if you don't want a Follow target.", 
-                    MessageType.Warning);
-            if (Target.LookAtTarget != null)
-                EditorGUILayout.HelpBox(
-                    "The LookAt target must be null.  The Follow target will be used in place of the LookAt target.",
                     MessageType.Warning);
 
             // First snapshot some settings
@@ -159,14 +155,23 @@ namespace Cinemachine.Editor
         private static void DrawGroupComposerGizmos(CinemachineFramingTransposer target, GizmoType selectionType)
         {
             // Show the group bounding box, as viewed from the camera position
-            CinemachineTargetGroup group = target.TargetGroup;
-            if (group != null)
+            if (target.FollowTargetGroup != null)
             {
                 Matrix4x4 m = Gizmos.matrix;
-                Bounds b = target.m_LastBounds;
-                Gizmos.matrix = target.m_lastBoundsMatrix;
+                Bounds b = target.LastBounds;
+                Gizmos.matrix = target.LastBoundsMatrix;
                 Gizmos.color = Color.yellow;
-                Gizmos.DrawWireCube(b.center, b.size);
+                if (target.VcamState.Lens.Orthographic)
+                    Gizmos.DrawWireCube(b.center, b.size);
+                else
+                {
+                    float z = b.center.z;
+                    Vector3 e = b.extents;
+                    Gizmos.DrawFrustum(
+                        new Vector3(0, 0, z - e.z), 
+                        Mathf.Atan2(e.y, z) * Mathf.Rad2Deg * 2, 
+                        z + e.z, z - e.z, e.x / e.y);
+                }
                 Gizmos.matrix = m;
             }
         }

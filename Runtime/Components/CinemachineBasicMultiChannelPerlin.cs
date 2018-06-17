@@ -56,7 +56,6 @@ namespace Cinemachine
             if (!IsValid || deltaTime < 0)
                 return;
 
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineBasicMultiChannelPerlin.MutateCameraState");
             if (!mInitialized)
                 Initialize();
 
@@ -66,21 +65,29 @@ namespace Cinemachine
             Quaternion rotNoise = Quaternion.Euler(NoiseSettings.GetCombinedFilterResults(
                     m_NoiseProfile.OrientationNoise, mNoiseTime, mNoiseOffsets) * m_AmplitudeGain);
             curState.OrientationCorrection = curState.OrientationCorrection * rotNoise;
-            //UnityEngine.Profiling.Profiler.EndSample();
         }
 
         private bool mInitialized = false;
         private float mNoiseTime = 0;
+
+        [SerializeField][HideInInspector]
         private Vector3 mNoiseOffsets = Vector3.zero;
+
+        /// <summary>Generate a new random seed</summary>
+        public void ReSeed()
+        {
+            mNoiseOffsets = new Vector3(
+                    Random.Range(-1000f, 1000f),
+                    Random.Range(-1000f, 1000f),
+                    Random.Range(-1000f, 1000f));
+        }
 
         void Initialize()
         {
             mInitialized = true;
             mNoiseTime = 0;
-            mNoiseOffsets = new Vector3(
-                    Random.Range(-1000f, 1000f),
-                    Random.Range(-1000f, 1000f),
-                    Random.Range(-1000f, 1000f));
+            if (mNoiseOffsets == Vector3.zero)
+                ReSeed();
         }
     }
 }

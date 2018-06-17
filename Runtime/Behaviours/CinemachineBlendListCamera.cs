@@ -31,13 +31,9 @@ namespace Cinemachine
         [Tooltip("When enabled, the current child camera and blend will be indicated in the game window, for debugging")]
         public bool m_ShowDebugText = false;
 
-        /// <summary>Force all child cameras to be enabled.  This is useful if animating them in Timeline, but consumes extra resources.</summary>
-        [Tooltip("Force all child cameras to be enabled.  This is useful if animating them in Timeline, but consumes extra resources")]
-        public bool m_EnableAllChildCameras;
-
         /// <summary>Internal API for the editor.  Do not use this field</summary>
         [SerializeField][HideInInspector][NoSaveDuringPlay]
-        public CinemachineVirtualCameraBase[] m_ChildCameras = null;
+        internal CinemachineVirtualCameraBase[] m_ChildCameras = null;
 
         /// <summary>This represents a single entry in the instrunction list of the BlendListCamera.</summary>
         [Serializable]
@@ -66,19 +62,23 @@ namespace Cinemachine
             get 
             { 
                 // Show the active camera and blend
+                if (mActiveBlend != null) 
+                    return mActiveBlend.Description;
+
                 ICinemachineCamera vcam = LiveChild;
-                if (mActiveBlend == null) 
-                    return (vcam != null) ? "[" + vcam.Name + "]": "(none)";
-                return mActiveBlend.Description;
+                if (vcam == null) 
+                    return "(none)";
+                var sb = CinemachineDebug.SBFromPool();
+                sb.Append("["); sb.Append(vcam.Name); sb.Append("]");
+                string text = sb.ToString(); 
+                CinemachineDebug.ReturnToPool(sb); 
+                return text;
             }
         }
 
         /// <summary>Get the current "best" child virtual camera, that would be chosen
         /// if the State Driven Camera were active.</summary>
         public ICinemachineCamera LiveChild { set; get; }
-
-        /// <summary>Return the live child.</summary>
-        public override ICinemachineCamera LiveChildOrSelf { get { return LiveChild; } }
 
         /// <summary>Check whether the vcam a live child of this camera.</summary>
         /// <param name="vcam">The Virtual Camera to check</param>
@@ -143,7 +143,6 @@ namespace Cinemachine
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
         public override void InternalUpdateCameraState(Vector3 worldUp, float deltaTime)
         {
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineBlendListCamera.UpdateCameraState");
             if (!PreviousStateIsValid)
                 deltaTime = -1;
 
@@ -154,26 +153,13 @@ namespace Cinemachine
             if (mCurrentInstruction >= 0 && mCurrentInstruction < m_Instructions.Length)
                 best = m_Instructions[mCurrentInstruction].m_VirtualCamera;
 
-            if (m_ChildCameras != null)
-            {
-                for (int i = 0; i < m_ChildCameras.Length; ++i)
-                {
-                    CinemachineVirtualCameraBase vcam  = m_ChildCameras[i];
-                    if (vcam != null)
-                    {
-                        bool enableChild = m_EnableAllChildCameras || vcam == best;
-                        if (enableChild != vcam.VirtualCameraGameObject.activeInHierarchy)
-                        {
-                            vcam.gameObject.SetActive(enableChild);
-                            if (enableChild)
-                                vcam.UpdateCameraState(worldUp, deltaTime);
-                        }
-                    }
-                }
-            }
-
             if (best != null)
             {
+                if (!best.gameObject.activeInHierarchy)
+                {
+                    best.gameObject.SetActive(true);
+                    best.UpdateCameraState(worldUp, deltaTime);
+                }
                 ICinemachineCamera previousCam = LiveChild;
                 LiveChild = best;
 
@@ -184,7 +170,7 @@ namespace Cinemachine
                     mActiveBlend = CreateBlend(
                             previousCam, LiveChild,
                             m_Instructions[mCurrentInstruction].m_Blend, 
-                            mActiveBlend, deltaTime);
+                            mActiveBlend);
 
                     // Notify incoming camera of transition
                     LiveChild.OnTransitionFromCamera(previousCam, worldUp, deltaTime);
@@ -216,7 +202,6 @@ namespace Cinemachine
 
             InvokePostPipelineStageCallback(this, CinemachineCore.Stage.Finalize, ref m_State, deltaTime);
             PreviousStateIsValid = true;
-            //UnityEngine.Profiling.Profiler.EndSample();
         }
 
         /// <summary>Makes sure the internal child cache is up to date</summary>
@@ -225,29 +210,38 @@ namespace Cinemachine
             base.OnEnable();
             InvalidateListOfChildren();
             mActiveBlend = null;
+            CinemachineDebug.OnGUIHandlers -= OnGuiHandler;
+            CinemachineDebug.OnGUIHandlers += OnGuiHandler;
+        }
+
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+            CinemachineDebug.OnGUIHandlers -= OnGuiHandler;
         }
 
         /// <summary>Makes sure the internal child cache is up to date</summary>
-        public void OnTransformChildrenChanged()
+        void OnTransformChildrenChanged()
         {
             InvalidateListOfChildren();
         }
 
-#if UNITY_EDITOR
-        /// <summary>Displays the current active camera on the game screen, if requested</summary>
-        protected override void OnGUI()
+        ///  Will only be called if Unity Editor - never in build
+        private void OnGuiHandler()
         {
-            base.OnGUI();
             if (!m_ShowDebugText)
-                CinemachineGameWindowDebug.ReleaseScreenPos(this);
+                CinemachineDebug.ReleaseScreenPos(this);
             else
             {
-                string text = Name + ": " + Description;
-                Rect r = CinemachineGameWindowDebug.GetScreenPos(this, text, GUI.skin.box);
+                var sb = CinemachineDebug.SBFromPool();
+                sb.Append(Name); sb.Append(": "); sb.Append(Description);
+                string text = sb.ToString(); 
+                Rect r = CinemachineDebug.GetScreenPos(this, text, GUI.skin.box);
                 GUI.Label(r, text, GUI.skin.box);
+                CinemachineDebug.ReturnToPool(sb);
             }
         }
-#endif
+
         CameraState m_State = CameraState.Default;
 
         /// <summary>The list of child cameras.  These are just the immediate children in the hierarchy.</summary>
@@ -278,7 +272,7 @@ namespace Cinemachine
 
         /// <summary>Internal API for the inspector editor.</summary>
         /// // GML todo: make this private, part of UpdateListOfChildren()
-        public void ValidateInstructions()
+        internal void ValidateInstructions()
         {
             if (m_Instructions == null)
                 m_Instructions = new Instruction[0];
@@ -295,7 +289,6 @@ namespace Cinemachine
 
         private void AdvanceCurrentInstruction()
         {
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineBlendListCamera.AdvanceCurrentInstruction");
             if (m_ChildCameras == null || m_ChildCameras.Length == 0 
                 || mActivationTime < 0 || m_Instructions.Length == 0)
             {
@@ -321,21 +314,6 @@ namespace Cinemachine
                     ++mCurrentInstruction;
                 }
             }
-            //UnityEngine.Profiling.Profiler.EndSample();
-        }
-
-        private CinemachineBlend CreateBlend(
-            ICinemachineCamera camA, ICinemachineCamera camB, 
-            CinemachineBlendDefinition blend,
-            CinemachineBlend activeBlend, float deltaTime)
-        {
-            if (blend.BlendCurve == null || blend.m_Time <= 0 || (camA == null && camB == null))
-                return null;
-            if (activeBlend != null)
-                camA = new BlendSourceVirtualCamera(activeBlend, deltaTime);
-            else if (camA == null)
-                camA = new StaticPointVirtualCamera(State, "(none)");
-            return new CinemachineBlend(camA, camB, blend.BlendCurve, blend.m_Time, 0);
         }
     }
 }

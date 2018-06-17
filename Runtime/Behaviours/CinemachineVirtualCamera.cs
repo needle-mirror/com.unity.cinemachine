@@ -74,16 +74,21 @@ namespace Cinemachine
         [NoSaveDuringPlay]
         public Transform m_Follow = null;
 
-        /// <summary>Hint for blending positions to and from this virtual camera</summary>
-        [Tooltip("Hint for blending positions to and from this virtual camera")]
-        public PositionBlendMethod m_PositionBlending = PositionBlendMethod.Linear;
-
         /// <summary>Specifies the LensSettings of this Virtual Camera.
         /// These settings will be transferred to the Unity camera when the vcam is live.</summary>
         [FormerlySerializedAs("m_LensAttributes")]
         [Tooltip("Specifies the lens properties of this Virtual Camera.  This generally mirrors the Unity Camera's lens settings, and will be used to drive the Unity camera when the vcam is active.")]
         [LensSettingsProperty]
         public LensSettings m_Lens = LensSettings.Default;
+
+        /// <summary> Collection of parameters that influence how this virtual camera transitions from 
+        /// other virtual cameras </summary>
+        public TransitionParams m_Transitions;
+
+        /// <summary>Legacy support</summary>
+        [SerializeField] [HideInInspector] 
+        [FormerlySerializedAs("m_BlendHint")] 
+        [FormerlySerializedAs("m_PositionBlending")] private BlendHint m_LegacyBlendHint;
 
         /// <summary>This is the name of the hidden GameObject that will be created as a child object
         /// of the virtual camera.  This hidden game object acts as a container for the polymorphic
@@ -121,17 +126,12 @@ namespace Cinemachine
         /// invoke its pipeline and generate a CameraState for this frame.</summary>
         override public void InternalUpdateCameraState(Vector3 worldUp, float deltaTime)
         {
-            //UnityEngine.Profiling.Profiler.BeginSample("CinemachineVirtualCamera.InternalUpdateCameraState");
             if (!PreviousStateIsValid)
                 deltaTime = -1;
 
-            // Reset the base camera state, in case the game object got moved in the editor
-            if (deltaTime < 0)
-                m_State = PullStateFromVirtualCamera(worldUp); // not in gameplay
-
             // Update the state by invoking the component pipeline
             m_State = CalculateNewState(worldUp, deltaTime);
-            SetPositionBlendMethod(ref m_State, m_PositionBlending);
+            ApplyPositionBlendMethod(ref m_State, m_Transitions.m_BlendHint);
 
             // Push the raw position back to the game object's transform, so it
             // moves along with the camera.
@@ -143,13 +143,13 @@ namespace Cinemachine
                     transform.rotation = State.RawOrientation;
             }
             PreviousStateIsValid = true;
-            //UnityEngine.Profiling.Profiler.EndSample();
         }
 
         /// <summary>Make sure that the pipeline cache is up-to-date.</summary>
         override protected void OnEnable()
         {
             base.OnEnable();
+            m_State = PullStateFromVirtualCamera(Vector3.up, m_Lens);
             InvalidateComponentPipeline();
 
             // Can't add components during OnValidate
@@ -180,6 +180,11 @@ namespace Cinemachine
         {
             base.OnValidate();
             m_Lens.Validate();
+            if (m_LegacyBlendHint != BlendHint.None)
+            {
+                m_Transitions.m_BlendHint = m_LegacyBlendHint;
+                m_LegacyBlendHint = BlendHint.None;
+            }
         }
 
         void OnTransformChildrenChanged()
@@ -239,7 +244,8 @@ namespace Cinemachine
             PreviousStateIsValid = false;
         }
 
-        /// <summary>Create a default pipeline container.</summary>
+        /// <summary>Create a default pipeline container.
+        /// Note: copyFrom only supported in Editor, not build</summary>
         private Transform CreatePipeline(CinemachineVirtualCamera copyFrom)
         {
             CinemachineComponentBase[] components = null;
@@ -258,11 +264,6 @@ namespace Cinemachine
                 go.transform.parent = transform;
                 go.AddComponent<CinemachinePipeline>();
                 newPipeline = go.transform;
-
-                // If copying, transfer the components
-                if (components != null)
-                    foreach (Component c in components)
-                        ReflectionHelpers.CopyFields(c, go.AddComponent(c.GetType()));
             }
             PreviousStateIsValid = false;
             return newPipeline;
@@ -379,7 +380,8 @@ namespace Cinemachine
                     m_ComponentOwner = child;
                     CinemachineComponentBase[] components = child.GetComponents<CinemachineComponentBase>();
                     foreach (CinemachineComponentBase c in components)
-                        list.Add(c);
+                        if (c.enabled)
+                            list.Add(c);
                 }
             }
 
@@ -405,7 +407,8 @@ namespace Cinemachine
         private CameraState CalculateNewState(Vector3 worldUp, float deltaTime)
         {
             // Initialize the camera state, in case the game object got moved in the editor
-            CameraState state = PullStateFromVirtualCamera(worldUp);
+            CameraState state = PullStateFromVirtualCamera(worldUp, m_Lens);
+            m_Lens = state.Lens;
 
             Transform lookAtTarget = LookAt;
             if (lookAtTarget != mCachedLookAtTarget)
@@ -426,47 +429,41 @@ namespace Cinemachine
             // Update the state by invoking the component pipeline
             CinemachineCore.Stage curStage = CinemachineCore.Stage.Body;
             UpdateComponentPipeline(); // avoid GetComponentPipeline() here because of GC
+            bool hasAim = false;
             if (m_ComponentPipeline != null)
             {
                 for (int i = 0; i < m_ComponentPipeline.Length; ++i)
+                {
                     m_ComponentPipeline[i].PrePipelineMutateCameraState(ref state);
-
+                    if (m_ComponentPipeline[i].Stage == CinemachineCore.Stage.Aim)
+                        hasAim = true;
+                }
                 for (int i = 0; i < m_ComponentPipeline.Length; ++i)
                 {
                     curStage = AdvancePipelineStage(
-                        ref state, deltaTime, curStage, (int)m_ComponentPipeline[i].Stage);
+                        ref state, deltaTime, curStage, 
+                        (int)m_ComponentPipeline[i].Stage, hasAim);
                     m_ComponentPipeline[i].MutateCameraState(ref state, deltaTime);
                 }
             }
-            AdvancePipelineStage(ref state, deltaTime, curStage, (int)CinemachineCore.Stage.Finalize + 1);
+            AdvancePipelineStage(
+                ref state, deltaTime, curStage, 
+                (int)CinemachineCore.Stage.Finalize + 1, hasAim);
             return state;
         }
 
         private CinemachineCore.Stage AdvancePipelineStage(
             ref CameraState state, float deltaTime,
-            CinemachineCore.Stage curStage, int maxStage)
+            CinemachineCore.Stage curStage, int maxStage, bool hasAim)
         {
             while ((int)curStage < maxStage)
             {
+                if (!hasAim && curStage == CinemachineCore.Stage.Aim)
+                    state.BlendHint |= CameraState.BlendHintValue.IgnoreLookAtTarget;
                 InvokePostPipelineStageCallback(this, curStage, ref state, deltaTime);
                 ++curStage;
             }
             return curStage;
-        }
-
-        private CameraState PullStateFromVirtualCamera(Vector3 worldUp)
-        {
-            CameraState state = CameraState.Default;
-            state.RawPosition = transform.position;
-            state.RawOrientation = transform.rotation;
-            state.ReferenceUp = worldUp;
-
-            CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);
-            m_Lens.Aspect = brain != null ? brain.OutputCamera.aspect : 1;
-            m_Lens.Orthographic = brain != null ? brain.OutputCamera.orthographic : false;
-            state.Lens = m_Lens;
-
-            return state;
         }
 
         // This is a hack for FreeLook rigs - to be removed
@@ -491,6 +488,29 @@ namespace Cinemachine
                     m_ComponentPipeline[i].OnTargetObjectWarped(target, positionDelta);
             }
             base.OnTargetObjectWarped(target, positionDelta);
+        }
+
+        /// <summary>If we are transitioning from another vcam, grab the position from it.</summary>
+        /// <param name="fromCam">The camera being deactivated.  May be null.</param>
+        /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
+        /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
+        public override void OnTransitionFromCamera(
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime) 
+        {
+            base.OnTransitionFromCamera(fromCam, worldUp, deltaTime);
+            if (m_Transitions.m_InheritPosition)
+            {
+                var brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);
+                if (brain != null)
+                {
+                    transform.position = brain.transform.position;
+                    transform.rotation = brain.transform.rotation;
+                    PreviousStateIsValid = false;
+                    InternalUpdateCameraState(worldUp, deltaTime);
+                }
+            }
+            if (m_Transitions.m_OnCameraLive != null)
+                m_Transitions.m_OnCameraLive.Invoke(this);
         }
     }
 }

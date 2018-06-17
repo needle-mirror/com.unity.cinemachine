@@ -45,11 +45,21 @@ namespace Cinemachine.Utility
         /// as described by its normal
         /// </summary>
         /// <param name="vector"></param>
-        /// <param name="planeNormal">The normal that defines the plane.  Cannot be zero-length.</param>
+        /// <param name="planeNormal">The normal that defines the plane.  Must have a length of 1.</param>
         /// <returns>The component of the vector that lies in the plane</returns>
         public static Vector3 ProjectOntoPlane(this Vector3 vector, Vector3 planeNormal)
         {
             return (vector - Vector3.Dot(vector, planeNormal) * planeNormal);
+        }
+
+        /// <summary>
+        /// Component-wise absolute value
+        /// </summary>
+        /// <param name="v"></param>
+        /// <returns></returns>
+        public static Vector3 Abs(this Vector3 v)
+        {
+            return new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
         }
 
         /// <summary>Is the vector within Epsilon of zero length?</summary>
@@ -60,23 +70,26 @@ namespace Cinemachine.Utility
             return v.sqrMagnitude < (Epsilon * Epsilon);
         }
 
-        /// <summary>Get a signed angle between two vectors</summary>
-        /// <param name="from">Start direction</param>
-        /// <param name="to">End direction</param>
-        /// <param name="refNormal">This is needed in order to determine the sign.
-        /// For example, if from an to lie on the XZ plane, then this would be the
-        /// Y unit vector, or indeed any vector which, when dotted with Y unit vector,
-        /// would give a positive result.</param>
-        /// <returns>The signed angle between the vectors</returns>
-        public static float SignedAngle(Vector3 from, Vector3 to, Vector3 refNormal)
+        /// <summary>Much more stable for small angles than Unity's native implementation</summary>
+        public static float Angle(Vector3 v1, Vector3 v2)
         {
-            from.Normalize();
-            to.Normalize();
-            float dot = Vector3.Dot(Vector3.Cross(from, to), refNormal);
-            if (Mathf.Abs(dot) < -Epsilon)
-                return Vector3.Dot(from, to) < 0 ? 180 : 0;
-            float angle = Vector3.Angle(from, to);
-            if (dot < 0)
+#if false // Maybe this version is better?  to test....
+            float a = v1.magnitude;
+            v1 *= v2.magnitude;
+            v2 *= a;
+            return Mathf.Atan2((v1 - v2).magnitude, (v1 + v2).magnitude) * Mathf.Rad2Deg * 2;
+#else            
+            v1.Normalize();
+            v2.Normalize();
+            return Mathf.Atan2((v1 - v2).magnitude, (v1 + v2).magnitude) * Mathf.Rad2Deg * 2;
+#endif
+        }
+
+        /// <summary>Much more stable for small angles than Unity's native implementation</summary>
+        public static float SignedAngle(Vector3 v1, Vector3 v2, Vector3 up)
+        {
+            float angle = Angle(v1, v2);
+            if (Mathf.Sign(Vector3.Dot(up, Vector3.Cross(v1, v2))) < 0)
                 return -angle;
             return angle;
         }
@@ -106,7 +119,7 @@ namespace Cinemachine.Utility
         }
     }
 
-    /// <summary>Extentions to the Quaternion class, usen in various places by Cinemachine</summary>
+    /// <summary>Extensions to the Quaternion class, usen in various places by Cinemachine</summary>
     public static class UnityQuaternionExtensions
     {
         /// <summary>This is a slerp that mimics a camera operator's movement in that
@@ -115,7 +128,7 @@ namespace Cinemachine.Utility
         /// <param name="qA">First direction</param>
         /// <param name="qB">Second direction</param>
         /// <param name="t">Interpolation amoun t</param>
-        /// <param name="up">Defines the up direction</param>
+        /// <param name="up">Defines the up direction.  Must have a length of 1.</param>
         public static Quaternion SlerpWithReferenceUp(
             Quaternion qA, Quaternion qB, float t, Vector3 up)
         {
@@ -153,7 +166,7 @@ namespace Cinemachine.Utility
         /// </summary>
         /// <param name="orient"></param>
         /// <param name="lookAtDir">The worldspace target direction in which we want to look</param>
-        /// <param name="worldUp">Which way is up</param>
+        /// <param name="worldUp">Which way is up.  Must have a length of 1.</param>
         /// <returns>Vector2.y is rotation about worldUp, and Vector2.x is second rotation,
         /// about local right.</returns>
         public static Vector2 GetCameraRotationToTarget(
@@ -189,7 +202,7 @@ namespace Cinemachine.Utility
 
             // Get local vertical angle
             float angleV = UnityVectorExtensions.SignedAngle(
-                    q * Vector3.forward, lookAtDir, q * Vector3.right);
+                q * Vector3.forward, lookAtDir, q * Vector3.right);
 
             return new Vector2(angleV, angleH);
         }
