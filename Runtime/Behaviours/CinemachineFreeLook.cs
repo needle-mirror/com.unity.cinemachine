@@ -291,6 +291,18 @@ namespace Cinemachine
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime) 
         {
             base.OnTransitionFromCamera(fromCam, worldUp, deltaTime);
+            bool forceUpdate = false;
+            if (fromCam != null)
+            {
+                CinemachineFreeLook freeLookFrom = fromCam as CinemachineFreeLook;
+                if (freeLookFrom != null && freeLookFrom.Follow == Follow)
+                {
+                    if (m_BindingMode != CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
+                        m_XAxis.Value = freeLookFrom.m_XAxis.Value;
+                    m_YAxis.Value = freeLookFrom.m_YAxis.Value;
+                    forceUpdate = true;
+                }
+            }
             if (m_Transitions.m_InheritPosition)
             {
                 var brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);
@@ -301,11 +313,15 @@ namespace Cinemachine
                     m_State = PullStateFromVirtualCamera(worldUp, m_Lens);
                     PreviousStateIsValid = false;
                     PushSettingsToRigs();
-                    InternalUpdateCameraState(worldUp, deltaTime);
+                    forceUpdate = true;
                 }
             }
+            if (forceUpdate)
+                InternalUpdateCameraState(worldUp, deltaTime);
+            else
+                UpdateCameraState(worldUp, deltaTime);
             if (m_Transitions.m_OnCameraLive != null)
-                m_Transitions.m_OnCameraLive.Invoke(this);
+                m_Transitions.m_OnCameraLive.Invoke(this, fromCam);
         }
 
         CameraState m_State = CameraState.Default;          // Current state this frame
@@ -427,8 +443,9 @@ namespace Cinemachine
             // Special condition: Did we just get copy/pasted?
             if (m_Rigs != null && m_Rigs.Length == 3 && m_Rigs[0] != null && m_Rigs[0].transform.parent != transform)
             {
+                var copyFrom = m_Rigs;
                 DestroyRigs();
-                m_Rigs = CreateRigs(m_Rigs);
+                m_Rigs = CreateRigs(copyFrom);
             }
 
             // Early out if we're up to date
@@ -447,8 +464,8 @@ namespace Cinemachine
             {
                 // Configure the UI
                 rig.m_ExcludedPropertiesInInspector = m_CommonLens 
-                    ? new string[] { "m_Script", "Header", "Extensions", "m_Priority", "m_Follow", "m_Transitions", "m_Lens" }
-                    : new string[] { "m_Script", "Header", "Extensions", "m_Priority", "m_Transitions", "m_Follow" };
+                    ? new string[] { "m_Script", "Header", "Extensions", "m_Priority", "m_Transitions", "m_Follow", "m_StandbyUpdate", "m_Lens" }
+                    : new string[] { "m_Script", "Header", "Extensions", "m_Priority", "m_Transitions", "m_Follow", "m_StandbyUpdate" };
                 rig.m_LockStageInInspector = new CinemachineCore.Stage[] { CinemachineCore.Stage.Body };
             }
 
