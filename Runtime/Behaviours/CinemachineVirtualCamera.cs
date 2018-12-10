@@ -52,7 +52,12 @@ namespace Cinemachine
     /// <seealso cref="CinemachineTransposer"/>
     /// <seealso cref="CinemachineBasicMultiChannelPerlin"/>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-    [ExecuteInEditMode, DisallowMultipleComponent]
+    [DisallowMultipleComponent]
+#if UNITY_2018_3_OR_NEWER
+    [ExecuteAlways]
+#else
+    [ExecuteInEditMode]
+#endif
     [AddComponentMenu("Cinemachine/CinemachineVirtualCamera")]
     public class CinemachineVirtualCamera : CinemachineVirtualCameraBase
     {
@@ -102,7 +107,7 @@ namespace Cinemachine
         /// necessary to position the Unity camera.  It is the output of this class.</summary>
         override public CameraState State { get { return m_State; } }
 
-        /// <summary>Get the LookAt target for the Aim component in the CinemachinePipeline.
+        /// <summary>Get the LookAt target for the Aim component in the Cinemachine pipeline.
         /// If this vcam is a part of a meta-camera collection, then the owner's target
         /// will be used if the local target is null.</summary>
         override public Transform LookAt
@@ -111,7 +116,7 @@ namespace Cinemachine
             set { m_LookAt = value; }
         }
 
-        /// <summary>Get the Follow target for the Body component in the CinemachinePipeline.
+        /// <summary>Get the Follow target for the Body component in the Cinemachine pipeline.
         /// If this vcam is a part of a meta-camera collection, then the owner's target
         /// will be used if the local target is null.</summary>
         override public Transform Follow
@@ -149,7 +154,7 @@ namespace Cinemachine
         override protected void OnEnable()
         {
             base.OnEnable();
-            m_State = PullStateFromVirtualCamera(Vector3.up, m_Lens);
+            m_State = PullStateFromVirtualCamera(Vector3.up, ref m_Lens);
             InvalidateComponentPipeline();
 
             // Can't add components during OnValidate
@@ -358,15 +363,23 @@ namespace Cinemachine
         [SerializeField][HideInInspector] private Transform m_ComponentOwner = null;   // serialized to handle copy/paste
         void UpdateComponentPipeline()
         {
+            bool isPrefab = false;
+#if UNITY_EDITOR
             // Did we just get copy/pasted?
             if (m_ComponentOwner != null && m_ComponentOwner.parent != transform)
             {
-                CinemachineVirtualCamera copyFrom = (m_ComponentOwner.parent != null)
-                    ? m_ComponentOwner.parent.gameObject.GetComponent<CinemachineVirtualCamera>() : null;
-                DestroyPipeline();
-                m_ComponentOwner = CreatePipeline(copyFrom);
+                isPrefab = gameObject.scene.name == null; // causes a small GC alloc
+                if (!isPrefab) // can't paste to a prefab
+                {
+                    CinemachineVirtualCamera copyFrom = (m_ComponentOwner.parent != null)
+                        ? m_ComponentOwner.parent.gameObject.GetComponent<CinemachineVirtualCamera>() : null;
+                    DestroyPipeline();
+                    m_ComponentOwner = CreatePipeline(copyFrom);
+                }
             }
-
+            if (m_ComponentOwner != null)
+                SetFlagsForHiddenChild(m_ComponentOwner.gameObject);
+#endif
             // Early out if we're up-to-date
             if (m_ComponentOwner != null && m_ComponentPipeline != null)
                 return;
@@ -386,20 +399,30 @@ namespace Cinemachine
             }
 
             // Make sure we have a pipeline owner
-            if (m_ComponentOwner == null)
+            isPrefab = gameObject.scene.name == null; // causes a small GC alloc
+            if (m_ComponentOwner == null && !isPrefab)
                 m_ComponentOwner = CreatePipeline(null);
 
             // Make sure the pipeline stays hidden, even through prefab
-            if (CinemachineCore.sShowHiddenObjects)
-                m_ComponentOwner.gameObject.hideFlags
-                    &= ~(HideFlags.HideInHierarchy | HideFlags.HideInInspector);
-            else
-                m_ComponentOwner.gameObject.hideFlags
-                    |= (HideFlags.HideInHierarchy | HideFlags.HideInInspector);
+            if (m_ComponentOwner != null)
+                SetFlagsForHiddenChild(m_ComponentOwner.gameObject);
+            if (m_ComponentOwner != null && m_ComponentOwner.gameObject != null)
+            {
+                // Sort the pipeline
+                list.Sort((c1, c2) => (int)c1.Stage - (int)c2.Stage);
+                m_ComponentPipeline = list.ToArray();
+            }
+        }
 
-            // Sort the pipeline
-            list.Sort((c1, c2) => (int)c1.Stage - (int)c2.Stage);
-            m_ComponentPipeline = list.ToArray();
+        static internal void SetFlagsForHiddenChild(GameObject child)
+        {
+            if (child != null)
+            {
+                if (CinemachineCore.sShowHiddenObjects)
+                    child.hideFlags &= ~(HideFlags.HideInHierarchy | HideFlags.HideInInspector);
+                else
+                    child.hideFlags |= (HideFlags.HideInHierarchy | HideFlags.HideInInspector);
+            }
         }
 
         private Transform mCachedLookAtTarget;
@@ -407,8 +430,7 @@ namespace Cinemachine
         private CameraState CalculateNewState(Vector3 worldUp, float deltaTime)
         {
             // Initialize the camera state, in case the game object got moved in the editor
-            CameraState state = PullStateFromVirtualCamera(worldUp, m_Lens);
-            m_Lens = state.Lens;
+            CameraState state = PullStateFromVirtualCamera(worldUp, ref m_Lens);
 
             Transform lookAtTarget = LookAt;
             if (lookAtTarget != mCachedLookAtTarget)
@@ -498,18 +520,27 @@ namespace Cinemachine
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime) 
         {
             base.OnTransitionFromCamera(fromCam, worldUp, deltaTime);
-            if (m_Transitions.m_InheritPosition)
+            bool forceUpdate = false;
+
+            if (m_Transitions.m_InheritPosition && fromCam != null)
             {
-                var brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);
-                if (brain != null)
-                {
-                    transform.position = brain.transform.position;
-                    transform.rotation = brain.transform.rotation;
-                    PreviousStateIsValid = false;
-                    InternalUpdateCameraState(worldUp, deltaTime);
-                }
+                transform.position = fromCam.State.RawPosition;
+                //transform.rotation = fromCam.State.RawOrientation;
+                PreviousStateIsValid = false;
+                forceUpdate = true;
             }
-            UpdateCameraState(worldUp, deltaTime);
+            UpdateComponentPipeline(); // avoid GetComponentPipeline() here because of GC
+            if (m_ComponentPipeline != null)
+            {
+                for (int i = 0; i < m_ComponentPipeline.Length; ++i)
+                    if (m_ComponentPipeline[i].OnTransitionFromCamera(
+                            fromCam, worldUp, deltaTime, ref m_Transitions))
+                        forceUpdate = true;
+            }
+            if (forceUpdate)
+                InternalUpdateCameraState(worldUp, deltaTime);
+            else
+                UpdateCameraState(worldUp, deltaTime);
             if (m_Transitions.m_OnCameraLive != null)
                 m_Transitions.m_OnCameraLive.Invoke(this, fromCam);
         }

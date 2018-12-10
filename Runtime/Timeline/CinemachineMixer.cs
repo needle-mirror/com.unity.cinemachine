@@ -10,7 +10,7 @@ namespace Cinemachine.Timeline
         private int mBrainOverrideId = -1;
         private bool mPlaying;
 
-        public override void OnGraphStop(Playable playable)
+        public override void OnPlayableDestroy(Playable playable)
         {
             if (mBrain != null)
                 mBrain.ReleaseCameraOverride(mBrainOverrideId); // clean up
@@ -57,7 +57,7 @@ namespace Cinemachine.Timeline
                 CinemachineShotPlayable shot = clip.GetBehaviour();
                 if (shot != null && shot.IsValid
                     && playable.GetPlayState() == PlayState.Playing
-                    && weight > 0.0001f)
+                    && weight > 0)
                 {
                     clipA = clipB;
                     clipB.vcam = shot.VirtualCamera;
@@ -73,9 +73,9 @@ namespace Cinemachine.Timeline
             bool incomingIsB = clipB.weight >= 1 || clipB.localTime < clipB.duration / 2;
             if (activeInputs == 2)
             {
-                if (clipB.localTime > clipA.localTime)
+                if (clipB.localTime < clipA.localTime)
                     incomingIsB = true;
-                else if (clipB.localTime < clipA.localTime)
+                else if (clipB.localTime > clipA.localTime)
                     incomingIsB = false;
                 else 
                     incomingIsB = clipB.duration >= clipA.duration;

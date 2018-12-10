@@ -26,7 +26,6 @@ namespace Cinemachine
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
     [AddComponentMenu("")] // Don't display in add component menu
-    [RequireComponent(typeof(CinemachinePipeline))]
     [SaveDuringPlay]
     public class CinemachineOrbitalTransposer : CinemachineTransposer
     {
@@ -107,7 +106,7 @@ namespace Cinemachine
         /// and represents a rotation about the up vector</summary>
         [Tooltip("Heading Control.  The settings here control the behaviour of the camera in response to the player's input.")]
         [AxisStateProperty]
-        public AxisState m_XAxis = new AxisState(-180, 180, true, false, 300f, 2f, 1f, "Mouse X", true);
+        public AxisState m_XAxis = new AxisState(-180, 180, true, false, 300f, 0.1f, 0.1f, "Mouse X", true);
 
         /// <summary>Legacy support</summary>
         [SerializeField] [HideInInspector] [FormerlySerializedAs("m_Radius")] private float m_LegacyRadius = float.MaxValue;
@@ -192,6 +191,7 @@ namespace Cinemachine
 
         private void OnEnable()
         {
+            // GML todo: do we really need this?
             PreviousTarget = null;
             mLastTargetPosition = Vector3.zero;
         }
@@ -217,6 +217,55 @@ namespace Cinemachine
             }
         }
         
+        /// <summary>Notification that this virtual camera is going live.
+        /// Base class implementation does nothing.</summary>
+        /// <param name="fromCam">The camera being deactivated.  May be null.</param>
+        /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
+        /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
+        /// <returns>True if the vcam should do an internal update as a result of this call</returns>
+        public override bool OnTransitionFromCamera(
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
+            ref CinemachineVirtualCameraBase.TransitionParams transitionParams) 
+        { 
+            if (fromCam != null && fromCam.Follow == FollowTarget
+                && m_BindingMode != CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp
+                && transitionParams.m_InheritPosition)
+            {
+                m_XAxis.Value = GetAxisClosestValue(fromCam.State.RawPosition, worldUp);
+                return true;
+            }
+            return false; 
+        }
+
+        /// <summary>
+        /// What axis value would we need to get as close as possible to the desired cameraPos?
+        /// </summary>
+        /// <param name="cameraPos">camera position we would like to approximate</param>
+        /// <param name="up">world up</param>
+        /// <returns>The best value to put into the X axis, to approximate the desired camera pos</returns>
+        public float GetAxisClosestValue(Vector3 cameraPos, Vector3 up)
+        {
+            Quaternion orient = GetReferenceOrientation(up);
+            Vector3 fwd = (orient * Vector3.forward).ProjectOntoPlane(up);
+            if (!fwd.AlmostZero() && FollowTarget != null)
+            {
+                // Get the base camera placement
+                float heading = 0;
+                if (m_BindingMode != BindingMode.SimpleFollowWithWorldUp)
+                    heading += m_Heading.m_Bias;
+                orient = orient *  Quaternion.AngleAxis(heading, up);
+                Vector3 targetPos = FollowTargetPosition;
+                Vector3 pos = targetPos + orient * EffectiveOffset;
+
+                Vector3 a = (pos - targetPos).ProjectOntoPlane(up);
+                Vector3 b = (cameraPos - targetPos).ProjectOntoPlane(up);
+                return Vector3.SignedAngle(a, b, up);
+            }
+            return LastHeading; // Can't calculate, stay conservative
+        }
+
+        float LastHeading { get; set; }
+
         /// <summary>Positions the virtual camera according to the transposer rules.</summary>
         /// <param name="curState">The current camera state</param>
         /// <param name="deltaTime">Used for damping.  If less than 0, no damping is done.</param>
@@ -232,7 +281,8 @@ namespace Cinemachine
                 mLastTargetPosition = (PreviousTarget == null) ? Vector3.zero : PreviousTarget.position;
                 mHeadingTracker = null;
             }
-            float heading = HeadingUpdater(this, deltaTime, curState.ReferenceUp);
+            LastHeading = HeadingUpdater(this, deltaTime, curState.ReferenceUp);
+            float heading = LastHeading;
 
             if (IsValid)
             {
@@ -260,7 +310,8 @@ namespace Cinemachine
                 orient = orient * headingRot;
                 curState.RawPosition = pos + orient * offset;
 
-                mHeadingPrevFrame = (m_BindingMode == BindingMode.SimpleFollowWithWorldUp) ? Quaternion.identity : headingRot;
+                mHeadingPrevFrame = (m_BindingMode == BindingMode.SimpleFollowWithWorldUp) 
+                    ? Quaternion.identity : headingRot;
                 mOffsetPrevFrame = offset;
             }
         }
@@ -320,117 +371,6 @@ namespace Cinemachine
 
             // If no reliable heading, then stay where we are.
             return currentHeading;
-        }
-
-        class HeadingTracker
-        {
-            struct Item
-            {
-                public Vector3 velocity;
-                public float weight;
-                public float time;
-            };
-            Item[] mHistory;
-            int mTop;
-            int mBottom;
-            int mCount;
-
-            Vector3 mHeadingSum;
-            float mWeightSum = 0;
-            float mWeightTime = 0;
-
-            Vector3 mLastGoodHeading = Vector3.zero;
-
-            public HeadingTracker(int filterSize)
-            {
-                mHistory = new Item[filterSize];
-                float historyHalfLife = filterSize / 5f; // somewhat arbitrarily
-                mDecayExponent = -Mathf.Log(2f) / historyHalfLife;
-                ClearHistory();
-            }
-
-            public int FilterSize { get { return mHistory.Length; } }
-
-            void ClearHistory()
-            {
-                mTop = mBottom = mCount = 0;
-                mWeightSum = 0;
-                mHeadingSum = Vector3.zero;
-            }
-
-            static float mDecayExponent;
-            static float Decay(float time) { return Mathf.Exp(time * mDecayExponent); }
-
-            public void Add(Vector3 velocity)
-            {
-                if (FilterSize == 0)
-                {
-                    mLastGoodHeading = velocity;
-                    return;
-                }
-                float weight = velocity.magnitude;
-                if (weight > UnityVectorExtensions.Epsilon)
-                {
-                    Item item = new Item();
-                    item.velocity = velocity;
-                    item.weight = weight;
-                    item.time = Time.time;
-                    if (mCount == FilterSize)
-                        PopBottom();
-                    ++mCount;
-                    mHistory[mTop] = item;
-                    if (++mTop == FilterSize)
-                        mTop = 0;
-
-                    mWeightSum *= Decay(item.time - mWeightTime);
-                    mWeightTime = item.time;
-                    mWeightSum += weight;
-                    mHeadingSum += item.velocity;
-                }
-            }
-
-            void PopBottom()
-            {
-                if (mCount > 0)
-                {
-                    float time = Time.time;
-                    Item item = mHistory[mBottom];
-                    if (++mBottom == FilterSize)
-                        mBottom = 0;
-                    --mCount;
-
-                    float decay = Decay(time - item.time);
-                    mWeightSum -= item.weight * decay;
-                    mHeadingSum -= item.velocity * decay;
-                    if (mWeightSum <= UnityVectorExtensions.Epsilon || mCount == 0)
-                        ClearHistory();
-                }
-            }
-
-            public void DecayHistory()
-            {
-                float time = Time.time;
-                float decay = Decay(time - mWeightTime);
-                mWeightSum *= decay;
-                mWeightTime = time;
-                if (mWeightSum < UnityVectorExtensions.Epsilon)
-                    ClearHistory();
-                else
-                    mHeadingSum = mHeadingSum * decay;
-            }
-
-            public Vector3 GetReliableHeading()
-            {
-                // Update Last Good Heading
-                if (mWeightSum > UnityVectorExtensions.Epsilon
-                    && (mCount == mHistory.Length || mLastGoodHeading.AlmostZero()))
-                {
-                    Vector3  h = mHeadingSum / mWeightSum;
-                    if (!h.AlmostZero())
-                        mLastGoodHeading = h.normalized;
-                }
-                return mLastGoodHeading;
-            }
         }
     }
 }

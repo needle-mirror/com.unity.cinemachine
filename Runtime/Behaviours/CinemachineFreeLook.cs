@@ -2,7 +2,6 @@ using UnityEngine;
 using Cinemachine.Utility;
 using UnityEngine.Serialization;
 using System;
-using UnityEngine.Events;
 
 namespace Cinemachine
 {
@@ -15,7 +14,12 @@ namespace Cinemachine
     /// these settings are interpolated to give the final camera position and state.
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-    [ExecuteInEditMode, DisallowMultipleComponent]
+    [DisallowMultipleComponent]
+#if UNITY_2018_3_OR_NEWER
+    [ExecuteAlways]
+#else
+    [ExecuteInEditMode]
+#endif
     [AddComponentMenu("Cinemachine/CinemachineFreeLook")]
     public class CinemachineFreeLook : CinemachineVirtualCameraBase
     {
@@ -292,29 +296,19 @@ namespace Cinemachine
         {
             base.OnTransitionFromCamera(fromCam, worldUp, deltaTime);
             bool forceUpdate = false;
-            if (fromCam != null)
+            if (fromCam != null && m_Transitions.m_InheritPosition)
             {
-                CinemachineFreeLook freeLookFrom = fromCam as CinemachineFreeLook;
-                if (freeLookFrom != null && freeLookFrom.Follow == Follow)
-                {
-                    if (m_BindingMode != CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
-                        m_XAxis.Value = freeLookFrom.m_XAxis.Value;
-                    m_YAxis.Value = freeLookFrom.m_YAxis.Value;
-                    forceUpdate = true;
-                }
-            }
-            if (m_Transitions.m_InheritPosition)
-            {
-                var brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);
-                if (brain != null)
-                {
-                    transform.position = brain.transform.position;
-                    transform.rotation = brain.transform.rotation;
-                    m_State = PullStateFromVirtualCamera(worldUp, m_Lens);
-                    PreviousStateIsValid = false;
-                    PushSettingsToRigs();
-                    forceUpdate = true;
-                }
+                var cameraPos = fromCam.State.RawPosition;
+                UpdateRigCache();
+                if (m_BindingMode != CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
+                    m_XAxis.Value = mOrbitals[1].GetAxisClosestValue(cameraPos, worldUp);
+                m_YAxis.Value = GetYAxisClosestValue(cameraPos, worldUp);
+
+                transform.position = cameraPos;
+                m_State = PullStateFromVirtualCamera(worldUp, ref m_Lens);
+                PreviousStateIsValid = false;
+                PushSettingsToRigs();
+                forceUpdate = true;
             }
             if (forceUpdate)
                 InternalUpdateCameraState(worldUp, deltaTime);
@@ -322,6 +316,56 @@ namespace Cinemachine
                 UpdateCameraState(worldUp, deltaTime);
             if (m_Transitions.m_OnCameraLive != null)
                 m_Transitions.m_OnCameraLive.Invoke(this, fromCam);
+        }
+
+        float GetYAxisClosestValue(Vector3 cameraPos, Vector3 up)
+        {
+            if (Follow != null)
+            {
+                // Rotate the camera pos to the back
+                Quaternion q = Quaternion.FromToRotation(up, Vector3.up);
+                Vector3 dir = q * (cameraPos - Follow.position);
+                Vector3 flatDir = dir; flatDir.y = 0;
+                if (!flatDir.AlmostZero())
+                {
+                    float angle = Vector3.SignedAngle(flatDir, Vector3.back, Vector3.up);
+                    dir = Quaternion.AngleAxis(angle, Vector3.up) * dir;
+                }
+                dir.x = 0;
+
+                // Sample the spline in a few places, find the 2 closest, and lerp
+                int i0 = 0, i1 = 0;
+                float a0 = 0, a1 = 0;
+                const int NumSamples = 13;
+                float step = 1f / (NumSamples-1);
+                for (int i = 0; i < NumSamples; ++i)
+                {
+                    float a = Vector3.SignedAngle(
+                        dir, GetLocalPositionForCameraFromInput(i * step), Vector3.right);
+                    if (i == 0)
+                        a0 = a1 = a;
+                    else
+                    {
+                        if (Mathf.Abs(a) < Mathf.Abs(a0))
+                        {
+                            a1 = a0;
+                            i1 = i0;
+                            a0 = a;
+                            i0 = i;
+                        }
+                        else if (Mathf.Abs(a) < Mathf.Abs(a1))
+                        {
+                            a1 = a;
+                            i1 = i;
+                        }
+                    }
+                }
+                if (Mathf.Sign(a0) == Mathf.Sign(a1))
+                    return i0 * step;
+                float t = Mathf.Abs(a0) / (Mathf.Abs(a0) + Mathf.Abs(a1));
+                return Mathf.Lerp(i0 * step, i1 * step, t);
+            }
+            return m_YAxis.Value; // stay conservative
         }
 
         CameraState m_State = CameraState.Default;          // Current state this frame
@@ -440,20 +484,33 @@ namespace Cinemachine
             if (mIsDestroyed)
                 return;
 
+            bool isPrefab = false;
+
+#if UNITY_EDITOR
             // Special condition: Did we just get copy/pasted?
-            if (m_Rigs != null && m_Rigs.Length == 3 && m_Rigs[0] != null && m_Rigs[0].transform.parent != transform)
+            if (m_Rigs != null && m_Rigs.Length == 3 
+                && m_Rigs[0] != null && m_Rigs[0].transform.parent != transform)
             {
-                var copyFrom = m_Rigs;
-                DestroyRigs();
-                m_Rigs = CreateRigs(copyFrom);
+                isPrefab = gameObject.scene.name == null; // causes a small GC alloc
+                if (!isPrefab) // can't paste to a prefab
+                {
+                    var copyFrom = m_Rigs;
+                    DestroyRigs();
+                    m_Rigs = CreateRigs(copyFrom);
+                }
             }
+            for (int i = 0; m_Rigs != null && i < 3; ++i)
+                if (m_Rigs[i] != null)
+                    CinemachineVirtualCamera.SetFlagsForHiddenChild(m_Rigs[i].gameObject);
+#endif
 
             // Early out if we're up to date
             if (mOrbitals != null && mOrbitals.Length == 3)
                 return;
 
             // Locate existing rigs, and recreate them if any are missing
-            if (LocateExistingRigs(RigNames, false) != 3)
+            isPrefab = gameObject.scene.name == null; // causes a small GC alloc
+            if (LocateExistingRigs(RigNames, false) != 3 && !isPrefab)
             {
                 DestroyRigs();
                 m_Rigs = CreateRigs(null);
@@ -541,12 +598,7 @@ namespace Cinemachine
                     m_Rigs[i].transform.rotation = transform.rotation;
                 }
                 // Hide the rigs from prying eyes
-                if (CinemachineCore.sShowHiddenObjects)
-                    m_Rigs[i].gameObject.hideFlags
-                        &= ~(HideFlags.HideInHierarchy | HideFlags.HideInInspector);
-                else
-                    m_Rigs[i].gameObject.hideFlags
-                        |= (HideFlags.HideInHierarchy | HideFlags.HideInInspector);
+                CinemachineVirtualCamera.SetFlagsForHiddenChild(m_Rigs[i].gameObject);
 
                 mOrbitals[i].m_FollowOffset = GetLocalPositionForCameraFromInput(GetYAxisValue());
                 mOrbitals[i].m_BindingMode = m_BindingMode;
@@ -570,8 +622,7 @@ namespace Cinemachine
 
         private CameraState CalculateNewState(Vector3 worldUp, float deltaTime)
         {
-            CameraState state = PullStateFromVirtualCamera(worldUp, m_Lens);
-            m_Lens = state.Lens;
+            CameraState state = PullStateFromVirtualCamera(worldUp, ref m_Lens);
 
             m_YAxisRecentering.DoRecentering(ref m_YAxis, deltaTime, 0.5f);
 

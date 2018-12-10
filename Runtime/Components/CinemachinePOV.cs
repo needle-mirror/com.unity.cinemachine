@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Cinemachine.Utility;
+using UnityEngine;
 
 namespace Cinemachine
 {
@@ -12,14 +13,13 @@ namespace Cinemachine
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
     [AddComponentMenu("")] // Don't display in add component menu
-    [RequireComponent(typeof(CinemachinePipeline))]
     [SaveDuringPlay]
     public class CinemachinePOV : CinemachineComponentBase
     {
         /// <summary>The Vertical axis.  Value is -90..90. Controls the vertical orientation</summary>
         [Tooltip("The Vertical axis.  Value is -90..90. Controls the vertical orientation")]
         [AxisStateProperty]
-        public AxisState m_VerticalAxis = new AxisState(-90, 90, false, false, 300f, 0.1f, 0.1f, "Mouse Y", true);
+        public AxisState m_VerticalAxis = new AxisState(-70, 70, false, false, 300f, 0.1f, 0.1f, "Mouse Y", true);
 
         /// <summary>Controls how automatic recentering of the Vertical axis is accomplished</summary>
         [Tooltip("Controls how automatic recentering of the Vertical axis is accomplished")]
@@ -58,7 +58,7 @@ namespace Cinemachine
                 return;
 
             // Only read joystick when game is playing
-            if (deltaTime >= 0 || CinemachineCore.Instance.IsLive(VirtualCamera))
+            if (deltaTime >= 0 && CinemachineCore.Instance.IsLive(VirtualCamera))
             {
                 if (m_HorizontalAxis.Update(deltaTime))
                     m_HorizontalRecentering.CancelRecentering();
@@ -76,6 +76,44 @@ namespace Cinemachine
             else
                 rot = rot * Quaternion.FromToRotation(Vector3.up, curState.ReferenceUp);
             curState.RawOrientation = rot;
+        }
+
+        /// <summary>Notification that this virtual camera is going live.
+        /// Base class implementation does nothing.</summary>
+        /// <param name="fromCam">The camera being deactivated.  May be null.</param>
+        /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
+        /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
+        /// <returns>True if the vcam should do an internal update as a result of this call</returns>
+        public override bool OnTransitionFromCamera(
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
+            ref CinemachineVirtualCameraBase.TransitionParams transitionParams) 
+        { 
+            if (fromCam != null && transitionParams.m_InheritPosition)
+            {
+                Vector3 up = VcamState.ReferenceUp;
+                Quaternion targetRot = fromCam.State.RawOrientation;
+                Vector3 fwd = Vector3.forward;
+                Transform parent = VirtualCamera.transform.parent;
+                if (parent != null)
+                    fwd = parent.rotation * fwd;
+
+                m_HorizontalAxis.Value = 0;
+                m_HorizontalAxis.Reset();
+                Vector3 targetFwd = targetRot * Vector3.forward;
+                Vector3 a = fwd.ProjectOntoPlane(up);
+                Vector3 b = targetFwd.ProjectOntoPlane(up);
+                if (!a.AlmostZero() && !b.AlmostZero())
+                    m_HorizontalAxis.Value = Vector3.SignedAngle(a, b, up);
+
+                m_VerticalAxis.Value = 0;
+                m_VerticalAxis.Reset();
+                fwd = Quaternion.AngleAxis(m_HorizontalAxis.Value, up) * fwd;
+                Vector3 right = Vector3.Cross(up, fwd);
+                if (!right.AlmostZero())
+                    m_VerticalAxis.Value = Vector3.SignedAngle(fwd, targetFwd, right);
+                return true;
+            }
+            return false; 
         }
     }
 }

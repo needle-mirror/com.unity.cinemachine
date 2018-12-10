@@ -1,9 +1,9 @@
+using Cinemachine.Utility;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Cinemachine.Utility;
 using UnityEngine.Events;
-using System.Collections;
 
 namespace Cinemachine
 {
@@ -22,7 +22,12 @@ namespace Cinemachine
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
 //    [RequireComponent(typeof(Camera))] // strange but true: we can live without it
-    [ExecuteInEditMode, DisallowMultipleComponent]
+    [DisallowMultipleComponent]
+#if UNITY_2018_3_OR_NEWER
+    [ExecuteAlways]
+#else
+    [ExecuteInEditMode]
+#endif
     [AddComponentMenu("Cinemachine/CinemachineBrain")]
     [SaveDuringPlay]
     public class CinemachineBrain : MonoBehaviour
@@ -243,7 +248,19 @@ namespace Cinemachine
         private void LateUpdate()
         {
             float deltaTime = GetEffectiveDeltaTime(false);
-            if (m_UpdateMethod != UpdateMethod.FixedUpdate)
+            UpdateFrame0(deltaTime);
+            UpdateCurrentLiveCameras();
+
+            if (m_UpdateMethod == UpdateMethod.FixedUpdate)
+            {
+                // Special handling for fixed update: cameras that have been enabled 
+                // since the last physics frame must be updated now
+                CinemachineCore.Instance.CurrentUpdateFilter = CinemachineCore.UpdateFilter.Fixed;
+                if (SoloCamera != null)
+                    SoloCamera.UpdateCameraState(DefaultWorldUp, deltaTime);
+                mCurrentLiveCameras.UpdateCameraState(DefaultWorldUp, deltaTime);
+            }
+            else
             {
                 CinemachineCore.UpdateFilter filter = CinemachineCore.UpdateFilter.Late;
                 if (m_UpdateMethod == UpdateMethod.SmartUpdate)
@@ -301,14 +318,10 @@ namespace Cinemachine
             CinemachineCore.Instance.UpdateAllActiveVirtualCameras(
                 camera == null ? -1 : camera.cullingMask, DefaultWorldUp, deltaTime);
 
-            // Make sure that the current live cameras get updated this frame.
-            // Only cameras that are enabled get automatically updated.
-            ICinemachineCamera vcam = ActiveVirtualCamera;
-            if (vcam != null)
-                vcam.UpdateCameraState(DefaultWorldUp, deltaTime);
-            CinemachineBlend activeBlend = ActiveBlend;
-            if (activeBlend != null)
-                activeBlend.UpdateCameraState(DefaultWorldUp, deltaTime);
+            // Make sure all live cameras get updated, in case some of them are deactivated
+            if (SoloCamera != null)
+                SoloCamera.UpdateCameraState(DefaultWorldUp, deltaTime);
+            mCurrentLiveCameras.UpdateCameraState(DefaultWorldUp, deltaTime);
 
             // Restore the filter for general use
             updateFilter = CinemachineCore.UpdateFilter.Late;
@@ -317,7 +330,7 @@ namespace Cinemachine
                 if (m_UpdateMethod == UpdateMethod.SmartUpdate)
                     updateFilter |= CinemachineCore.UpdateFilter.Smart;
                 else if (m_UpdateMethod == UpdateMethod.FixedUpdate)
-                    updateFilter |= CinemachineCore.UpdateFilter.Fixed;
+                    updateFilter = CinemachineCore.UpdateFilter.Fixed;
             }
             CinemachineCore.Instance.CurrentUpdateFilter = updateFilter;
         }
@@ -466,35 +479,30 @@ namespace Cinemachine
             }
         }
 
+        ICinemachineCamera mActiveCameraPreviousFrame;
         private void ProcessActiveCamera(float deltaTime)
         {
-            var activeCameraPreviousFrame = ActiveVirtualCamera;
-
-            UpdateFrame0(deltaTime);
-            UpdateCurrentLiveCameras();
-
-            // Make sure all live cameras get updated, in case some of them are deactivated
-            var solo = SoloCamera;
-            if (solo != null)
-                solo.UpdateCameraState(DefaultWorldUp, deltaTime);
-            mCurrentLiveCameras.UpdateCameraState(DefaultWorldUp, deltaTime);
-
-            // Has the current camera changed this frame?
             var activeCamera = ActiveVirtualCamera;
-            if (activeCamera != activeCameraPreviousFrame)
+            if (activeCamera != null)
             {
-                // Notify incoming camera of transition
-                activeCamera.OnTransitionFromCamera(activeCameraPreviousFrame, DefaultWorldUp, deltaTime);
-                if (m_CameraActivatedEvent != null)
-                    m_CameraActivatedEvent.Invoke(activeCamera, activeCameraPreviousFrame);
+                // Has the current camera changed this frame?
+                if (activeCamera != mActiveCameraPreviousFrame)
+                {
+                    // Notify incoming camera of transition
+                    activeCamera.OnTransitionFromCamera(
+                        mActiveCameraPreviousFrame, DefaultWorldUp, deltaTime);
+                    if (m_CameraActivatedEvent != null)
+                        m_CameraActivatedEvent.Invoke(activeCamera, mActiveCameraPreviousFrame);
 
-                // If we're cutting without a blend, send an event
-                if (m_CameraCutEvent != null && !IsBlending)
-                    m_CameraCutEvent.Invoke(this);
+                    // If we're cutting without a blend, send an event
+                    if (m_CameraCutEvent != null && !IsBlending)
+                        m_CameraCutEvent.Invoke(this);
+                }
+                // Apply the vcam state to the Unity camera
+                PushStateToUnityCamera(
+                    SoloCamera != null ? SoloCamera.State : mCurrentLiveCameras.State);
             }
-
-            // Apply the result to the Unity camera
-            PushStateToUnityCamera(solo != null ? solo.State : mCurrentLiveCameras.State);
+            mActiveCameraPreviousFrame = activeCamera;
         }
 
         private void UpdateFrame0(float deltaTime)
@@ -508,7 +516,8 @@ namespace Cinemachine
             if (activeCamera != outGoingCamera)
             {
                 // Do we need to create a game-play blend?
-                if (activeCamera != null && outGoingCamera != null && deltaTime >= 0)
+                if ((UnityEngine.Object)activeCamera != null
+                    && (UnityEngine.Object)outGoingCamera != null && deltaTime >= 0)
                 {
                     // Create a blend (curve will be null if a cut)
                     var blendDef = LookupBlend(outGoingCamera, activeCamera);
@@ -672,21 +681,24 @@ namespace Cinemachine
                 transform.position = state.FinalPosition;
             if ((state.BlendHint & CameraState.BlendHintValue.NoOrientation) == 0)
                 transform.rotation = state.FinalOrientation;
-            Camera cam = OutputCamera;
-            if (cam != null)
+            if ((state.BlendHint & CameraState.BlendHintValue.NoLens) == 0)
             {
-                cam.nearClipPlane = state.Lens.NearClipPlane;
-                cam.farClipPlane = state.Lens.FarClipPlane;
-                cam.fieldOfView = state.Lens.FieldOfView;
-                if (cam.orthographic)
-                    cam.orthographicSize = state.Lens.OrthographicSize;
-#if UNITY_2018_2_OR_NEWER
-                else
+                Camera cam = OutputCamera;
+                if (cam != null)
                 {
-                    cam.usePhysicalProperties = state.Lens.IsPhysicalCamera;
-                    cam.lensShift = state.Lens.LensShift;
-                }
+                    cam.nearClipPlane = state.Lens.NearClipPlane;
+                    cam.farClipPlane = state.Lens.FarClipPlane;
+                    cam.fieldOfView = state.Lens.FieldOfView;
+                    if (cam.orthographic)
+                        cam.orthographicSize = state.Lens.OrthographicSize;
+#if UNITY_2018_2_OR_NEWER
+                    else
+                    {
+                        cam.usePhysicalProperties = state.Lens.IsPhysicalCamera;
+                        cam.lensShift = state.Lens.LensShift;
+                    }
 #endif
+                }
             }
             if (CinemachineCore.CameraUpdatedEvent != null)
                 CinemachineCore.CameraUpdatedEvent.Invoke(this);

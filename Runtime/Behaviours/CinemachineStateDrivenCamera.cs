@@ -18,7 +18,12 @@ namespace Cinemachine
     /// animated with a state machine) to drive the behaviour.
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-    [ExecuteInEditMode, DisallowMultipleComponent]
+    [DisallowMultipleComponent]
+#if UNITY_2018_3_OR_NEWER
+    [ExecuteAlways]
+#else
+    [ExecuteInEditMode]
+#endif
     [AddComponentMenu("Cinemachine/CinemachineStateDrivenCamera")]
     public class CinemachineStateDrivenCamera : CinemachineVirtualCameraBase
     {
@@ -35,10 +40,12 @@ namespace Cinemachine
         /// <summary>The state machine whose state changes will drive this camera's choice of active child</summary>
         [Space]
         [Tooltip("The state machine whose state changes will drive this camera's choice of active child")]
+        [NoSaveDuringPlay]
         public Animator m_AnimatedTarget;
 
         /// <summary>Which layer in the target FSM to observe</summary>
         [Tooltip("Which layer in the target state machine to observe")]
+        [NoSaveDuringPlay]
         public int m_LayerIndex;
 
         /// <summary>When enabled, the current camera and blend will be indicated in the game window, for debugging</summary>
@@ -301,8 +308,32 @@ namespace Cinemachine
         /// <summary>API for the inspector editor.  Animation module does not have hashes
         /// for state parents, so we have to invent them in order to implement nested state
         /// handling</summary>
-        public static string CreateFakeHashName(int parentHash, string stateName)
-            { return parentHash.ToString() + "_" + stateName; }
+        public static int CreateFakeHash(int parentHash, AnimationClip clip)
+        { 
+            return Animator.StringToHash(parentHash.ToString() + "_" + clip.name); 
+        }
+
+        // Avoid garbage string manipulations at runtime
+        struct HashPair { public int parentHash; public int hash; }
+        Dictionary<AnimationClip, List<HashPair>> mHashCache;
+        int LookupFakeHash(int parentHash, AnimationClip clip)
+        { 
+            if (mHashCache == null)
+                mHashCache = new Dictionary<AnimationClip, List<HashPair>>();
+            List<HashPair> list = null;
+            if (!mHashCache.TryGetValue(clip, out list))
+            {
+                list = new List<HashPair>();
+                mHashCache[clip] = list;
+            }
+            for (int i = 0; i < list.Count; ++i)
+                if (list[i].parentHash == parentHash)
+                    return list[i].hash;
+            int newHash = CreateFakeHash(parentHash, clip);
+            list.Add(new HashPair() { parentHash = parentHash, hash = newHash });
+            return newHash;
+        }
+
 
         float mActivationTime = 0;
         Instruction mActiveInstruction;
@@ -481,7 +512,7 @@ namespace Cinemachine
 
                 // Use its hash
                 if (bestClip >= 0 && clips[bestClip].weight > 0)
-                    hash = Animator.StringToHash(CreateFakeHashName(hash, clips[bestClip].clip.name));
+                    hash = LookupFakeHash(hash, clips[bestClip].clip);
             }
             return hash;
         }

@@ -48,12 +48,15 @@ namespace Cinemachine.Editor
 
         protected virtual void OnGUI()
         {
+            if (Target == null)
+                return;
+
             // Draw the camera guides
             if (!Target.IsValid || !CinemachineSettings.CinemachineCoreSettings.ShowInGameGuides)
                 return;
 
             CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(Target.VirtualCamera);
-            if (brain == null || brain.OutputCamera.activeTexture != null)
+            if (brain == null || (brain.OutputCamera.activeTexture != null && CinemachineCore.Instance.BrainCount > 1))
                 return;
 
             bool isLive = CinemachineCore.Instance.IsLive(Target.VirtualCamera);

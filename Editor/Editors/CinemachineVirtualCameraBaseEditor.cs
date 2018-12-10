@@ -10,7 +10,8 @@ namespace Cinemachine.Editor
     /// Base class for virtual camera editors.
     /// Handles drawing the header and the basic properties.
     /// </summary>
-    internal class CinemachineVirtualCameraBaseEditor<T> : BaseEditor<T> where T : CinemachineVirtualCameraBase
+    public class CinemachineVirtualCameraBaseEditor<T> 
+        : BaseEditor<T> where T : CinemachineVirtualCameraBase
     {
         static Type[] sExtensionTypes;  // First entry is null
         static string[] sExtensionNames;
@@ -33,7 +34,7 @@ namespace Cinemachine.Editor
                 exts.Add(null);
                 names.Add("(select)");
                 var allExtensions
-                    = ReflectionHelpers.GetTypesInAllLoadedAssemblies(
+                    = ReflectionHelpers.GetTypesInAllDependentAssemblies(
                             (Type t) => t.IsSubclassOf(typeof(CinemachineExtension)));
                 foreach (Type t in allExtensions)
                 {

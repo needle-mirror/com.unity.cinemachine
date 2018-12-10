@@ -98,7 +98,7 @@ namespace Cinemachine.Editor
             ScriptableObject asset = property.objectReferenceValue as ScriptableObject;
             if (asset != null && !hasCustomEditor)
             {
-                mExpanded = EditorGUI.Foldout(rect, mExpanded, GUIContent.none);
+                mExpanded = EditorGUI.Foldout(rect, mExpanded, GUIContent.none, true);
                 if (mExpanded)
                 {
                     rect.y += rect.height + kBoxMargin + vSpace;
@@ -148,7 +148,10 @@ namespace Cinemachine.Editor
             Type type = property.serializedObject.targetObject.GetType();
             var a = property.propertyPath.Split('.');
             for (int i = 0; i < a.Length; ++i)
-                type = type.GetField(a[i]).FieldType;
+                type = type.GetField(a[i], 
+                    System.Reflection.BindingFlags.Public 
+                    | System.Reflection.BindingFlags.NonPublic
+                    | System.Reflection.BindingFlags.Instance).FieldType;
             return type;
         }
 
@@ -182,7 +185,7 @@ namespace Cinemachine.Editor
             // Collect all the eligible asset types
             Type type = EmbeddedAssetType(property);
             if (mAssetTypes == null)
-                mAssetTypes = ReflectionHelpers.GetTypesInAllLoadedAssemblies(
+                mAssetTypes = ReflectionHelpers.GetTypesInAllDependentAssemblies(
                     (Type t) => t.IsSubclassOf(type)).ToArray();
 
             float iconSize = r.height + 4;

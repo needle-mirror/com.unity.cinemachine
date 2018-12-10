@@ -13,7 +13,7 @@ namespace Cinemachine
         public static readonly int kStreamingVersion = 20170927;
 
         /// <summary>Human-readable Cinemachine Version</summary>
-        public static readonly string kVersionString = "2.2.6";
+        public static readonly string kVersionString = "2.2.8";
 
         /// <summary>
         /// Stages in the Cinemachine Component pipeline, used for
@@ -263,7 +263,7 @@ namespace Cinemachine
             int frameDelta = (updateClock == UpdateTracker.UpdateClock.Late)
                 ? Time.frameCount - status.lastUpdateFrame
                 : FixedFrameCount - status.lastUpdateFixedFrame;
-            if (frameDelta == 0 && status.lastUpdateMode == updateClock)
+            if (deltaTime >= 0 && frameDelta == 0 && status.lastUpdateMode == updateClock)
                 return; // already updated
             if (frameDelta != 1)
                 deltaTime = -1; // multiple frames - kill the damping

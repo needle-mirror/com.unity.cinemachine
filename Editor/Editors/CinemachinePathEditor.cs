@@ -68,7 +68,7 @@ namespace Cinemachine.Editor
                         "When editing the path, if waypoint position and tangent coincide, dragging will apply preferentially to the tangent"),
                     mPreferHandleSelection);
 
-            mWaypointsExpanded = EditorGUILayout.Foldout(mWaypointsExpanded, "Path Details");
+            mWaypointsExpanded = EditorGUILayout.Foldout(mWaypointsExpanded, "Path Details", true);
             if (mWaypointsExpanded)
             {
                 EditorGUI.BeginChangeCheck();
@@ -327,6 +327,7 @@ namespace Cinemachine.Editor
                 wp.tangent = newPos - wp.position;
                 Target.m_Waypoints[i] = wp;
                 Target.InvalidateDistanceCache();
+                UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
             }
         }
 
@@ -346,6 +347,7 @@ namespace Cinemachine.Editor
                 wp.position = pos;
                 Target.m_Waypoints[i] = wp;
                 Target.InvalidateDistanceCache();
+                UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
             }
         }
 
