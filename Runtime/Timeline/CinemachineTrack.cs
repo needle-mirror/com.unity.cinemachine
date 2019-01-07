@@ -4,9 +4,10 @@ using System;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
+using Cinemachine;
 
-namespace Cinemachine.Timeline
-{
+//namespace Cinemachine.Timeline
+//{
     [Serializable]
     [TrackClipType(typeof(CinemachineShot))]
 #if !UNITY_2018_2_OR_NEWER
@@ -33,5 +34,5 @@ namespace Cinemachine.Timeline
             return mixer;
         }
     }
-}
+//}
 #endif

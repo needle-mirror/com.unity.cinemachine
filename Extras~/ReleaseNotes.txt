@@ -1,3 +1,8 @@
+<size=20><b>Version 2.3.3</b></size>
+
+- Removed Cinemachine.Timeline namespace, as a workaround for fogbugz 1115321
+
+
 <size=20><b>Version 2.3.1</b></size>
 
 - Added timeline dependency
