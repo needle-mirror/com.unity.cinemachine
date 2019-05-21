@@ -219,15 +219,27 @@ namespace Cinemachine
         /// <summary>Check whether the vcam a live child of this camera.
         /// Returns true if the child is currently contributing actively to the camera state.</summary>
         /// <param name="vcam">The Virtual Camera to check</param>
+        /// <param name="dominantChildOnly">If truw, will only return true if this vcam is the dominat live child</param>
         /// <returns>True if the vcam is currently actively influencing the state of this vcam</returns>
-        public override bool IsLiveChild(ICinemachineCamera vcam)
+        public override bool IsLiveChild(ICinemachineCamera vcam, bool dominantChildOnly = false)
         {
             // Do not update the rig cache here or there will be infinite loop at creation time
             if (m_Rigs == null || m_Rigs.Length != 3)
                 return false;
+            var y = GetYAxisValue();
+            if (dominantChildOnly)
+            {
+                if (vcam == (ICinemachineCamera)m_Rigs[0])
+                    return y > 0.666f;
+                if (vcam == (ICinemachineCamera)m_Rigs[2])
+                    return y < 0.333;
+                if (vcam == (ICinemachineCamera)m_Rigs[1])
+                    return y >= 0.333f && y <= 0.666f;
+                return false;
+            }
             if (vcam == (ICinemachineCamera)m_Rigs[1])
                 return true;
-            if (GetYAxisValue() < 0.5f)
+            if (y < 0.5f)
                 return vcam == (ICinemachineCamera)m_Rigs[2];
             return vcam == (ICinemachineCamera)m_Rigs[0];
         }
@@ -285,6 +297,8 @@ namespace Cinemachine
                     m_YAxisRecentering.CancelRecentering();
             }
             PushSettingsToRigs();
+            if (m_BindingMode == CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
+                m_XAxis.Value = 0;
         }
 
         /// <summary>If we are transitioning from another FreeLook, grab the axis values from it.</summary>
@@ -563,9 +577,7 @@ namespace Cinemachine
                             {
                                 mOrbitals[i].m_HeadingIsSlave = true;
                                 if (i == 1)
-                                    mOrbitals[i].HeadingUpdater
-                                        = (CinemachineOrbitalTransposer orbital, float deltaTime, Vector3 up)
-                                            => { return orbital.UpdateHeading(deltaTime, up, ref m_XAxis); };
+                                    mOrbitals[i].HeadingUpdater = UpdateXAxisHeading;
                                 m_Rigs[i] = vcam;
                                 m_Rigs[i].m_StandbyUpdate = m_StandbyUpdate;
                                 ++rigsFound;
@@ -575,6 +587,16 @@ namespace Cinemachine
                 }
             }
             return rigsFound;
+        }
+
+        float UpdateXAxisHeading(CinemachineOrbitalTransposer orbital, float deltaTime, Vector3 up)
+        {
+            var oldValue = m_XAxis.Value;
+            float headng = orbital.UpdateHeading(deltaTime, up, ref m_XAxis);
+            // Allow externally-driven values to work in this mode
+            if (orbital.m_BindingMode == CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
+                m_XAxis.Value = oldValue;
+            return headng;
         }
 
         void PushSettingsToRigs()
@@ -616,6 +638,7 @@ namespace Cinemachine
                 mOrbitals[i].m_RecenterToTargetHeading.m_enabled = (i == 1) ? m_RecenterToTargetHeading.m_enabled : false;
                 mOrbitals[i].m_RecenterToTargetHeading.m_WaitTime = m_RecenterToTargetHeading.m_WaitTime;
                 mOrbitals[i].m_RecenterToTargetHeading.m_RecenteringTime = m_RecenterToTargetHeading.m_RecenteringTime;
+                mOrbitals[i].m_RecenterToTargetHeading.CopyStateFrom(ref m_RecenterToTargetHeading);
 
                 // Hack to get SimpleFollow with heterogeneous dampings to work
                 if (m_BindingMode == CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)

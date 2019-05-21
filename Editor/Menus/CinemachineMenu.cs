@@ -1,3 +1,6 @@
+#define CINEMACHINE_PHYSICS
+#define CINEMACHINE_PHYSICS_2D
+
 using UnityEngine;
 using UnityEditor;
 using System;
@@ -26,7 +29,7 @@ namespace Cinemachine.Editor
         {
             ScriptableObjectUtility.Create<CinemachineFixedSignal>();
         }
-    
+
         [MenuItem("Cinemachine/Create Virtual Camera", false, 1)]
         public static CinemachineVirtualCamera CreateVirtualCamera()
         {
@@ -39,7 +42,7 @@ namespace Cinemachine.Editor
         {
             CreateCameraBrainIfAbsent();
             GameObject go = InspectorUtility.CreateGameObject(
-                    GenerateUniqueObjectName(typeof(CinemachineFreeLook), "CM FreeLook"), 
+                    GenerateUniqueObjectName(typeof(CinemachineFreeLook), "CM FreeLook"),
                     typeof(CinemachineFreeLook));
             if (SceneView.lastActiveSceneView != null)
                 go.transform.position = SceneView.lastActiveSceneView.pivot;
@@ -91,6 +94,7 @@ namespace Cinemachine.Editor
             Undo.SetTransformParent(CreateDefaultVirtualCamera().transform, go.transform, "create state driven camera");
         }
 
+#if CINEMACHINE_PHYSICS
         [MenuItem("Cinemachine/Create ClearShot Camera", false, 1)]
         private static void CreateClearShotVirtualCamera()
         {
@@ -110,6 +114,7 @@ namespace Cinemachine.Editor
             collider.m_AvoidObstacles = false;
             Undo.RecordObject(collider, "create ClearShot camera");
         }
+#endif
 
         [MenuItem("Cinemachine/Create Dolly Camera with Track", false, 1)]
         private static void CreateDollyCameraWithPath()
@@ -192,7 +197,7 @@ namespace Cinemachine.Editor
         [MenuItem("Cinemachine/Import Example Asset Package")]
         private static void ImportExamplePackage()
         {
-            string pkgFile = ScriptableObjectUtility.CinemachineInstallPath 
+            string pkgFile = ScriptableObjectUtility.CinemachineInstallPath
                 + "/Extras~/CinemachineExamples.unitypackage";
             if (!File.Exists(pkgFile))
                 Debug.LogError("Missing file " + pkgFile);

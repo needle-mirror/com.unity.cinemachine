@@ -4,6 +4,42 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.3.4] - 2019-05-22
+### PostProcessing V3 and bugfixes
+- Added support for PostProcessing V3 - now called CinemachineVolumeSttings
+- Added CinemachineCore.GetBlendOverride delegate to allow applications to override any vcam blend when it happens
+- When a blend is cancelled by the opposite blend, reduce the blend time
+- Orthographic cameras allow a Near Clip of 0
+- Timeline won't auto-create CM brains when something dragged onto it
+- Confiner: Improvement in automatic path invalidation when number of path points path changes
+- Added CinemachineInpuitAxisDriver utility for overriding the default AxisState behaviour
+- CinemachineCameraOffset: added customizable stage for when to apply the offset
+- Added Loop option to BlendList Camera
+- Improved Lookahead: does not automatically recenter
+- Brain no longer applies time scaling to fixed delta
+- Added dependency on Unity.ugui (2019.2 and up)
+- Bugfix: potential endless loop when using Ignore tag in Collider
+- Bugfix: Allow externally-driven FeeLook XAxis to work properly with SimpleFollow
+- Bugfix: vcams with noise would sometimes show one noiseless frame when they were activated and standby update was not Always
+- Bugfix: Generate a cut event if cutting to a blend-in-progess (fogbugz 1150847)
+- Bugfix: reset lens shift if not physical camera
+- Bugfix: Collider must consider actual target position, not lookahead position
+- Bugfix: FreeLook heading RecenterNow was not working
+- Bugfix: lookahead now takes the overridden Up into account
+- Bugfix: screen composer guides drawn in wrong place for picture-in-picture
+- Bugfix: FreeLook now draws only 1 active composer guide at a time (fogbugz 1138263)
+- Bugfix: cameras sometimes snapped when interrupting blends
+- Bugfix: Path handles no longer scale with the path object
+- Bugfix: Framing Transposer Center on Activate was not working properly (fogbugz 1129824)
+- Bugfix: FreeLook inherit position
+- Bugfix: collider was pushing camera too far if there were multiple overlapping obstacles
+- Bugfix: use IsAssignableFrom instead of IsSubclass in several places
+- Bugfix: when interrupting a blend in progress, Cut was not respected
+- Bugfix: collider minimum occlusion time and smoothing time interaction
+- Bugfix: TargetGroup.RemoveMember error (fogbugz 1119028)
+- Bugfix: TargetGroup member lerping jerk when member weight near 0
+- Bugfix: Transposer angular damping should be 0 only if binding mode not LockToTarget
+
 ## [2.3.3] - 2019-01-08
 ### Temporary patch to get around a Unity bug in conditional dependencies
 - Removed Cinemachine.Timeline namespace, as a workaround for fogbugz 1115321
