@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Cinemachine.Utility
@@ -6,12 +7,17 @@ namespace Cinemachine.Utility
     {
         Vector3 m_Position;
 
+        GaussianWindow1D_Vector3 m_Velocity = new GaussianWindow1D_Vector3(kSmoothingDefault);
+        GaussianWindow1D_Vector3 m_Accel = new GaussianWindow1D_Vector3(kSmoothingDefault);
+
+        float mLastVelAddedTime = 0;
+
         const float kSmoothingDefault = 10;
         float mSmoothing = kSmoothingDefault;
-        public float Smoothing 
+        public float Smoothing
         {
             get { return mSmoothing; }
-            set 
+            set
             {
                 if (value != mSmoothing)
                 {
@@ -22,12 +28,6 @@ namespace Cinemachine.Utility
                 }
             }
         }
-
-        public bool IgnoreY { get; set; }
-
-        GaussianWindow1D_Vector3 m_Velocity = new GaussianWindow1D_Vector3(kSmoothingDefault);
-        GaussianWindow1D_Vector3 m_Accel = new GaussianWindow1D_Vector3(kSmoothingDefault);
-
         public bool IsEmpty { get { return m_Velocity.IsEmpty(); } }
 
         public void ApplyTransformDelta(Vector3 positionDelta)
@@ -41,40 +41,44 @@ namespace Cinemachine.Utility
             m_Accel.Reset();
         }
 
-        public void AddPosition(Vector3 pos)
+        public void AddPosition(Vector3 pos, float deltaTime, float lookaheadTime)
         {
-            if (IsEmpty)
+            if (deltaTime < UnityVectorExtensions.Epsilon)
+                Reset();
+            else if (IsEmpty)
                 m_Velocity.AddValue(Vector3.zero);
-            else if (Time.deltaTime > Vector3.kEpsilon)
+            else
             {
-                Vector3 vel = m_Velocity.Value();
-                Vector3 vel2 = (pos - m_Position) / Time.deltaTime;
-                if (IgnoreY)
-                    vel2.y = 0;
-                m_Velocity.AddValue(vel2);
-                m_Accel.AddValue(vel2 - vel);
+                Vector3 vel = (pos - m_Position) / deltaTime;
+                if (vel.sqrMagnitude > UnityVectorExtensions.Epsilon)
+                {
+                    Vector3 vel0 = m_Velocity.Value();
+                    float now = Time.time;
+                    if (vel.sqrMagnitude >= vel0.sqrMagnitude
+                        || Vector3.Angle(vel, vel0) > 10
+                        || now > mLastVelAddedTime + lookaheadTime)
+                    {
+                        m_Velocity.AddValue(vel);
+                        m_Accel.AddValue(vel - vel0);
+                        mLastVelAddedTime = now;
+                    }
+                }
             }
             m_Position = pos;
         }
 
+        public Vector3 PredictPositionDelta(float lookaheadTime)
+        {
+            Vector3 vel = m_Velocity.IsEmpty() ? Vector3.zero : m_Velocity.Value();
+            Vector3 accel = m_Accel.IsEmpty() ? Vector3.zero : m_Accel.Value();
+            Vector3 delta = vel * lookaheadTime;
+            delta += accel * lookaheadTime * lookaheadTime * 0.5f;
+            return delta;
+        }
+
         public Vector3 PredictPosition(float lookaheadTime)
         {
-            Vector3 pos = m_Position;
-            if (Time.deltaTime > Vector3.kEpsilon)
-            {
-                int numSteps = Mathf.Min(Mathf.RoundToInt(lookaheadTime / Time.deltaTime), 6);
-                float dt = lookaheadTime / numSteps;
-                Vector3 vel = m_Velocity.IsEmpty() ? Vector3.zero : m_Velocity.Value();
-                Vector3 accel = m_Accel.IsEmpty() ? Vector3.zero : m_Accel.Value();
-                for (int i = 0; i < numSteps; ++i)
-                {
-                    pos += vel * dt;
-                    Vector3 vel2 = vel + (accel * dt);
-                    accel = Quaternion.FromToRotation(vel, vel2) * accel;
-                    vel = vel2;
-                }
-            }
-            return pos;
+            return m_Position + PredictPositionDelta(lookaheadTime);
         }
     }
 
@@ -104,10 +108,10 @@ namespace Cinemachine.Utility
         /// <summary>Get a damped version of a quantity.  This is the portion of the
         /// quantity that will take effect over the given time.</summary>
         /// <param name="initial">The amount that will be damped</param>
-        /// <param name="dampTime">The rate of damping.  This is the time it would 
+        /// <param name="dampTime">The rate of damping.  This is the time it would
         /// take to reduce the original amount to a negligible percentage</param>
         /// <param name="deltaTime">The time over which to damp</param>
-        /// <returns>The damped amount.  This will be the original amount scaled by 
+        /// <returns>The damped amount.  This will be the original amount scaled by
         /// a value between 0 and 1.</returns>
         public static float Damp(float initial, float dampTime, float deltaTime)
         {
@@ -140,10 +144,10 @@ namespace Cinemachine.Utility
         /// <summary>Get a damped version of a quantity.  This is the portion of the
         /// quantity that will take effect over the given time.</summary>
         /// <param name="initial">The amount that will be damped</param>
-        /// <param name="dampTime">The rate of damping.  This is the time it would 
+        /// <param name="dampTime">The rate of damping.  This is the time it would
         /// take to reduce the original amount to a negligible percentage</param>
         /// <param name="deltaTime">The time over which to damp</param>
-        /// <returns>The damped amount.  This will be the original amount scaled by 
+        /// <returns>The damped amount.  This will be the original amount scaled by
         /// a value between 0 and 1.</returns>
         public static Vector3 Damp(Vector3 initial, Vector3 dampTime, float deltaTime)
         {
@@ -155,10 +159,10 @@ namespace Cinemachine.Utility
         /// <summary>Get a damped version of a quantity.  This is the portion of the
         /// quantity that will take effect over the given time.</summary>
         /// <param name="initial">The amount that will be damped</param>
-        /// <param name="dampTime">The rate of damping.  This is the time it would 
+        /// <param name="dampTime">The rate of damping.  This is the time it would
         /// take to reduce the original amount to a negligible percentage</param>
         /// <param name="deltaTime">The time over which to damp</param>
-        /// <returns>The damped amount.  This will be the original amount scaled by 
+        /// <returns>The damped amount.  This will be the original amount scaled by
         /// a value between 0 and 1.</returns>
         public static Vector3 Damp(Vector3 initial, float dampTime, float deltaTime)
         {
@@ -190,7 +194,7 @@ namespace Cinemachine.Utility
         Vector3 mLastGoodHeading = Vector3.zero;
 
         /// <summary>Construct a heading tracker with a given filter size</summary>
-        /// <param name="filterSize">The size of the filter.  The larger the filter, the 
+        /// <param name="filterSize">The size of the filter.  The larger the filter, the
         /// more constanct (and laggy) is the heading.  30 is pretty big.</param>
         public HeadingTracker(int filterSize)
         {

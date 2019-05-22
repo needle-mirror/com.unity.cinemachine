@@ -1,3 +1,40 @@
+<size=20><b>Version 2.2.9</b></size>
+
+- Added CinemachineCore.GetBlendOverride delegate to allow applications to override any vcam blend when it happens
+- When a blend is cancelled by the opposite blend, reduce the blend time
+- FreeLook: if inherit position from similar FreeLooks, bypass damping
+- Timline: improve handling when vcam values are tweaked inside shot inspector (fogbugz 1109024)
+- OnTargetObjectWarped no longer generates garbage
+- Orthographic cameras allow a Near Clip of 0
+- Timeline won't auto-create CM brains when something dragged onto it
+- Confiner: Improvement in automatic path invalidation when number of path points path changes
+- Added CinemachineInpuitAxisDriver utility for overriding the default AxisState behaviour
+- CinemachineCameraOffset: added customizable stage for when to apply the offset
+- Added Loop option to BlendList Camera
+- Improved Lookahed: does not automatically recenter
+- Brain no longer applies time scaling to fixed delta
+- Bugfix: potential endless loop when using Ignore tag in Collider
+- Bugfix: Allow externally-driven FeeLook XAxis to work properly with SimpleFollow
+- Bugfix: vcams with noise would sometimes show one noiseless frame when they were activated and standby update was not Always
+- Bugfix: Generate a cut event if cutting to a blend-in-progess (fogbugz 1150847)
+- Bugfix: reset lens shift if not physical camera
+- Bugfix: Collider must consider actual target position, not lookahead position
+- Bugfix: FreeLook heading RecenterNow was not working
+- Bugfix: lookahead now takes the overridden Up into account
+- Bugfix: screen composer guides drawn in wrong place for picture-in-picture
+- Bugfix: FreeLook now draws only 1 active composer guide at a time (fogbugz 1138263)
+- Bugfix: cameras sometimes snapped when interrupting blends
+- Bugfix: Path handles no longer scale with the path object
+- Bugfix: Framing Transposer Center on Activate was not working properly (fogbugz 1129824)
+- Bugfix: collider was pushing camera too far if there were multiple overlapping obstacles
+- Bugfix: use IsAssignableFrom instead of IsSubclass in several places
+- Bugfix: when interrupting a blend in progress, Cut was not respected
+- Bugfix: collider minimum occlusion time and smoothing time interaction
+- Bugfix: TargetGroup.RemoveMember error (fogbugz 1119028)
+- Bugfix: TargetGroup member lerping jerk when member weight near 0
+- Bugfix: Transposer angular damping should be 0 only if binding mode not LockToTarget
+
+
 <size=20><b>Version 2.2.8</b></size>
 
 - Transposer: added Angular Damping Mode, to support quaternion calculations in gimbal-lock situations
@@ -10,7 +47,7 @@
 - Updated documentation (corrections, and relocation to prevent importing)
 - Upgrade: added support for nested prefabs in Unity 2018.3 (fogbugz 1077395)
 - Optimization: position predictor is more efficient
-- Optimization: Composer caches some calculations 
+- Optimization: Composer caches some calculations
 - Optimization: Fix editor slowdown when Lens Presets asset is missing
 - Experimental: Optional new damping algorithm: attempt to reduce sensitivity to variable framerate
 - Experimental: Optional new extra-efficient versions of vcam and FreeLook (not back-compatible)
@@ -43,7 +80,7 @@
 
 - New Cinemachine Impulse module for event-driven camera shakes
 - New Event Helper script CinemachineTriggerAction takes action on Collider and Collider2D enter/exit events, and exposes them as UnityEvents
-- New performance-tuning feature: Standby Update.  Controls how often to update the vcam when it's in Standby.  
+- New performance-tuning feature: Standby Update.  Controls how often to update the vcam when it's in Standby.
 - New NoiseSettings editor with signal preview
 - Added Focal Length or Named FOV presets for Camera Lens
 - Added support for Physical Camera: focal length and Lens Offset
@@ -73,7 +110,7 @@
 - Bugfix: SimpleFollow transposers were not initilizing their position correctly at game start
 - Bugfix: Timeline with CM shot was causing jitter in some FixedUpdate situations
 - Bugfix: Multiple brains with heterogeneous update methods were not behaving correctly.  CM will now support this, but you must make sure that the brains have different layer masks.
-- Example scenes now include use of CinemachineTriggerAction script.  
+- Example scenes now include use of CinemachineTriggerAction script.
 
 <size=20><b>Version 2.1.13</b></size>
 

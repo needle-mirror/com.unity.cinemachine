@@ -8,16 +8,16 @@ using UnityEngine.Events;
 namespace Cinemachine
 {
     /// <summary>
-    /// CinemachineBrain is the link between the Unity Camera and the Cinemachine Virtual 
-    /// Cameras in the scene.  It monitors the priority stack to choose the current 
-    /// Virtual Camera, and blend with another if necessary.  Finally and most importantly, 
+    /// CinemachineBrain is the link between the Unity Camera and the Cinemachine Virtual
+    /// Cameras in the scene.  It monitors the priority stack to choose the current
+    /// Virtual Camera, and blend with another if necessary.  Finally and most importantly,
     /// it applies the Virtual Camera state to the attached Unity Camera.
-    /// 
-    /// The CinemachineBrain is also the place where rules for blending between virtual cameras 
-    /// are defined.  Camera blending is an interpolation over time of one virtual camera 
-    /// position and state to another. If you think of virtual cameras as cameramen, then 
-    /// blending is a little like one cameraman smoothly passing the camera to another cameraman. 
-    /// You can specify the time over which to blend, as well as the blend curve shape. 
+    ///
+    /// The CinemachineBrain is also the place where rules for blending between virtual cameras
+    /// are defined.  Camera blending is an interpolation over time of one virtual camera
+    /// position and state to another. If you think of virtual cameras as cameramen, then
+    /// blending is a little like one cameraman smoothly passing the camera to another cameraman.
+    /// You can specify the time over which to blend, as well as the blend curve shape.
     /// Note that a camera cut is just a zero-time blend.
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
@@ -45,7 +45,7 @@ namespace Cinemachine
         public bool m_ShowCameraFrustum = true;
 
         /// <summary>
-        /// When enabled, the cameras will always respond in real-time to user input and damping, 
+        /// When enabled, the cameras will always respond in real-time to user input and damping,
         /// even if the game is running in slow motion
         /// </summary>
         [Tooltip("When enabled, the cameras will always respond in real-time to user input and damping, even if the game is running in slow motion")]
@@ -116,7 +116,7 @@ namespace Cinemachine
         [Tooltip("This event will fire whenever a virtual camera goes live and there is no blend")]
         public BrainEvent m_CameraCutEvent = new BrainEvent();
 
-        /// <summary>This event will fire whenever a virtual camera goes live.  If a blend is involved, 
+        /// <summary>This event will fire whenever a virtual camera goes live.  If a blend is involved,
         /// then the event will fire on the first frame of the blend</summary>
         [Tooltip("This event will fire whenever a virtual camera goes live.  If a blend is involved, then the event will fire on the first frame of the blend.")]
         public VcamActivatedEvent m_CameraActivatedEvent = new VcamActivatedEvent();
@@ -125,11 +125,11 @@ namespace Cinemachine
         /// API for the Unity Editor.
         /// Show this camera no matter what.  This is static, and so affects all Cinemachine brains.
         /// </summary>
-        public static ICinemachineCamera SoloCamera 
-        { 
-            get { return mSoloCamera; } 
-            set 
-            { 
+        public static ICinemachineCamera SoloCamera
+        {
+            get { return mSoloCamera; }
+            set
+            {
                 if (value != null && !CinemachineCore.Instance.IsLive(value))
                     value.OnTransitionFromCamera(null, Vector3.up, Time.deltaTime);
                 mSoloCamera = value;
@@ -237,14 +237,14 @@ namespace Cinemachine
                     if (m_UpdateMethod == UpdateMethod.SmartUpdate)
                     {
                         // Track the targets
-                        UpdateTracker.OnUpdate(UpdateTracker.UpdateClock.Fixed); 
+                        UpdateTracker.OnUpdate(UpdateTracker.UpdateClock.Fixed);
                         filter = CinemachineCore.UpdateFilter.SmartFixed;
                     }
                     UpdateVirtualCameras(filter, GetEffectiveDeltaTime(true));
                 }
             }
         }
-        
+
         private void LateUpdate()
         {
             float deltaTime = GetEffectiveDeltaTime(false);
@@ -253,7 +253,7 @@ namespace Cinemachine
 
             if (m_UpdateMethod == UpdateMethod.FixedUpdate)
             {
-                // Special handling for fixed update: cameras that have been enabled 
+                // Special handling for fixed update: cameras that have been enabled
                 // since the last physics frame must be updated now
                 CinemachineCore.Instance.CurrentUpdateFilter = CinemachineCore.UpdateFilter.Fixed;
                 if (SoloCamera != null)
@@ -307,12 +307,12 @@ namespace Cinemachine
             }
             if (m_IgnoreTimeScale)
                 return fixedDelta ? Time.fixedDeltaTime : Time.unscaledDeltaTime;
-            return fixedDelta ? Time.fixedDeltaTime * Time.timeScale : Time.deltaTime;
+            return fixedDelta ? Time.fixedDeltaTime : Time.deltaTime;
         }
 
         private void UpdateVirtualCameras(CinemachineCore.UpdateFilter updateFilter, float deltaTime)
         {
-            // We always update all active virtual cameras 
+            // We always update all active virtual cameras
             CinemachineCore.Instance.CurrentUpdateFilter = updateFilter;
             Camera camera = OutputCamera;
             CinemachineCore.Instance.UpdateAllActiveVirtualCameras(
@@ -396,8 +396,8 @@ namespace Cinemachine
             // Used by Timeline Preview for overriding the current value of deltaTime
             public float deltaTimeOverride;
             public float timeOfOverride;
-            public bool TimeOverrideExpired 
-            { 
+            public bool TimeOverrideExpired
+            {
                 get { return Time.realtimeSinceStartup - timeOfOverride > Time.maximumDeltaTime; }
             }
         }
@@ -417,7 +417,7 @@ namespace Cinemachine
             mFrameStack.Add(new BrainFrame() { id = withId });
             return mFrameStack.Count - 1;
         }
-        
+
         // Current Brain State - result of all frames.  Blend camB is "current" camera always
         CinemachineBlend mCurrentLiveCameras = new CinemachineBlend(null, null, null, 0, 0);
 
@@ -495,7 +495,9 @@ namespace Cinemachine
                         m_CameraActivatedEvent.Invoke(activeCamera, mActiveCameraPreviousFrame);
 
                     // If we're cutting without a blend, send an event
-                    if (m_CameraCutEvent != null && !IsBlending)
+                    if (m_CameraCutEvent != null
+                            && (!IsBlending || (mActiveCameraPreviousFrame != null
+                                && !ActiveBlend.Uses(mActiveCameraPreviousFrame))))
                         m_CameraCutEvent.Invoke(this);
                 }
                 // Apply the vcam state to the Unity camera
@@ -525,16 +527,28 @@ namespace Cinemachine
                     {
                         if (frame.blend.IsComplete)
                             frame.blend.CamA = outGoingCamera;  // new blend
-                        else // chain to existing blend
+                        else
+                        {
+                            // Special case: if backing out of a blend-in-progress
+                            // with the same blend in reverse, adjust the belnd time
+                            if (frame.blend.CamA == activeCamera
+                                && frame.blend.CamB == outGoingCamera
+                                && frame.blend.Duration <= blendDef.m_Time)
+                            {
+                                blendDef.m_Time = frame.blend.TimeInBlend;
+                            }
+
+                            // Chain to existing blend
                             frame.blend.CamA = new BlendSourceVirtualCamera(
                                 new CinemachineBlend(
-                                    frame.blend.CamA, frame.blend.CamB, 
-                                    frame.blend.BlendCurve, frame.blend.Duration, frame.blend.TimeInBlend));
-
-                        frame.blend.BlendCurve = blendDef.BlendCurve;
-                        frame.blend.Duration = blendDef.m_Time;
-                        frame.blend.TimeInBlend = 0;
+                                    frame.blend.CamA, frame.blend.CamB,
+                                    frame.blend.BlendCurve, frame.blend.Duration,
+                                    frame.blend.TimeInBlend));
+                        }
                     }
+                    frame.blend.BlendCurve = blendDef.BlendCurve;
+                    frame.blend.Duration = blendDef.m_Time;
+                    frame.blend.TimeInBlend = 0;
                 }
                 // Set the current active camera
                 frame.blend.CamB = activeCamera;
@@ -608,9 +622,10 @@ namespace Cinemachine
         /// or part of a current blend, either directly or indirectly because its parents are live.
         /// </summary>
         /// <param name="vcam">The camera to test whether it is live</param>
+        /// <param name="dominantChildOnly">If truw, will only return true if this vcam is the dominat live child</param>
         /// <returns>True if the camera is live (directly or indirectly)
         /// or part of a blend in progress.</returns>
-        public bool IsLive(ICinemachineCamera vcam)
+        public bool IsLive(ICinemachineCamera vcam, bool dominantChildOnly = false)
         {
             if (SoloCamera == vcam)
                 return true;
@@ -618,9 +633,9 @@ namespace Cinemachine
                 return true;
 
             ICinemachineCamera parent = vcam.ParentCamera;
-            while (parent != null && parent.IsLiveChild(vcam))
+            while (parent != null && parent.IsLiveChild(vcam, dominantChildOnly))
             {
-                if (mCurrentLiveCameras.Uses(parent))
+                if (SoloCamera == parent || mCurrentLiveCameras.Uses(parent))
                     return true;
                 vcam = parent;
                 parent = vcam.ParentCamera;
@@ -670,6 +685,8 @@ namespace Cinemachine
                 blend = m_CustomBlends.GetBlendForVirtualCameras(
                         fromCameraName, toCameraName, blend);
             }
+            if (CinemachineCore.GetBlendOverride != null)
+                blend = CinemachineCore.GetBlendOverride(fromKey, toKey, blend, this);
             return blend;
         }
 

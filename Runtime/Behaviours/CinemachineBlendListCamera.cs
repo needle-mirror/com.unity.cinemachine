@@ -7,8 +7,8 @@ namespace Cinemachine
 {
     /// <summary>
     /// This is a virtual camera "manager" that owns and manages a collection
-    /// of child Virtual Cameras.  When the camera goes live, these child vcams 
-    /// are enabled, one after another, holding each camera for a designated time.  
+    /// of child Virtual Cameras.  When the camera goes live, these child vcams
+    /// are enabled, one after another, holding each camera for a designated time.
     /// Blends between cameras are specified.
     /// The last camera is held indefinitely.
     /// </summary>
@@ -36,6 +36,10 @@ namespace Cinemachine
         [Tooltip("When enabled, the current child camera and blend will be indicated in the game window, for debugging")]
         public bool m_ShowDebugText = false;
 
+        /// <summary>When enabled, the child vcams will cycle indefinitely instead of just stopping at the last onesummary>
+        [Tooltip("When enabled, the child vcams will cycle indefinitely instead of just stopping at the last one")]
+        public bool m_Loop = false;
+
         /// <summary>Internal API for the editor.  Do not use this field</summary>
         [SerializeField][HideInInspector][NoSaveDuringPlay]
         internal CinemachineVirtualCameraBase[] m_ChildCameras = null;
@@ -56,27 +60,27 @@ namespace Cinemachine
             public CinemachineBlendDefinition m_Blend;
         };
 
-        /// <summary>The set of instructions associating virtual cameras with states.  
+        /// <summary>The set of instructions associating virtual cameras with states.
         /// The set of instructions for enabling child cameras</summary>
         [Tooltip("The set of instructions for enabling child cameras.")]
         public Instruction[] m_Instructions;
 
         /// <summary>Gets a brief debug description of this virtual camera, for use when displayiong debug info</summary>
-        public override string Description 
-        { 
-            get 
-            { 
+        public override string Description
+        {
+            get
+            {
                 // Show the active camera and blend
-                if (mActiveBlend != null) 
+                if (mActiveBlend != null)
                     return mActiveBlend.Description;
 
                 ICinemachineCamera vcam = LiveChild;
-                if (vcam == null) 
+                if (vcam == null)
                     return "(none)";
                 var sb = CinemachineDebug.SBFromPool();
                 sb.Append("["); sb.Append(vcam.Name); sb.Append("]");
-                string text = sb.ToString(); 
-                CinemachineDebug.ReturnToPool(sb); 
+                string text = sb.ToString();
+                CinemachineDebug.ReturnToPool(sb);
                 return text;
             }
         }
@@ -88,10 +92,9 @@ namespace Cinemachine
         /// <summary>Check whether the vcam a live child of this camera.</summary>
         /// <param name="vcam">The Virtual Camera to check</param>
         /// <returns>True if the vcam is currently actively influencing the state of this vcam</returns>
-        public override bool IsLiveChild(ICinemachineCamera vcam) 
-        { 
-            return vcam == LiveChild 
-                || (mActiveBlend != null && (vcam == mActiveBlend.CamA || vcam == mActiveBlend.CamB));
+        public override bool IsLiveChild(ICinemachineCamera vcam, bool dominantChildOnly = false)
+        {
+            return vcam == LiveChild || (mActiveBlend != null && mActiveBlend.Uses(vcam));
         }
 
         /// <summary>The State of the current live child</summary>
@@ -114,7 +117,7 @@ namespace Cinemachine
         }
 
         /// <summary>This is called to notify the vcam that a target got warped,
-        /// so that the vcam can update its internal state to make the camera 
+        /// so that the vcam can update its internal state to make the camera
         /// also warp seamlessy.</summary>
         /// <param name="target">The object that was warped</param>
         /// <param name="positionDelta">The amount the target's position changed</param>
@@ -131,11 +134,11 @@ namespace Cinemachine
         /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
         public override void OnTransitionFromCamera(
-            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime) 
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
             base.OnTransitionFromCamera(fromCam, worldUp, deltaTime);
             mActivationTime = Time.time;
-            mCurrentInstruction = -1;
+            mCurrentInstruction = 0;
             LiveChild = null;
             mActiveBlend = null;
             TransitioningFrom = fromCam;
@@ -155,8 +158,8 @@ namespace Cinemachine
                 deltaTime = -1;
 
             UpdateListOfChildren();
+            AdvanceCurrentInstruction(deltaTime);
 
-            AdvanceCurrentInstruction();
             CinemachineVirtualCameraBase best = null;
             if (mCurrentInstruction >= 0 && mCurrentInstruction < m_Instructions.Length)
                 best = m_Instructions[mCurrentInstruction].m_VirtualCamera;
@@ -180,16 +183,16 @@ namespace Cinemachine
                     // Generate Camera Activation event in the brain if live
                     CinemachineCore.Instance.GenerateCameraActivationEvent(LiveChild, previousCam);
 
-                    if (previousCam != null && mCurrentInstruction > 0)
+                    if (previousCam != null)
                     {
                         // Create a blend (will be null if a cut)
                         mActiveBlend = CreateBlend(
                                 previousCam, LiveChild,
-                                m_Instructions[mCurrentInstruction].m_Blend, 
+                                m_Instructions[mCurrentInstruction].m_Blend,
                                 mActiveBlend);
 
                         // If cutting, generate a camera cut event if live
-                        if (mActiveBlend == null)
+                        if (mActiveBlend == null || !mActiveBlend.Uses(previousCam))
                             CinemachineCore.Instance.GenerateCameraCutEvent(LiveChild);
                     }
                 }
@@ -252,7 +255,7 @@ namespace Cinemachine
             {
                 var sb = CinemachineDebug.SBFromPool();
                 sb.Append(Name); sb.Append(": "); sb.Append(Description);
-                string text = sb.ToString(); 
+                string text = sb.ToString();
                 Rect r = CinemachineDebug.GetScreenPos(this, text, GUI.skin.box);
                 GUI.Label(r, text, GUI.skin.box);
                 CinemachineDebug.ReturnToPool(sb);
@@ -304,32 +307,36 @@ namespace Cinemachine
             mActiveBlend = null;
         }
 
-        private void AdvanceCurrentInstruction()
+        private void AdvanceCurrentInstruction(float deltaTime)
         {
-            if (m_ChildCameras == null || m_ChildCameras.Length == 0 
+            if (m_ChildCameras == null || m_ChildCameras.Length == 0
                 || mActivationTime < 0 || m_Instructions.Length == 0)
             {
                 mActivationTime = -1;
                 mCurrentInstruction = -1;
                 mActiveBlend = null;
+                return;
             }
-            else if (mCurrentInstruction >= m_Instructions.Length - 1)
+
+            float now = Time.time;
+            if (mCurrentInstruction < 0 || deltaTime < 0)
             {
+                mActivationTime = now;
+                mCurrentInstruction = 0;
+            }
+            if (mCurrentInstruction > m_Instructions.Length - 1)
+            {
+                mActivationTime = now;
                 mCurrentInstruction = m_Instructions.Length - 1;
             }
-            else 
+
+            var minHold = mCurrentInstruction < m_Instructions.Length - 1 || m_Loop ? 0 : float.MaxValue;
+            if (now - mActivationTime > Mathf.Max(minHold, m_Instructions[mCurrentInstruction].m_Hold))
             {
-                float now = Time.time;
-                if (mCurrentInstruction < 0)
-                {
-                    mActivationTime = now;
+                mActivationTime = now;
+                ++mCurrentInstruction;
+                if (m_Loop && mCurrentInstruction == m_Instructions.Length)
                     mCurrentInstruction = 0;
-                }
-                else if (now - mActivationTime > Mathf.Max(0, m_Instructions[mCurrentInstruction].m_Hold))
-                {
-                    mActivationTime = now;
-                    ++mCurrentInstruction;
-                }
             }
         }
     }
