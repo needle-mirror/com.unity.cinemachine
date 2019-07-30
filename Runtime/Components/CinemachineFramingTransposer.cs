@@ -20,7 +20,7 @@ namespace Cinemachine
     /// For this component to work properly, the vcam's LookAt target must be null.
     /// The Follow target will define what the camera is looking at.
     ///
-    /// If the Follow target is a CinemachineTargetGroup, then additional controls will
+    /// If the Follow target is a ICinemachineTargetGroup, then additional controls will
     /// be available to dynamically adjust the camera's view in order to frame the entire group.
     ///
     /// Although this component was designed for orthographic cameras, it works equally
@@ -308,6 +308,27 @@ namespace Cinemachine
             }
         }
 
+        /// <summary>Notification that this virtual camera is going live.
+        /// Base class implementation does nothing.</summary>
+        /// <param name="fromCam">The camera being deactivated.  May be null.</param>
+        /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
+        /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
+        /// <returns>True if the vcam should do an internal update as a result of this call</returns>
+        public override bool OnTransitionFromCamera(
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
+            ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
+        {
+            if (fromCam != null && transitionParams.m_InheritPosition)
+            {
+                transform.rotation = fromCam.State.RawOrientation;
+                InheritingPosition = true;
+                return true;
+            }
+            return false;
+        }
+
+        bool InheritingPosition { get; set; }
+
         // Convert from screen coords to normalized orthographic distance coords
         private Rect ScreenToOrtho(Rect rScreen, float orthoSize, float aspect)
         {
@@ -351,18 +372,22 @@ namespace Cinemachine
             if (deltaTime < 0)
             {
                 m_Predictor.Reset();
-                if (m_CenterOnActivate)
+                m_PreviousCameraPosition = curState.RawPosition;
+                m_prevFOV = 0;
+                if (!InheritingPosition && m_CenterOnActivate)
                 {
                     m_PreviousCameraPosition = FollowTargetPosition
                         + (curState.RawOrientation * Vector3.back) * m_CameraDistance;
-                    m_prevFOV = 0;
                 }
             }
             if (!IsValid)
+            {
+                InheritingPosition = false;
                 return;
+            }
 
             // Compute group bounds and adjust follow target for group framing
-            CinemachineTargetGroup group = FollowTargetGroup;
+            ICinemachineTargetGroup group = FollowTargetGroup;
             bool isGroupFraming = group != null && m_GroupFramingMode != FramingMode.None;
             if (isGroupFraming)
                 followTargetPosition = ComputeGroupBounds(group, ref curState);
@@ -422,7 +447,7 @@ namespace Cinemachine
             Quaternion worldToLocal = Quaternion.Inverse(localToWorld);
             Vector3 cameraPos = worldToLocal * camPosWorld;
             Vector3 targetPos = (worldToLocal * TrackedPoint) - cameraPos;
-            Vector3 lookAtPos = (worldToLocal * curState.ReferenceLookAt) - cameraPos;
+            Vector3 lookAtPos = targetPos;
 
             // Move along camera z
             Vector3 cameraOffset = Vector3.zero;
@@ -444,7 +469,7 @@ namespace Cinemachine
             {
                 // No damping or hard bounds, just snap to central bounds, skipping the soft zone
                 Rect rect = softGuideOrtho;
-                if (m_CenterOnActivate)
+                if (m_CenterOnActivate && !InheritingPosition)
                     rect = new Rect(rect.center, Vector2.zero); // Force to center
                 cameraOffset += OrthoOffsetToScreenBounds(targetPos, rect);
             }
@@ -480,15 +505,15 @@ namespace Cinemachine
             {
                 if (isOrthographic)
                 {
-                    targetHeight = Mathf.Clamp(targetHeight, m_MinimumOrthoSize, m_MaximumOrthoSize);
+                    targetHeight = Mathf.Clamp(targetHeight / 2, m_MinimumOrthoSize, m_MaximumOrthoSize);
 
-                    // ApplyDamping
+                    // Apply Damping
                     if (deltaTime >= 0)
                         targetHeight = m_prevFOV + Damper.Damp(targetHeight - m_prevFOV, m_ZDamping, deltaTime);
                     m_prevFOV = targetHeight;
 
                     LensSettings lens = curState.Lens;
-                    lens.OrthographicSize = Mathf.Clamp(targetHeight / 2, m_MinimumOrthoSize, m_MaximumOrthoSize);
+                    lens.OrthographicSize = Mathf.Clamp(targetHeight, m_MinimumOrthoSize, m_MaximumOrthoSize);
                     curState.Lens = lens;
                 }
                 else if (m_AdjustmentMode != AdjustmentMode.DollyOnly)
@@ -511,6 +536,7 @@ namespace Cinemachine
                     curState.Lens = lens;
                 }
             }
+            InheritingPosition = false;
         }
 
         float GetTargetHeight(Vector2 boundsSize)
@@ -527,7 +553,7 @@ namespace Cinemachine
             }
         }
 
-        Vector3 ComputeGroupBounds(CinemachineTargetGroup group, ref CameraState curState)
+        Vector3 ComputeGroupBounds(ICinemachineTargetGroup group, ref CameraState curState)
         {
             Vector3 cameraPos = curState.RawPosition;
             Vector3 fwd = curState.RawOrientation * Vector3.forward;
@@ -553,7 +579,7 @@ namespace Cinemachine
         }
 
         static Bounds GetScreenSpaceGroupBoundingBox(
-            CinemachineTargetGroup group, ref Vector3 pos, Quaternion orientation)
+            ICinemachineTargetGroup group, ref Vector3 pos, Quaternion orientation)
         {
             Matrix4x4 observer = Matrix4x4.TRS(pos, orientation, Vector3.one);
             Vector2 minAngles, maxAngles, zRange;

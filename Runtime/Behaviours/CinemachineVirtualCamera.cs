@@ -520,11 +520,12 @@ namespace Cinemachine
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
             base.OnTransitionFromCamera(fromCam, worldUp, deltaTime);
+            InvokeOnTransitionInExtensions(fromCam, worldUp, deltaTime);
             bool forceUpdate = false;
 
             if (m_Transitions.m_InheritPosition && fromCam != null)
             {
-                transform.position = fromCam.State.RawPosition;
+                transform.position = fromCam.State.FinalPosition;
                 //transform.rotation = fromCam.State.RawOrientation;
                 PreviousStateIsValid = false;
                 forceUpdate = true;
@@ -538,7 +539,10 @@ namespace Cinemachine
                         forceUpdate = true;
             }
             if (forceUpdate)
+            {
                 InternalUpdateCameraState(worldUp, deltaTime);
+                InternalUpdateCameraState(worldUp, deltaTime);
+            }
             else
                 UpdateCameraState(worldUp, deltaTime);
             if (m_Transitions.m_OnCameraLive != null)

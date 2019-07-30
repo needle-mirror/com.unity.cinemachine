@@ -4,7 +4,28 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [2.2.9-preview] - 2019-05-22
+## [2.2.10-preview.3] - 2019-07-31
+### Bugfixes
+- Storyboard: added global mute function
+- Added ApplyBeforeBody option to POV component, to support working with FramingTransposer
+- Added RectenterTarget to POV component
+- Added OnTransitionFromCamera callback to extensions
+- Added Speed Mode to AxisState, to support direct axis control without max speed
+- New example scene: OverTheShoulderAim illustrating how to do over-the-shoulder TPS cam, with Normal and Aim modes
+- Impulse Manager: added option to ignore timescale
+- Framing Transposer: added OnTransition handling for camera rotation if InheritPosition
+- Removed Resources diretories
+- Regression Fix: Framing Transposer: ignore LookAt target.  Use Follow exclusively
+- Bugfix: Storyboard canvases were not always destructed properly
+- Bugfix: FreeLook was not respecting wait time for X axis recentering
+- Bugfix: FreeLook X axis was not always perfectly synched between rigs
+- Bugfix (fogbugz 1158509): Split brain.UpdateMethod into VcamUpdateMethod and BrainUpdateMethod, to make blending work correctly
+- Bugfix (fogbugz 1162074): Framing transposer and group transposer only reached half maximum ortho size 
+- Bugfix (fogbugz 1165599): Transposer: fix gimbal lock issue in LockToTargetWithWorldUp
+- Bugfix: use vcam's up when drawing gizmos (orbital transposer and free look)
+
+
+## [2.2.9] - 2019-05-22
 ### Mostly Bugfixes
 - Added CinemachineCore.GetBlendOverride delegate to allow applications to override any vcam blend when it happens
 - When a blend is cancelled by the opposite blend, reduce the blend time
