@@ -157,8 +157,12 @@ namespace Cinemachine
         /// used to calculate the heading.
         /// </summary>
         internal UpdateHeadingDelegate HeadingUpdater
-            = (CinemachineOrbitalTransposer orbital, float deltaTime, Vector3 up)
-                => { return orbital.UpdateHeading(deltaTime, up, ref orbital.m_XAxis); };
+            = (CinemachineOrbitalTransposer orbital, float deltaTime, Vector3 up) => {
+                    return orbital.UpdateHeading(
+                        deltaTime, up, ref orbital.m_XAxis,
+                        ref orbital.m_RecenterToTargetHeading,
+                        CinemachineCore.Instance.IsLive(orbital.VirtualCamera));
+                };
 
         /// <summary>
         /// Update the X axis and calculate the heading.  This can be called by a delegate
@@ -166,22 +170,25 @@ namespace Cinemachine
         /// <param name="deltaTime">Used for damping.  If less than 0, no damping is done.</param>
         /// <param name="up">World Up, set by the CinemachineBrain</param>
         /// <param name="axis"></param>
+        /// <param name="recentering"></param>
         /// <returns>Axis value</returns>
         /// </summary>
-        public float UpdateHeading(float deltaTime, Vector3 up, ref AxisState axis)
+        public float UpdateHeading(
+            float deltaTime, Vector3 up, ref AxisState axis,
+            ref AxisState.Recentering recentering, bool isLive)
         {
             // Only read joystick when game is playing
-            if (deltaTime < 0 || !CinemachineCore.Instance.IsLive(VirtualCamera))
+            if (deltaTime < 0 || !isLive)
             {
                 axis.Reset();
-                m_RecenterToTargetHeading.CancelRecentering();
+                recentering.CancelRecentering();
             }
             else if (axis.Update(deltaTime))
-                m_RecenterToTargetHeading.CancelRecentering();
+                recentering.CancelRecentering();
 
             float targetHeading = GetTargetHeading(axis.Value, GetReferenceOrientation(up), deltaTime);
-            if (m_BindingMode != BindingMode.SimpleFollowWithWorldUp)
-                m_RecenterToTargetHeading.DoRecentering(ref axis, deltaTime, targetHeading);
+            if (deltaTime >= 0 && m_BindingMode != BindingMode.SimpleFollowWithWorldUp)
+                recentering.DoRecentering(ref axis, deltaTime, targetHeading);
 
             float finalHeading = axis.Value;
             if (m_BindingMode == BindingMode.SimpleFollowWithWorldUp)
@@ -227,6 +234,8 @@ namespace Cinemachine
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
             ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
         {
+            m_RecenterToTargetHeading.DoRecentering(ref m_XAxis, -1, 0);
+            m_RecenterToTargetHeading.CancelRecentering();
             if (fromCam != null //&& fromCam.Follow == FollowTarget
                 && m_BindingMode != CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp
                 && transitionParams.m_InheritPosition)

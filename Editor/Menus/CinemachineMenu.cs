@@ -198,7 +198,18 @@ namespace Cinemachine.Editor
         private static void ImportExamplePackage()
         {
             string pkgFile = ScriptableObjectUtility.CinemachineInstallPath
-                + "/Extras~/CinemachineExamples.unitypackage";
+                + "/Samples/CinemachineExamples.unitypackage";
+            if (!File.Exists(pkgFile))
+                Debug.LogError("Missing file " + pkgFile);
+            else
+                AssetDatabase.ImportPackage(pkgFile, true);
+        }
+
+        [MenuItem("Cinemachine/Import Post Processing V2 Adapter Asset Package")]
+        private static void ImportPostProcessingV2Package()
+        {
+            string pkgFile = ScriptableObjectUtility.CinemachineInstallPath
+                + "/Extras~/CinemachinePostProcessingV2.unitypackage";
             if (!File.Exists(pkgFile))
                 Debug.LogError("Missing file " + pkgFile);
             else

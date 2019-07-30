@@ -1,8 +1,17 @@
 ﻿#if CINEMACHINE_POST_PROCESSING_V3
+
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering.HDPipeline;
+#if CINEMACHINE_HDRP_7_0_0
+using UnityEngine.Rendering.HighDefinition;
+#else
+    #if CINEMACHINE_LWRP_7_0_0
+    using UnityEngine.Rendering.Universal;
+    #else
+    using UnityEngine.Experimental.Rendering.HDPipeline;
+    #endif
+#endif
 
 namespace Cinemachine.PostFX
 {
@@ -184,18 +193,26 @@ namespace Cinemachine.PostFX
                     volumeOwner.hideFlags = HideFlags.HideAndDontSave;
                     volumeOwner.transform.parent = t;
                 }
-/*
+
                 // Update the volume's layer so it will be seen
-                int mask = ppLayer.volumeLayer.value;
-                for (int i = 0; i < 32; ++i)
+#if CINEMACHINE_LWRP_7_0_0
+                var data = brain.gameObject.GetComponent<UniversalAdditionalCameraData>();
+#else
+                var data = brain.gameObject.GetComponent<HDAdditionalCameraData>();
+#endif
+                if (data != null)
                 {
-                    if ((mask & (1 << i)) != 0)
+                    int mask = data.volumeLayerMask;
+                    for (int i = 0; i < 32; ++i)
                     {
-                        volumeOwner.layer = i;
-                        break;
+                        if ((mask & (1 << i)) != 0)
+                        {
+                            volumeOwner.layer = i;
+                            break;
+                        }
                     }
                 }
-*/
+
                 while (sVolumes.Count < minVolumes)
                     sVolumes.Add(volumeOwner.gameObject.AddComponent<Volume>());
             }

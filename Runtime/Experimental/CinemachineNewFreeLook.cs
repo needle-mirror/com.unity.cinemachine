@@ -269,6 +269,9 @@ namespace Cinemachine
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
             base.OnTransitionFromCamera(fromCam, worldUp, deltaTime);
+            InvokeOnTransitionInExtensions(fromCam, worldUp, deltaTime);
+            m_VerticalAxis.m_Recentering.DoRecentering(ref m_VerticalAxis, -1, 0.5f);
+            m_VerticalAxis.m_Recentering.CancelRecentering();
             if (fromCam != null && m_Transitions.m_InheritPosition)
             {
                 // Note: horizontal axis already taken care of by base class

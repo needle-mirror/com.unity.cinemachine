@@ -6,8 +6,8 @@ namespace Cinemachine
     /// <summary>
     /// This is a CinemachineComponent in the Aim section of the component pipeline.
     /// Its job is to aim the camera in response to the user's mouse or joystick input.
-    /// 
-    /// The composer does not change the camera's position.  It will only pan and tilt the 
+    ///
+    /// The composer does not change the camera's position.  It will only pan and tilt the
     /// camera where it is, in order to get the desired framing.  To move the camera, you have
     /// to use the virtual camera's Body section.
     /// </summary>
@@ -16,6 +16,39 @@ namespace Cinemachine
     [SaveDuringPlay]
     public class CinemachinePOV : CinemachineComponentBase
     {
+        /// <summary>Set this if the POV should be applied to the camera state before the body
+        /// position is calculated.  This is useful for body algorithms that use the rotation as input,
+        /// for example Framing Transposer</summary>
+        [Tooltip("Set this if the POV should be applied to the camera state before the body position is calculated.  "
+            + "This is useful for body algorithms that use the rotation as input, for example Framing Transposer.")]
+        public bool m_ApplyBeforeBody = false;
+
+        /// <summary>
+        /// Defines the recentering target: Recentering goes here
+        /// </summary>
+        public enum RecenterTargetMode
+        {
+            /// <summary>
+            /// Just go to 0
+            /// </summary>
+            None,
+
+            /// <summary>
+            /// Axis angles are relative to Follow target's forward
+            /// </summary>
+            FollowTargetForward,
+
+            /// <summary>
+            /// Axis angles are relative to LookAt target's forward
+            /// </summary>
+            LookAtTargetForward
+        }
+
+        /// <summary>
+        /// Defines the recentering target: recentering goes here
+        /// </summary>
+        public RecenterTargetMode m_RecenterTarget = RecenterTargetMode.None;
+
         /// <summary>The Vertical axis.  Value is -90..90. Controls the vertical orientation</summary>
         [Tooltip("The Vertical axis.  Value is -90..90. Controls the vertical orientation")]
         [AxisStateProperty]
@@ -49,10 +82,25 @@ namespace Cinemachine
             m_HorizontalRecentering.Validate();
         }
 
+        public override void PrePipelineMutateCameraState(ref CameraState curState, float deltaTime)
+        {
+            if (m_ApplyBeforeBody)
+                ApplyPOV(ref curState, deltaTime);
+        }
+
         /// <summary>Applies the axis values and orients the camera accordingly</summary>
         /// <param name="curState">The current camera state</param>
         /// <param name="deltaTime">Used for calculating damping.  Not used.</param>
         public override void MutateCameraState(ref CameraState curState, float deltaTime)
+        {
+            if (!m_ApplyBeforeBody)
+                ApplyPOV(ref curState, deltaTime);
+        }
+
+        /// <summary>Applies the axis values and orients the camera accordingly</summary>
+        /// <param name="curState">The current camera state</param>
+        /// <param name="deltaTime">Used for calculating damping.  Not used.</param>
+        void ApplyPOV(ref CameraState curState, float deltaTime)
         {
             if (!IsValid)
                 return;
@@ -64,9 +112,11 @@ namespace Cinemachine
                     m_HorizontalRecentering.CancelRecentering();
                 if (m_VerticalAxis.Update(deltaTime))
                     m_VerticalRecentering.CancelRecentering();
+
+                var recenterTarget = GetRecenterTarget();
+                m_HorizontalRecentering.DoRecentering(ref m_HorizontalAxis, deltaTime, recenterTarget.x);
+                m_VerticalRecentering.DoRecentering(ref m_VerticalAxis, deltaTime, recenterTarget.y);
             }
-            m_HorizontalRecentering.DoRecentering(ref m_HorizontalAxis, deltaTime, 0);
-            m_VerticalRecentering.DoRecentering(ref m_VerticalAxis, deltaTime, 0);
 
             // If we have a transform parent, then apply POV in the local space of the parent
             Quaternion rot = Quaternion.Euler(m_VerticalAxis.Value, m_HorizontalAxis.Value, 0);
@@ -78,6 +128,31 @@ namespace Cinemachine
             curState.RawOrientation = rot;
         }
 
+        /// <summary>
+        /// Get the horizonmtal and vertical angles that correspong to "at rest" position.
+        /// </summary>
+        /// <returns>X is horizontal angle (rot Y) and Y is vertical angle (rot X)</returns>
+        public Vector2 GetRecenterTarget()
+        {
+            Transform t = null;
+            switch (m_RecenterTarget)
+            {
+                case RecenterTargetMode.FollowTargetForward: t = VirtualCamera.Follow; break;
+                case RecenterTargetMode.LookAtTargetForward: t = VirtualCamera.LookAt; break;
+                default: break;
+            }
+            if (t != null)
+            {
+                var fwd = t.forward;
+                Transform parent = VirtualCamera.transform.parent;
+                if (parent != null)
+                    fwd = parent.rotation * fwd;
+                var v = Quaternion.FromToRotation(Vector3.forward, fwd).eulerAngles;
+                return new Vector2(v.y, v.x);
+            }
+            return Vector2.zero;
+        }
+
         /// <summary>Notification that this virtual camera is going live.
         /// Base class implementation does nothing.</summary>
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
@@ -86,8 +161,12 @@ namespace Cinemachine
         /// <returns>True if the vcam should do an internal update as a result of this call</returns>
         public override bool OnTransitionFromCamera(
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
-            ref CinemachineVirtualCameraBase.TransitionParams transitionParams) 
-        { 
+            ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
+        {
+            m_HorizontalRecentering.DoRecentering(ref m_HorizontalAxis, -1, 0);
+            m_VerticalRecentering.DoRecentering(ref m_VerticalAxis, -1, 0);
+            m_HorizontalRecentering.CancelRecentering();
+            m_VerticalRecentering.CancelRecentering();
             if (fromCam != null && transitionParams.m_InheritPosition)
             {
                 Vector3 up = VcamState.ReferenceUp;
@@ -113,7 +192,7 @@ namespace Cinemachine
                     m_VerticalAxis.Value = Vector3.SignedAngle(fwd, targetFwd, right);
                 return true;
             }
-            return false; 
+            return false;
         }
     }
 }

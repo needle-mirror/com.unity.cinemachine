@@ -24,7 +24,7 @@ namespace Cinemachine.Editor
                     FieldPath(x => x.m_CustomBlends), this);
             m_BlendsEditor.OnChanged = (CinemachineBlenderSettings b) =>
                 {
-                    UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+                    InspectorUtility.RepaintGameView(Target);
                 };
             m_BlendsEditor.OnCreateEditor = (UnityEditor.Editor ed) =>
                 {

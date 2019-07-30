@@ -70,7 +70,7 @@ namespace Cinemachine.Editor
             else if (GUIUtility.hotControl == 0 && Target.UserIsDragging)
             {
                 // We're not dragging anything now, but we were
-                UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+                InspectorUtility.RepaintGameView(Target);
                 Target.UserIsDragging = false;
             }
         }
@@ -114,7 +114,7 @@ namespace Cinemachine.Editor
                 int index = (int)stage;
 
                 // Skip pipeline stages that have no implementations
-                if (sStageData[index].PopupOptions.Length <= 1)
+                if (index < 0 || sStageData[index].PopupOptions.Length <= 1)
                     continue;
 
                 const float indentOffset = 4;
