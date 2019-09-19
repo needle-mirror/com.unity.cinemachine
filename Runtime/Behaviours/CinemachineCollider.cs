@@ -1,16 +1,18 @@
+#if !UNITY_2019_3_OR_NEWER
 #define CINEMACHINE_PHYSICS
 #define CINEMACHINE_PHYSICS_2D
-
-#if CINEMACHINE_PHYSICS
+#endif
 
 using UnityEngine;
 using System.Collections.Generic;
 using Cinemachine.Utility;
 using UnityEngine.Serialization;
 using System;
+using UnityEngine.SceneManagement;
 
 namespace Cinemachine
 {
+#if CINEMACHINE_PHYSICS
     /// <summary>
     /// An add-on module for Cinemachine Virtual Camera that post-processes
     /// the final position of the virtual camera. Based on the supplied settings,
@@ -162,6 +164,11 @@ namespace Cinemachine
             m_OptimalTargetDistance = Mathf.Max(0, m_OptimalTargetDistance);
         }
 
+        protected override void OnDestroy()
+        {
+            DestroyCollider();
+            base.OnDestroy();
+        }
 
         /// This must be small but greater than 0 - reduces false results due to precision
         const float PrecisionSlush = 0.001f;
@@ -638,6 +645,20 @@ namespace Cinemachine
         private Collider[] mColliderBuffer = new Collider[5];
         private static SphereCollider mCameraCollider;
         private static GameObject mCameraColliderGameObject;
+
+        static void DestroyCollider()
+        {
+            if (mCameraColliderGameObject != null)
+            {
+                mCameraColliderGameObject.SetActive(false);
+                RuntimeUtility.DestroyObject(mCameraColliderGameObject.GetComponent<Rigidbody>());
+            }
+            RuntimeUtility.DestroyObject(mCameraCollider);
+            RuntimeUtility.DestroyObject(mCameraColliderGameObject);
+            mCameraColliderGameObject = null;
+            mCameraCollider = null;
+        }
+
         private Vector3 RespectCameraRadius(Vector3 cameraPos, ref CameraState state)
         {
             Vector3 result = Vector3.zero;
@@ -781,5 +802,5 @@ namespace Cinemachine
             return false;
         }
     }
-}
 #endif
+}

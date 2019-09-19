@@ -204,23 +204,25 @@ namespace Cinemachine
 
             sStandardCurves[(int)Style.EaseIn] = AnimationCurve.Linear(0f, 0f, 1, 1f);
             Keyframe[] keys = sStandardCurves[(int)Style.EaseIn].keys;
+            keys[0].outTangent = 1.4f;
             keys[1].inTangent = 0;
             sStandardCurves[(int)Style.EaseIn].keys = keys;
 
             sStandardCurves[(int)Style.EaseOut] = AnimationCurve.Linear(0f, 0f, 1, 1f);
             keys = sStandardCurves[(int)Style.EaseOut].keys;
             keys[0].outTangent = 0;
+            keys[1].inTangent = 1.4f;
             sStandardCurves[(int)Style.EaseOut].keys = keys;
 
             sStandardCurves[(int)Style.HardIn] = AnimationCurve.Linear(0f, 0f, 1, 1f);
             keys = sStandardCurves[(int)Style.HardIn].keys;
             keys[0].outTangent = 0;
-            keys[1].inTangent = 1.5708f; // pi/2 = up
+            keys[1].inTangent = 3f;
             sStandardCurves[(int)Style.HardIn].keys = keys;
 
             sStandardCurves[(int)Style.HardOut] = AnimationCurve.Linear(0f, 0f, 1, 1f);
             keys = sStandardCurves[(int)Style.HardOut].keys;
-            keys[0].outTangent = 1.5708f; // pi/2 = up
+            keys[0].outTangent = 3f;
             keys[1].inTangent = 0;
             sStandardCurves[(int)Style.HardOut].keys = keys;
 

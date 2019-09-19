@@ -1,13 +1,14 @@
-﻿#define CINEMACHINE_PHYSICS
+﻿#if !UNITY_2019_3_OR_NEWER
+#define CINEMACHINE_PHYSICS
 #define CINEMACHINE_PHYSICS_2D
-
-#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
+#endif
 
 using UnityEditor;
 using UnityEngine;
 
 namespace Cinemachine.Editor
 {
+#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
     [CustomEditor(typeof(CinemachineCollisionImpulseSource))]
     internal sealed class CinemachineCollisionImpulseSourceEditor
         : BaseEditor<CinemachineCollisionImpulseSource>
@@ -27,5 +28,5 @@ namespace Cinemachine.Editor
             DrawRemainingPropertiesInInspector();
         }
     }
-}
 #endif
+}

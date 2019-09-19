@@ -4,8 +4,8 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [2.3.5-preview.3] - 2019-07-31
-### Bugfixes
+## [2.4.0-preview.3] - 2019-09-20
+### HDRP 7 support and bugfixes
 - Storyboard: added global mute function
 - Added ApplyBeforeBody option to POV component, to support working with FramingTransposer
 - Added RectenterTarget to POV component
@@ -16,9 +16,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Framing Transposer: added OnTransition handling for camera rotation if InheritPosition
 - Upgrade to support HDRP and Universal RP 7.0.0 API
 - Removed Resources diretories
+- Bugfix: added EmbeddedAssetHelper null check
 - Regression Fix: Framing Transposer: ignore LookAt target.  Use Follow exclusively
+- Bugfix: composer screen guides drawn in correct place for physical camera
 - Bugfix: FreeLook was not respecting wait time for X axis recentering
 - Bugfix: FreeLook X axis was not always perfectly synched between rigs
+- Bugfix (fogbugz 1176866): Collider: clean up static RigidBody on exit
+- Bugfix (fogbugz 1174180): framing transposer wrong ortho size calculation
 - Bugfix (fogbugz 1158509): Split brain.UpdateMethod into VcamUpdateMethod and BrainUpdateMethod, to make blending work correctly
 - Bugfix (fogbugz 1162074): Framing transposer and group transposer only reached half maximum ortho size 
 - Bugfix (fogbugz 1165599): Transposer: fix gimbal lock issue in LockToTargetWithWorldUp

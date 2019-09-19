@@ -1,3 +1,6 @@
+#if !UNITY_2019_1_OR_NEWER
+#define CINEMACHINE_TIMELINE
+#endif
 #if CINEMACHINE_TIMELINE
 
 using UnityEditor;
@@ -72,7 +75,9 @@ using Cinemachine;
             // this prevents flicker on post processing updates
             if (EditorGUI.EndChangeCheck())
             {
+#if UNITY_2018_3_OR_NEWER
                 TimelineEditor.Refresh(RefreshReason.SceneNeedsUpdate);
+#endif
                 GUI.changed = false;
             }
         }

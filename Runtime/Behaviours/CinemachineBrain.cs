@@ -6,6 +6,18 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
 
+#if CINEMACHINE_HDRP || CINEMACHINE_LWRP_7_0_0
+    #if CINEMACHINE_HDRP_7_0_0
+    using UnityEngine.Rendering.HighDefinition;
+    #else
+        #if CINEMACHINE_LWRP_7_0_0
+        using UnityEngine.Rendering.Universal;
+        #else
+        using UnityEngine.Experimental.Rendering.HDPipeline;
+        #endif
+    #endif
+#endif
+
 namespace Cinemachine
 {
     /// <summary>
@@ -61,7 +73,7 @@ namespace Cinemachine
 
         /// <summary>This enum defines the options available for the update method.</summary>
         [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-        public enum VcamUpdateMethod
+        public enum UpdateMethod
         {
             /// <summary>Virtual cameras are updated in sync with the Physics module, in FixedUpdate</summary>
             FixedUpdate,
@@ -79,8 +91,7 @@ namespace Cinemachine
             + "during FixedUpdate (e.g. RigidBodies), LateUpdate if all your targets are animated "
             + "during the normal Update loop, and SmartUpdate if you want Cinemachine to do the "
             + "appropriate thing on a per-target basis.  SmartUpdate is the recommended setting")]
-        [FormerlySerializedAs("m_UpdateMethod")]
-        public VcamUpdateMethod m_VcamUpdateMethod = VcamUpdateMethod.SmartUpdate;
+        public UpdateMethod m_UpdateMethod = UpdateMethod.SmartUpdate;
 
         /// <summary>This enum defines the options available for the update method.</summary>
         [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
@@ -95,7 +106,7 @@ namespace Cinemachine
         /// <summary>The update time for the Brain, i.e. when the blends are evaluated and the
         /// brain's transform is updated.</summary>
         [Tooltip("The update time for the Brain, i.e. when the blends are evaluated and the brain's transform is updated")]
-        public BrainUpdateMethod m_BrainUpdateMethod = BrainUpdateMethod.LateUpdate;
+        public BrainUpdateMethod m_BlendUpdateMethod = BrainUpdateMethod.LateUpdate;
 
         /// <summary>
         /// The blend which is used if you don't explicitly define a blend between two Virtual Cameras.
@@ -251,10 +262,10 @@ namespace Cinemachine
             {
                 // FixedUpdate can be called multiple times per frame
                 yield return mWaitForFixedUpdate;
-                if (m_VcamUpdateMethod != VcamUpdateMethod.LateUpdate)
+                if (m_UpdateMethod != UpdateMethod.LateUpdate)
                 {
                     CinemachineCore.UpdateFilter filter = CinemachineCore.UpdateFilter.Fixed;
-                    if (m_VcamUpdateMethod == VcamUpdateMethod.SmartUpdate)
+                    if (m_UpdateMethod == UpdateMethod.SmartUpdate)
                     {
                         // Track the targets
                         UpdateTracker.OnUpdate(UpdateTracker.UpdateClock.Fixed);
@@ -263,7 +274,7 @@ namespace Cinemachine
                     UpdateVirtualCameras(filter, GetEffectiveDeltaTime(true));
                 }
                 // Choose the active vcam and apply it to the Unity camera
-                if (m_BrainUpdateMethod == BrainUpdateMethod.FixedUpdate)
+                if (m_BlendUpdateMethod == BrainUpdateMethod.FixedUpdate)
                     ProcessActiveCamera(Time.fixedDeltaTime);
             }
         }
@@ -274,11 +285,11 @@ namespace Cinemachine
             UpdateFrame0(deltaTime);
             UpdateCurrentLiveCameras();
 
-            if (m_VcamUpdateMethod == VcamUpdateMethod.FixedUpdate)
+            if (m_UpdateMethod == UpdateMethod.FixedUpdate)
             {
                 // Special handling for fixed update: cameras that have been enabled
                 // since the last physics frame must be updated now
-                if (m_BrainUpdateMethod != BrainUpdateMethod.FixedUpdate)
+                if (m_BlendUpdateMethod != BrainUpdateMethod.FixedUpdate)
                 {
                     CinemachineCore.Instance.CurrentUpdateFilter = CinemachineCore.UpdateFilter.Fixed;
                     if (SoloCamera != null)
@@ -289,7 +300,7 @@ namespace Cinemachine
             else
             {
                 CinemachineCore.UpdateFilter filter = CinemachineCore.UpdateFilter.Late;
-                if (m_VcamUpdateMethod == VcamUpdateMethod.SmartUpdate)
+                if (m_UpdateMethod == UpdateMethod.SmartUpdate)
                 {
                     // Track the targets
                     UpdateTracker.OnUpdate(UpdateTracker.UpdateClock.Late);
@@ -298,7 +309,7 @@ namespace Cinemachine
                 UpdateVirtualCameras(filter, deltaTime);
             }
             // Choose the active vcam and apply it to the Unity camera
-            if (m_BrainUpdateMethod == BrainUpdateMethod.LateUpdate)
+            if (m_BlendUpdateMethod == BrainUpdateMethod.LateUpdate)
                 ProcessActiveCamera(deltaTime);
         }
 
@@ -354,9 +365,9 @@ namespace Cinemachine
             updateFilter = CinemachineCore.UpdateFilter.Late;
             if (Application.isPlaying)
             {
-                if (m_VcamUpdateMethod == VcamUpdateMethod.SmartUpdate)
+                if (m_UpdateMethod == UpdateMethod.SmartUpdate)
                     updateFilter |= CinemachineCore.UpdateFilter.Smart;
-                else if (m_VcamUpdateMethod == VcamUpdateMethod.FixedUpdate)
+                else if (m_UpdateMethod == UpdateMethod.FixedUpdate)
                     updateFilter = CinemachineCore.UpdateFilter.Fixed;
             }
             CinemachineCore.Instance.CurrentUpdateFilter = updateFilter;
@@ -522,10 +533,14 @@ namespace Cinemachine
                         m_CameraActivatedEvent.Invoke(activeCamera, mActiveCameraPreviousFrame);
 
                     // If we're cutting without a blend, send an event
-                    if (m_CameraCutEvent != null
-                            && (!IsBlending || (mActiveCameraPreviousFrame != null
-                                && !ActiveBlend.Uses(mActiveCameraPreviousFrame))))
-                        m_CameraCutEvent.Invoke(this);
+                    if (!IsBlending || (mActiveCameraPreviousFrame != null
+                                && !ActiveBlend.Uses(mActiveCameraPreviousFrame)))
+                    {
+                        if (m_CameraCutEvent != null)
+                            m_CameraCutEvent.Invoke(this);
+                        if (CinemachineCore.CameraCutEvent != null)
+                            CinemachineCore.CameraCutEvent.Invoke(this);
+                    }
                 }
                 // Apply the vcam state to the Unity camera
                 PushStateToUnityCamera(
@@ -741,6 +756,22 @@ namespace Cinemachine
                         cam.usePhysicalProperties = state.Lens.IsPhysicalCamera;
                         cam.lensShift = state.Lens.LensShift;
                     }
+    #if CINEMACHINE_HDRP
+                    if (state.Lens.IsPhysicalCamera)
+                    {
+                        var hda = cam.GetComponent<HDAdditionalCameraData>();
+                        if (hda != null)
+                        {
+                            hda.physicalParameters.iso = state.Lens.Iso;
+                            hda.physicalParameters.shutterSpeed = state.Lens.ShutterSpeed;
+                            hda.physicalParameters.aperture = state.Lens.Aperture;
+                            hda.physicalParameters.bladeCount = state.Lens.BladeCount;
+                            hda.physicalParameters.curvature = state.Lens.Curvature;
+                            hda.physicalParameters.barrelClipping = state.Lens.BarrelClipping;
+                            hda.physicalParameters.anamorphism = state.Lens.Anamorphism;
+                        }
+                    }
+    #endif
 #endif
                 }
             }

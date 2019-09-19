@@ -35,7 +35,7 @@ namespace Cinemachine.Editor
                 names.Add("(select)");
                 var allExtensions
                     = ReflectionHelpers.GetTypesInAllDependentAssemblies(
-                            (Type t) => typeof(CinemachineExtension).IsAssignableFrom(t));
+                            (Type t) => typeof(CinemachineExtension).IsAssignableFrom(t) && !t.IsAbstract);
                 foreach (Type t in allExtensions)
                 {
                     exts.Add(t);
@@ -163,7 +163,11 @@ namespace Cinemachine.Editor
             {
                 isSolo = !isSolo;
                 CinemachineBrain.SoloCamera = isSolo ? Target : null;
+#if UNITY_2019_1_OR_NEWER
                 EditorUtility.SetDirty(Target);
+#else
+                UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+#endif
             }
             GUI.color = color;
             if (isSolo && !Application.isPlaying)

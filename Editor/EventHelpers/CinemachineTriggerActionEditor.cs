@@ -1,7 +1,7 @@
+#if !UNITY_2019_3_OR_NEWER
 #define CINEMACHINE_PHYSICS
 #define CINEMACHINE_PHYSICS_2D
-
-#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
+#endif
 
 using UnityEngine;
 using UnityEditor;
@@ -10,6 +10,7 @@ using UnityEngine.Playables;
 
 namespace Cinemachine.Editor
 {
+#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
     [CustomEditor(typeof(CinemachineTriggerAction))]
     internal class CinemachineTriggerActionEditor : BaseEditor<CinemachineTriggerAction>
     {
@@ -155,5 +156,5 @@ namespace Cinemachine.Editor
             return null;
         }
     }
-}
 #endif
+}

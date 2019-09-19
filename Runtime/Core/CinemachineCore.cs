@@ -13,7 +13,7 @@ namespace Cinemachine
         public static readonly int kStreamingVersion = 20170927;
 
         /// <summary>Human-readable Cinemachine Version</summary>
-        public static readonly string kVersionString = "2.3.4";
+        public static readonly string kVersionString = "2.4.0";
 
         /// <summary>
         /// Stages in the Cinemachine Component pipeline, used for
@@ -89,6 +89,9 @@ namespace Cinemachine
 
         /// <summary>This event will fire after a brain updates its Camera</summary>
         public static CinemachineBrain.BrainEvent CameraUpdatedEvent = new CinemachineBrain.BrainEvent();
+
+        /// <summary>This event will fire after a brain updates its Camera</summary>
+        public static CinemachineBrain.BrainEvent CameraCutEvent = new CinemachineBrain.BrainEvent();
 
         /// <summary>List of all active CinemachineBrains.</summary>
         private List<CinemachineBrain> mActiveBrains = new List<CinemachineBrain>();
@@ -293,6 +296,7 @@ namespace Cinemachine
                 if (frameDelta > 0)
                     deltaTime *= frameDelta; // try to catch up if multiple frames
             }
+
 //Debug.Log((vcam.ParentCamera == null ? "" : vcam.ParentCamera.Name + ".") + vcam.Name + ": frame " + Time.frameCount + "/" + status.lastUpdateFixedFrame + ", " + CurrentUpdateFilter + ", deltaTime = " + deltaTime);
             vcam.InternalUpdateCameraState(worldUp, deltaTime);
             status.lastUpdateFrame = Time.frameCount;
@@ -401,7 +405,12 @@ namespace Cinemachine
                 {
                     CinemachineBrain b = GetActiveBrain(i);
                     if (b != null && b.IsLive(vcam))
-                        b.m_CameraCutEvent.Invoke(b);
+                    {
+                        if (b.m_CameraCutEvent != null)
+                            b.m_CameraCutEvent.Invoke(b);
+                        if (CameraCutEvent != null)
+                            CameraCutEvent.Invoke(b);
+                    }
                 }
             }
         }

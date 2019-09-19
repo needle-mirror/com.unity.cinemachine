@@ -1,7 +1,7 @@
+#if !UNITY_2019_3_OR_NEWER
 #define CINEMACHINE_PHYSICS
 #define CINEMACHINE_PHYSICS_2D
-
-#if CINEMACHINE_PHYSICS
+#endif
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,6 +9,7 @@ using Cinemachine.Utility;
 
 namespace Cinemachine
 {
+#if CINEMACHINE_PHYSICS
     /// <summary>
     /// Cinemachine ClearShot is a "manager camera" that owns and manages a set of
     /// Virtual Camera gameObject children.  When Live, the ClearShot will check the
@@ -446,5 +447,5 @@ namespace Cinemachine
 
         ICinemachineCamera TransitioningFrom { get; set; }
     }
-}
 #endif
+}
