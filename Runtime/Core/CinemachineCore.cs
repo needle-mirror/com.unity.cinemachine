@@ -64,6 +64,12 @@ namespace Cinemachine
         public static AxisInputDelegate GetInputAxis = UnityEngine.Input.GetAxis;
 
         /// <summary>
+        /// If set, and in play mode, cinemachine will update with this uniform delta time.
+        /// Usage is for timelines in manual update mode.
+        /// </summary>
+        public static float UniformDeltaTimeOverride = 0;
+
+        /// <summary>
         /// Delegate for overriding a blend that is about to be applied to a transition.
         /// A handler can either return the default blend, or a new blend specific to
         /// current conditions.
@@ -291,7 +297,8 @@ namespace Cinemachine
                 : FixedFrameCount - status.lastUpdateFixedFrame;
             if (deltaTime >= 0)
             {
-                if (frameDelta == 0 && status.lastUpdateMode == updateClock)
+                if (frameDelta == 0 && status.lastUpdateMode == updateClock
+                        && status.lastUpdateDeltaTime == deltaTime)
                     return; // already updated
                 if (frameDelta > 0)
                     deltaTime *= frameDelta; // try to catch up if multiple frames
@@ -302,6 +309,7 @@ namespace Cinemachine
             status.lastUpdateFrame = Time.frameCount;
             status.lastUpdateFixedFrame = FixedFrameCount;
             status.lastUpdateMode = updateClock;
+            status.lastUpdateDeltaTime = deltaTime;
         }
 
         class UpdateStatus
@@ -309,11 +317,13 @@ namespace Cinemachine
             public int lastUpdateFrame;
             public int lastUpdateFixedFrame;
             public UpdateTracker.UpdateClock lastUpdateMode;
+            public float lastUpdateDeltaTime;
             public UpdateStatus()
             {
                 lastUpdateFrame = -2;
                 lastUpdateFixedFrame = 0;
                 lastUpdateMode = UpdateTracker.UpdateClock.Late;
+                lastUpdateDeltaTime = -2;
             }
         }
         static Dictionary<CinemachineVirtualCameraBase, UpdateStatus> mUpdateStatus;

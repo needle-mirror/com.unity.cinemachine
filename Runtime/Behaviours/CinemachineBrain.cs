@@ -330,6 +330,9 @@ namespace Cinemachine
 
         private float GetEffectiveDeltaTime(bool fixedDelta)
         {
+            if (Application.isPlaying && CinemachineCore.UniformDeltaTimeOverride > 0)
+                return CinemachineCore.UniformDeltaTimeOverride;
+
             if (SoloCamera != null)
                 return Time.unscaledDeltaTime;
 
@@ -541,6 +544,8 @@ namespace Cinemachine
                         if (CinemachineCore.CameraCutEvent != null)
                             CinemachineCore.CameraCutEvent.Invoke(this);
                     }
+                    // Re-update in case it's inactive
+                    activeCamera.UpdateCameraState(DefaultWorldUp, deltaTime);
                 }
                 // Apply the vcam state to the Unity camera
                 PushStateToUnityCamera(

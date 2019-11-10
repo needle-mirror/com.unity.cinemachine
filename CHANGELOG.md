@@ -4,12 +4,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [2.4.0-preview.4] - 2019-09-27
+## [2.4.0-preview.6] - 2019-11-11
 ### HDRP 7 support and bugfixes
 - Storyboard: added global mute function
 - Added ApplyBeforeBody option to POV component, to support working with FramingTransposer
 - Added RectenterTarget to POV component
 - Added OnTransitionFromCamera callback to extensions
+- Added Damping to SameAsFollowTarget and HardLockToTarget components
+- URP 7.1.3: added CinemachinePixelPerfect extension
 - Added Speed Mode to AxisState, to support direct axis control without max speed
 - New example scene: OverTheShoulderAim illustrating how to do over-the-shoulder TPS cam, with Normal and Aim modes
 - Impulse Manager: added option to ignore timescale
@@ -17,8 +19,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Upgrade to support HDRP and Universal RP 7.0.0 API
 - Upgrade to support HDRP and Universal RP 7.1.0 API
 - Removed Resources diretories
-- Bugfix: added EmbeddedAssetHelper null check
+- Sample scenes now available via package manager
+- Added optional "Display Name" field to Cinemachine Shot in Timeline
+- Added "Adopt Current Camera Settings" item to vcam inspector context menu
+- Composer and FramingTransposer: allow the dead zone to extend to 2, and the Screen x,Y can range from -1.5 to 1.5
+- HDRP: lens presets include physical settings if physical camera
 - Regression Fix: Framing Transposer: ignore LookAt target.  Use Follow exclusively
+- Bugfixes: (fogbugz 1193311, 1193307, 1192423, 1192414): disallow presets for vcams
+- Bugfix: added EmbeddedAssetHelper null check
 - Bugfix: composer screen guides drawn in correct place for physical camera
 - Bugfix: FreeLook was not respecting wait time for X axis recentering
 - Bugfix: FreeLook X axis was not always perfectly synched between rigs
