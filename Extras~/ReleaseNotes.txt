@@ -15,12 +15,14 @@
 - Upgrade to support HDRP and Universal RP 7.1.0 API
 - Removed Resources diretories
 - Sample scenes now available via package manager
-- Composer and FramingTransposer: allow the dead zone to extend to 2, and the Screen x,Y can range from -1.5 to 1.5
+- Composer and FramingTransposer: allow the dead zone to extend to 2, and the Screen x,Y can range from -0.5 to 1.5
 - Added optional "Display Name" field to Cinemachine Shot in Timeline
 - Added "Adopt Current Camera Settings" item to vcam inspector context menu
 - HDRP: lens presets include physical settings if physical camera
 - Regression Fix: Framing Transposer: ignore LookAt target.  Use Follow exclusively
+- Bugfix: Framing Transposer was not handling dynamic changes to FOV properly
 - Bugfix: PostProcessing extension was not handling standby update correctly when on Manager Vcams
+- Bugfix: PostProcessing extension was leaking a smallamounts of memory when scenes were unloaded
 - Bugfixes: (fogbugz 1193311, 1193307, 1192423, 1192414): disallow presets for vcams
 - Bugfix: In some heading modes, FreeLook was improperly modifying the axes when activated
 - Bugfix: Orbital transposer was improperly filtering the heading in TargetForward heading mode

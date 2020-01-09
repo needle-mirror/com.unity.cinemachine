@@ -4,7 +4,7 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [2.4.0-preview.10] - 2019-12-06
+## [2.4.0] - 2020-01-10
 ### HDRP 7 support and bugfixes
 - Storyboard: added global mute function
 - New vcams are by default created matching the cene view camera
@@ -23,10 +23,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Sample scenes now available via package manager
 - Added optional "Display Name" field to Cinemachine Shot in Timeline
 - Added "Adopt Current Camera Settings" item to vcam inspector context menu
-- Composer and FramingTransposer: allow the dead zone to extend to 2, and the Screen x,Y can range from -1.5 to 1.5
+- Composer and FramingTransposer: allow the dead zone to extend to 2, and the Screen x,Y can range from -0.5 to 1.5
 - HDRP: lens presets include physical settings if physical camera
 - Regression Fix: Framing Transposer: ignore LookAt target.  Use Follow exclusively
+- Bugfix: Framing Transposer was not handling dynamic changes to FOV properly
 - Bugfix: PostProcessing extension was not handling standby update correctly when on Manager Vcams
+- Bugfix: PostProcessing extension was leaking a smallamounts of memory when scenes were unloaded
 - Bugfixes: (fogbugz 1193311, 1193307, 1192423, 1192414): disallow presets for vcams
 - Bugfix: In some heading modes, FreeLook was improperly modifying the axes when activated
 - Bugfix: Orbital transposer was improperly filtering the heading in TargetForward heading mode
