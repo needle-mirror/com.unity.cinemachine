@@ -57,8 +57,9 @@ namespace Cinemachine
         public Quaternion RawOrientation { get; set; }
 
         /// <summary>This is a way for the Body component to bypass aim damping,
-        /// useful for when the body need to rotate its point of view, but does not
-        /// want interference from the aim damping</summary>
+        /// useful for when the body needs to rotate its point of view, but does not
+        /// want interference from the aim damping.  The value is the camera
+        /// rotation, in Euler degrees.</summary>
         public Vector3 PositionDampingBypass { get; set; }
 
         /// <summary>
@@ -413,14 +414,14 @@ namespace Cinemachine
             {
                 CustomBlendable b = stateA.GetCustomBlendable(i);
                 b.m_Weight *= (1-t);
-                if (b.m_Weight > UnityVectorExtensions.Epsilon)
+                if (b.m_Weight > 0)
                     state.AddCustomBlendable(b);
             }
             for (int i = 0; i < stateB.NumCustomBlendables; ++i)
             {
                 CustomBlendable b = stateB.GetCustomBlendable(i);
                 b.m_Weight *= t;
-                if (b.m_Weight > UnityVectorExtensions.Epsilon)
+                if (b.m_Weight > 0)
                     state.AddCustomBlendable(b);
             }
             return state;

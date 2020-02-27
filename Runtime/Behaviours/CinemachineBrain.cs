@@ -275,14 +275,18 @@ namespace Cinemachine
                 }
                 // Choose the active vcam and apply it to the Unity camera
                 if (m_BlendUpdateMethod == BrainUpdateMethod.FixedUpdate)
+                {
+                    UpdateFrame0(Time.fixedDeltaTime);
                     ProcessActiveCamera(Time.fixedDeltaTime);
+                }
             }
         }
 
         private void LateUpdate()
         {
             float deltaTime = GetEffectiveDeltaTime(false);
-            UpdateFrame0(deltaTime);
+            if (m_BlendUpdateMethod == BrainUpdateMethod.LateUpdate)
+                UpdateFrame0(deltaTime);
             UpdateCurrentLiveCameras();
 
             if (m_UpdateMethod == UpdateMethod.FixedUpdate)
@@ -292,9 +296,8 @@ namespace Cinemachine
                 if (m_BlendUpdateMethod != BrainUpdateMethod.FixedUpdate)
                 {
                     CinemachineCore.Instance.CurrentUpdateFilter = CinemachineCore.UpdateFilter.Fixed;
-                    if (SoloCamera != null)
-                        SoloCamera.UpdateCameraState(DefaultWorldUp, deltaTime);
-                    mCurrentLiveCameras.UpdateCameraState(DefaultWorldUp, deltaTime);
+                    if (SoloCamera == null)
+                        mCurrentLiveCameras.UpdateCameraState(DefaultWorldUp, GetEffectiveDeltaTime(true));
                 }
             }
             else
@@ -497,6 +500,14 @@ namespace Cinemachine
             frame.blend.BlendCurve = AnimationCurve.Linear(0, 0, 1, 1);
             frame.blend.Duration = 1;
             frame.blend.TimeInBlend = weightB;
+
+            // In case vcams are inactive game objects, make sure they get initialized properly
+            var cam = camA as CinemachineVirtualCameraBase;
+            if (cam != null)
+                cam.EnsureStarted();
+            cam = camB as CinemachineVirtualCameraBase;
+            if (cam != null)
+                cam.EnsureStarted();
 
             return overrideId;
         }

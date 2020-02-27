@@ -16,13 +16,6 @@ namespace Cinemachine
     [SaveDuringPlay]
     public class CinemachinePOV : CinemachineComponentBase
     {
-        /// <summary>Set this if the POV should be applied to the camera state before the body
-        /// position is calculated.  This is useful for body algorithms that use the rotation as input,
-        /// for example Framing Transposer</summary>
-        [Tooltip("Set this if the POV should be applied to the camera state before the body position is calculated.  "
-            + "This is useful for body algorithms that use the rotation as input, for example Framing Transposer.")]
-        public bool m_ApplyBeforeBody = false;
-
         /// <summary>
         /// Defines the recentering target: Recentering goes here
         /// </summary>
@@ -67,6 +60,11 @@ namespace Cinemachine
         [Tooltip("Controls how automatic recentering of the Horizontal axis is accomplished")]
         public AxisState.Recentering m_HorizontalRecentering = new AxisState.Recentering(false, 1, 2);
 
+        /// <summary>Obsolete - no longer used</summary>
+        [HideInInspector]
+        [Tooltip("Obsolete - no longer used")]
+        public bool m_ApplyBeforeBody;
+
         /// <summary>True if component is enabled and has a LookAt defined</summary>
         public override bool IsValid { get { return enabled; } }
 
@@ -82,25 +80,15 @@ namespace Cinemachine
             m_HorizontalRecentering.Validate();
         }
 
-        public override void PrePipelineMutateCameraState(ref CameraState curState, float deltaTime)
-        {
-            if (m_ApplyBeforeBody)
-                ApplyPOV(ref curState, deltaTime);
-        }
+        /// <summary>Does nothing</summary>
+        /// <param name="state"></param>
+        /// <param name="deltaTime"></param>
+        public override void PrePipelineMutateCameraState(ref CameraState state, float deltaTime) {}
 
         /// <summary>Applies the axis values and orients the camera accordingly</summary>
         /// <param name="curState">The current camera state</param>
         /// <param name="deltaTime">Used for calculating damping.  Not used.</param>
         public override void MutateCameraState(ref CameraState curState, float deltaTime)
-        {
-            if (!m_ApplyBeforeBody)
-                ApplyPOV(ref curState, deltaTime);
-        }
-
-        /// <summary>Applies the axis values and orients the camera accordingly</summary>
-        /// <param name="curState">The current camera state</param>
-        /// <param name="deltaTime">Used for calculating damping.  Not used.</param>
-        void ApplyPOV(ref CameraState curState, float deltaTime)
         {
             if (!IsValid)
                 return;

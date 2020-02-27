@@ -1,6 +1,4 @@
-﻿using Cinemachine.Utility;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -69,6 +67,7 @@ namespace Cinemachine
         /// If this is null, then the vcam's Transform orientation will be used.</summary>
         [Tooltip("The object that the camera wants to look at (the Aim target).  If this is null, then the vcam's Transform orientation will define the camera's orientation.")]
         [NoSaveDuringPlay]
+        [VcamTargetProperty]
         public Transform m_LookAt = null;
 
         /// <summary>The object that the camera wants to move with (the Body target).
@@ -78,6 +77,7 @@ namespace Cinemachine
         /// If this is null, then the vcam's Transform position will be used.</summary>
         [Tooltip("The object that the camera wants to move with (the Body target).  If this is null, then the vcam's Transform position will define the camera's position.")]
         [NoSaveDuringPlay]
+        [VcamTargetProperty]
         public Transform m_Follow = null;
 
         /// <summary>Specifies the LensSettings of this Virtual Camera.
@@ -197,6 +197,15 @@ namespace Cinemachine
 
         void Reset()
         {
+#if UNITY_EDITOR
+            if (UnityEditor.PrefabUtility.GetPrefabInstanceStatus(gameObject)
+                != UnityEditor.PrefabInstanceStatus.NotAPrefab)
+            {
+                Debug.Log("You cannot reset a prefab instance.  "
+                    + "First disconnect this instance from the prefab, or enter Prefab Edit mode");
+                return;
+            }
+#endif
             DestroyPipeline();
         }
 
@@ -236,14 +245,20 @@ namespace Cinemachine
                 if (child.GetComponent<CinemachinePipeline>() != null)
                     oldPipeline.Add(child);
 
-            foreach (Transform child in oldPipeline)
+#if UNITY_EDITOR
+            bool isPrefab = gameObject.scene.name == null; // causes a small GC alloc
+            if (!isPrefab)
+#endif
             {
-                if (DestroyPipelineOverride != null)
-                    DestroyPipelineOverride(child.gameObject);
-                else
-                    Destroy(child.gameObject);
+                foreach (Transform child in oldPipeline)
+                {
+                    if (DestroyPipelineOverride != null)
+                        DestroyPipelineOverride(child.gameObject);
+                    else
+                        Destroy(child.gameObject);
+                }
+                m_ComponentOwner = null;
             }
-            m_ComponentOwner = null;
             PreviousStateIsValid = false;
         }
 
@@ -314,6 +329,8 @@ namespace Cinemachine
         {
             // Get the existing components
             Transform owner = GetComponentOwner();
+            if (owner == null)
+                return null; // maybe it's a prefab
             CinemachineComponentBase[] components = owner.GetComponents<CinemachineComponentBase>();
 
             T component = owner.gameObject.AddComponent<T>();
@@ -427,6 +444,9 @@ namespace Cinemachine
         private CinemachineVirtualCameraBase mCachedLookAtTargetVcam;
         private CameraState CalculateNewState(Vector3 worldUp, float deltaTime)
         {
+            FollowTargetAttachment = 1;
+            LookAtTargetAttachment = 1;
+
             // Initialize the camera state, in case the game object got moved in the editor
             CameraState state = PullStateFromVirtualCamera(worldUp, ref m_Lens);
 
@@ -447,43 +467,47 @@ namespace Cinemachine
             }
 
             // Update the state by invoking the component pipeline
-            CinemachineCore.Stage curStage = CinemachineCore.Stage.Body;
             UpdateComponentPipeline(); // avoid GetComponentPipeline() here because of GC
-            bool hasAim = false;
-            if (m_ComponentPipeline != null)
-            {
-                for (int i = 0; i < m_ComponentPipeline.Length; ++i)
-                {
-                    m_ComponentPipeline[i].PrePipelineMutateCameraState(ref state, deltaTime);
-                    if (m_ComponentPipeline[i].Stage == CinemachineCore.Stage.Aim)
-                        hasAim = true;
-                }
-                for (int i = 0; i < m_ComponentPipeline.Length; ++i)
-                {
-                    curStage = AdvancePipelineStage(
-                        ref state, deltaTime, curStage,
-                        (int)m_ComponentPipeline[i].Stage, hasAim);
-                    m_ComponentPipeline[i].MutateCameraState(ref state, deltaTime);
-                }
-            }
-            AdvancePipelineStage(
-                ref state, deltaTime, curStage,
-                (int)CinemachineCore.Stage.Finalize + 1, hasAim);
-            return state;
-        }
 
-        private CinemachineCore.Stage AdvancePipelineStage(
-            ref CameraState state, float deltaTime,
-            CinemachineCore.Stage curStage, int maxStage, bool hasAim)
-        {
-            while ((int)curStage < maxStage)
+            // Extensions first
+            InvokePrePipelineMutateCameraStateCallback(this, ref state, deltaTime);
+
+            // Then components
+            if (m_ComponentPipeline == null)
             {
-                if (!hasAim && curStage == CinemachineCore.Stage.Aim)
-                    state.BlendHint |= CameraState.BlendHintValue.IgnoreLookAtTarget;
-                InvokePostPipelineStageCallback(this, curStage, ref state, deltaTime);
-                ++curStage;
+                state.BlendHint |= CameraState.BlendHintValue.IgnoreLookAtTarget;
+                for (var stage = CinemachineCore.Stage.Body; stage <= CinemachineCore.Stage.Finalize; ++stage)
+                    InvokePostPipelineStageCallback(this, stage, ref state, deltaTime);
             }
-            return curStage;
+            else
+            {
+                for (int i = 0; i < m_ComponentPipeline.Length; ++i)
+                    m_ComponentPipeline[i].PrePipelineMutateCameraState(ref state, deltaTime);
+
+                CinemachineComponentBase postAimBody = null;
+                int componentIndex = 0;
+                for (var stage = CinemachineCore.Stage.Body; stage <= CinemachineCore.Stage.Finalize; ++stage)
+                {
+                    if (stage == CinemachineCore.Stage.Finalize && postAimBody != null)
+                        postAimBody.MutateCameraState(ref state, deltaTime);
+
+                    var c = componentIndex < m_ComponentPipeline.Length 
+                        ? m_ComponentPipeline[componentIndex] : null;
+                    if (c != null && stage == c.Stage)
+                    {
+                        ++componentIndex;
+                        if (stage == CinemachineCore.Stage.Body && c.BodyAppliesAfterAim)
+                            postAimBody = c;
+                        else
+                            c.MutateCameraState(ref state, deltaTime);
+                    }
+                    else if (stage == CinemachineCore.Stage.Aim)
+                        state.BlendHint |= CameraState.BlendHintValue.IgnoreLookAtTarget;
+
+                    InvokePostPipelineStageCallback(this, stage, ref state, deltaTime);
+                }
+            }
+            return state;
         }
 
         // This is a hack for FreeLook rigs - to be removed

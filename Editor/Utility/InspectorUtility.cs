@@ -167,12 +167,43 @@ namespace Cinemachine.Editor
         {
 #if UNITY_2019_1_OR_NEWER
             if (dirtyObject != null)
-                EditorUtility.SetDirty(dirtyObject);
+            {
+                var go = dirtyObject as GameObject;
+                if (go == null || go.scene.name != null)    // don't dirty prefabs
+                    EditorUtility.SetDirty(dirtyObject);
+            }
 #endif
             UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
         }
 
         // Needed for 2019.3 and later, for catching GameView mouse dragging the guides
         internal static bool RepaintRequested { get; set; }
+
+        /// <summary>
+        /// Try to get the name of the owning virtual camera oibject.  If none then use
+        /// the object's name
+        /// </summary>
+        /// <param name="property"></param>
+        /// <returns></returns>
+        internal static string GetVirtualCameraObjectName(SerializedProperty property)
+        {
+            // A little hacky here, as we favour virtual cameras...
+            var obj = property.serializedObject.targetObject;
+            GameObject go = obj as GameObject;
+            if (go == null)
+            {
+                var component = obj as Component;
+                if (component != null)
+                    go = component.gameObject;
+            }
+            if (go != null)
+            {
+                var vcam = go.GetComponentInParent<CinemachineVirtualCameraBase>();
+                if (vcam != null)
+                    return vcam.Name;
+                return go.name;
+            }
+            return obj.name;
+        }
     }
 }

@@ -32,11 +32,13 @@ namespace Cinemachine.Editor
         bool[] m_stageError = null;
         CinemachineComponentBase[] m_components;
         UnityEditor.Editor[] m_componentEditors = new UnityEditor.Editor[0];
+        bool IsPrefab { get; set; }
 
         protected override void OnEnable()
         {
             // Build static menu arrays via reflection
             base.OnEnable();
+            IsPrefab = Target.gameObject.scene.name == null; // causes a small GC alloc
             UpdateStaticData();
         }
 
@@ -189,6 +191,8 @@ namespace Cinemachine.Editor
 
         bool StageIsLocked(CinemachineCore.Stage stage)
         {
+            if (IsPrefab)
+                return true;
             CinemachineCore.Stage[] locked = Target.m_LockStageInInspector;
             if (locked != null)
                 for (int i = 0; i < locked.Length; ++i)
@@ -256,6 +260,8 @@ namespace Cinemachine.Editor
 
             // Get the existing components
             Transform owner = Target.GetComponentOwner();
+            if (owner == null)
+                return; // maybe it's a prefab
 
             CinemachineComponentBase[] components = owner.GetComponents<CinemachineComponentBase>();
             if (components == null)
@@ -366,7 +372,7 @@ namespace Cinemachine.Editor
             bool dirty = (numComponents == 0);
             for (int i = 0; i < numComponents; ++i)
             {
-                if (components[i] != m_components[i])
+                if (m_components[i] == null || components[i] != m_components[i])
                 {
                     dirty = true;
                     m_components[i] = components[i];
@@ -403,7 +409,7 @@ namespace Cinemachine.Editor
                     if (sStageData[(int)stage].types[index] == c.GetType())
                         break;
                 m_stageState[(int)stage] = index;
-                m_stageError[(int)stage] = !c.IsValid;
+                m_stageError[(int)stage] = c == null || !c.IsValid;
             }
         }
 

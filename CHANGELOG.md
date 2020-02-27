@@ -4,6 +4,35 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
+## [2.6.0-preview.2] - 2020-02-28
+### New Features and Bugfixes
+- VolumeSettings/PostProcessing: added ability to choose custom target for focus tracking
+- Added CinemachineRecomposer for timeline-tweaking of procedural or recorded vcam Aim output
+- Added GroupWeightManipulator for animating group member weights
+- Impulse: Added PropagationSpeed, to allow the impulse to travel outward in a wave
+- Added CinemachineIndependentImpulseListener, to give ImpulseListener ability to any game object
+- Added 3rdPersonFollow and 3rdPersonAim for dead-accurate 3rd-person aiming camera
+- Added example scenes: 3rdPersonDeadCenterAim and 3rdPersonLooseAim to show different 3rd person cmera styles
+- FramingTransposer does its work after Aim, so it plays better with Aim components.
+- Framing Transposer: add Damped Rotations option.  If unchecked, changes to the vcam's rotation will bypass Damping, and only target motion will be damped.
+- Orbital Transposer / FreeLook: improved damping when target is moving
+- CustomBlends editor UX improvements: allow direct editing of vcam names, as well as dropdown
+- Add Convert to TargetGroup option on LookAt and Follow target fields
+- Confiner: improved stability when ConfineScreenEdges is selected and confing shape is too small
+- Extensions now have PrePipelineMutateState callback
+- Added TargetAttachment property to vcams.  Normally 1, this can be used to relax attention to targets - effectively a damping override
+- Bugfix: Blend Update Method handling was incorrect and caused judder in some circumstances
+- Bugfix: VolumeSettings blending was popping when weight was epsilon if volume altered a non-lerpable value
+- Bugfix (1219867) - vcam popping on disable if blending
+- Bugfix (1214301, 1213836) - disallow structural change when editing vcam prefabs
+- Bugfix (1213471, 1213434): add null check in editor
+- Bugfix (1213488): no solo for prefab vcams
+- Bugfix (1213819): repaintGameView on editor change
+- Bugfix (1217306): target group position drifting when empty or when members are descendants of the group
+- Bugfix (1218695): Fully qualify UnityEditor.Menu to avoid compile errors in some circumstances
+
+
 ## [2.5.0] - 2020-01-15
 ### Support HDRP 7 and URP simultaneously
 - Accommodate simultaneous precesnce of HDRP and URP

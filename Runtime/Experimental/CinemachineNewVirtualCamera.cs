@@ -24,11 +24,13 @@ namespace Cinemachine
         /// <summary>Object for the camera children to look at (the aim target)</summary>
         [Tooltip("Object for the camera children to look at (the aim target).")]
         [NoSaveDuringPlay]
+        [VcamTargetProperty]
         public Transform m_LookAt = null;
 
         /// <summary>Object for the camera children wants to move with (the body target)</summary>
         [Tooltip("Object for the camera children wants to move with (the body target).")]
         [NoSaveDuringPlay]
+        [VcamTargetProperty]
         public Transform m_Follow = null;
 
         /// <summary>Specifies the LensSettings of this Virtual Camera.
@@ -142,6 +144,9 @@ namespace Cinemachine
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than 0)</param>
         override public void InternalUpdateCameraState(Vector3 worldUp, float deltaTime)
         {
+            FollowTargetAttachment = 1;
+            LookAtTargetAttachment = 1;
+
             // Initialize the camera state, in case the game object got moved in the editor
             m_State = PullStateFromVirtualCamera(worldUp, ref m_Lens);
 
@@ -193,22 +198,35 @@ namespace Cinemachine
         {
             UpdateComponentCache();
 
+            // Extensions first
+            InvokePrePipelineMutateCameraStateCallback(this, ref state, deltaTime);
+
             // Apply the component pipeline
             for (CinemachineCore.Stage stage = CinemachineCore.Stage.Body;
-                stage < CinemachineCore.Stage.Finalize; ++stage)
+                stage <= CinemachineCore.Stage.Finalize; ++stage)
             {
                 var c = m_Components[(int)stage];
                 if (c != null)
                     c.PrePipelineMutateCameraState(ref state, deltaTime);
             }
+            CinemachineComponentBase postAimBody = null;
             for (CinemachineCore.Stage stage = CinemachineCore.Stage.Body;
-                stage < CinemachineCore.Stage.Finalize; ++stage)
+                stage <= CinemachineCore.Stage.Finalize; ++stage)
             {
+                if (stage == CinemachineCore.Stage.Finalize && postAimBody != null)
+                    postAimBody.MutateCameraState(ref state, deltaTime);
+
                 var c = m_Components[(int)stage];
                 if (c != null)
-                    c.MutateCameraState(ref state, deltaTime);
+                {
+                    if (stage == CinemachineCore.Stage.Body && c.BodyAppliesAfterAim)
+                        postAimBody = c;
+                    else
+                        c.MutateCameraState(ref state, deltaTime);
+                }
                 else if (stage == CinemachineCore.Stage.Aim)
                     state.BlendHint |= CameraState.BlendHintValue.IgnoreLookAtTarget; // no aim
+
                 InvokePostPipelineStageCallback(this, stage, ref state, deltaTime);
             }
 
@@ -253,10 +271,10 @@ namespace Cinemachine
                 }
             }
 #endif
-            if (m_Components != null && m_Components.Length == (int)CinemachineCore.Stage.Finalize)
+            if (m_Components != null && m_Components.Length == (int)CinemachineCore.Stage.Finalize + 1)
                 return; // up to date
 
-            m_Components = new CinemachineComponentBase[(int)CinemachineCore.Stage.Finalize];
+            m_Components = new CinemachineComponentBase[(int)CinemachineCore.Stage.Finalize + 1];
             var existing = GetComponents<CinemachineComponentBase>();
             for (int i = 0; existing != null && i < existing.Length; ++i)
                 m_Components[(int)existing[i].Stage] = existing[i];

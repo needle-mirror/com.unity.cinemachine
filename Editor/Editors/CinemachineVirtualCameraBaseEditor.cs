@@ -15,17 +15,22 @@ namespace Cinemachine.Editor
     {
         static Type[] sExtensionTypes;  // First entry is null
         static string[] sExtensionNames;
+        bool IsPrefabBase { get; set; }
 
-        protected override List<string> GetExcludedPropertiesInInspector()
+        /// <summary>Obsolete, do not use</summary>
+        protected override List<string> GetExcludedPropertiesInInspector() 
+            { return base.GetExcludedPropertiesInInspector(); }
+
+        protected override void GetExcludedPropertiesInInspector(List<string> excluded)
         {
-            var excluded = base.GetExcludedPropertiesInInspector();
+            base.GetExcludedPropertiesInInspector(excluded);
             if (Target.m_ExcludedPropertiesInInspector != null)
                 excluded.AddRange(Target.m_ExcludedPropertiesInInspector);
-            return excluded;
         }
 
         protected virtual void OnEnable()
         {
+            IsPrefabBase = Target.gameObject.scene.name == null; // causes a small GC alloc
             if (sExtensionTypes == null)
             {
                 // Populate the extension list
@@ -65,8 +70,7 @@ namespace Cinemachine.Editor
 
         protected void DrawHeaderInInspector()
         {
-            List<string> excluded = GetExcludedPropertiesInInspector();
-            if (!excluded.Contains("Header"))
+            if (!IsPropertyExcluded("Header"))
             {
                 DrawCameraStatusInInspector();
                 DrawGlobalControlsInInspector();
@@ -77,9 +81,8 @@ namespace Cinemachine.Editor
         protected void DrawTargetsInInspector(
             SerializedProperty followTarget, SerializedProperty lookAtTarget)
         {
-            List<string> excluded = GetExcludedPropertiesInInspector();
             EditorGUI.BeginChangeCheck();
-            if (!excluded.Contains(followTarget.name))
+            if (!IsPropertyExcluded(followTarget.name))
             {
                 if (Target.ParentCamera == null || Target.ParentCamera.Follow == null)
                     EditorGUILayout.PropertyField(followTarget);
@@ -88,7 +91,7 @@ namespace Cinemachine.Editor
                         new GUIContent(followTarget.displayName + " Override"));
                 ExcludeProperty(followTarget.name);
             }
-            if (!excluded.Contains(lookAtTarget.name))
+            if (!IsPropertyExcluded(lookAtTarget.name))
             {
                 if (Target.ParentCamera == null || Target.ParentCamera.LookAt == null)
                     EditorGUILayout.PropertyField(lookAtTarget);
@@ -103,8 +106,7 @@ namespace Cinemachine.Editor
 
         protected void DrawExtensionsWidgetInInspector()
         {
-            List<string> excluded = GetExcludedPropertiesInInspector();
-            if (!excluded.Contains("Extensions"))
+            if (!IsPropertyExcluded("Extensions"))
             {
                 EditorGUILayout.Space();
                 EditorGUILayout.LabelField("Extensions", EditorStyles.boldLabel);
@@ -130,6 +132,10 @@ namespace Cinemachine.Editor
                 EditorGUILayout.HelpBox(
                     "The camera is positioned on the same point at which it is trying to look.",
                     MessageType.Warning);
+
+            // No status and Solo for prefabs
+            if (IsPrefabBase)
+                return;
 
             // Active status and Solo button
             Rect rect = EditorGUILayout.GetControlRect(true);

@@ -32,11 +32,10 @@ namespace Cinemachine
             ConnectToVcam(true);
         }
 
-#if UNITY_EDITOR
-        /// <summary>Does nothing.  This is only here so we get the little "enabled"
-        /// checkbox in the inspector</summary>
-        void Update() {}
+        /// <summary>Does nothing.  For the little checkbox in the inspector.</summary>
+        protected virtual void OnEnable() {}
 
+#if UNITY_EDITOR
         [UnityEditor.Callbacks.DidReloadScripts]
         static void OnScriptReload()
         {
@@ -53,9 +52,11 @@ namespace Cinemachine
             ConnectToVcam(false);
         }
 
+        internal void EnsureStarted() { ConnectToVcam(true); }
+
         /// <summary>Connect to virtual camera.  Implementation must be safe to be called
         /// redundantly.  Override implementations must call this base implementation</summary>
-        /// <param name="connect">True if connectinf, false if disconnecting</param>
+        /// <param name="connect">True if connecting, false if disconnecting</param>
         protected virtual void ConnectToVcam(bool connect)
         {
             if (connect && VirtualCamera == null)
@@ -69,6 +70,12 @@ namespace Cinemachine
             }
             mExtraState = null;
         }
+
+        /// <summary>Override this to do such things as offset the RefereceLookAt.
+        /// Base class implementation does nothing.</summary>
+        /// <param name="curState">Input state that must be mutated</param>
+        public virtual void PrePipelineMutateCameraStateCallback(
+            CinemachineVirtualCameraBase vcam, ref CameraState curState, float deltaTime) {}
 
         /// <summary>Legacy support.  This is only here to avoid changing the API
         /// to make PostPipelineStageCallback() public</summary>
