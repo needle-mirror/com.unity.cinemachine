@@ -46,29 +46,36 @@ namespace Cinemachine
     public class CinemachineBrain : MonoBehaviour
     {
         /// <summary>
-        /// When enabled, the current camera and blend will be indicated in the game window, for debugging.
+        /// When enabled, the current camera and blend will be indicated in the 
+        /// game window, for debugging.
         /// </summary>
-        [Tooltip("When enabled, the current camera and blend will be indicated in the game window, for debugging")]
+        [Tooltip("When enabled, the current camera and blend will be indicated in "
+            + "the game window, for debugging")]
         public bool m_ShowDebugText = false;
 
         /// <summary>
         /// When enabled, shows the camera's frustum in the scene view.
         /// </summary>
-        [Tooltip("When enabled, the camera's frustum will be shown at all times in the scene view")]
+        [Tooltip("When enabled, the camera's frustum will be shown at all times "
+            + "in the scene view")]
         public bool m_ShowCameraFrustum = true;
 
         /// <summary>
         /// When enabled, the cameras will always respond in real-time to user input and damping,
         /// even if the game is running in slow motion
         /// </summary>
-        [Tooltip("When enabled, the cameras will always respond in real-time to user input and damping, even if the game is running in slow motion")]
+        [Tooltip("When enabled, the cameras will always respond in real-time to user input "
+            + "and damping, even if the game is running in slow motion")]
         public bool m_IgnoreTimeScale = false;
 
         /// <summary>
         /// If set, this object's Y axis will define the worldspace Up vector for all the
         /// virtual cameras.  This is useful in top-down game environments.  If not set, Up is worldspace Y.
         /// </summary>
-        [Tooltip("If set, this object's Y axis will define the worldspace Up vector for all the virtual cameras.  This is useful for instance in top-down game environments.  If not set, Up is worldspace Y.  Setting this appropriately is important, because Virtual Cameras don't like looking straight up or straight down.")]
+        [Tooltip("If set, this object's Y axis will define the worldspace Up vector for all the "
+            + "virtual cameras.  This is useful for instance in top-down game environments.  "
+            + "If not set, Up is worldspace Y.  Setting this appropriately is important, "
+            + "because Virtual Cameras don't like looking straight up or straight down.")]
         public Transform m_WorldUpOverride;
 
         /// <summary>This enum defines the options available for the update method.</summary>
@@ -80,7 +87,10 @@ namespace Cinemachine
             /// <summary>Virtual cameras are updated in MonoBehaviour LateUpdate.</summary>
             LateUpdate,
             /// <summary>Virtual cameras are updated according to how the target is updated.</summary>
-            SmartUpdate
+            SmartUpdate,
+            /// <summary>Virtual cameras are not automatically updated, client must explicitly call 
+            /// the CinemachineBrain's ManualUpdate() method.</summary>
+            ManualUpdate
         };
 
         /// <summary>Depending on how the target objects are animated, adjust the update method to
@@ -99,27 +109,30 @@ namespace Cinemachine
         {
             /// <summary>Camera is updated in sync with the Physics module, in FixedUpdate</summary>
             FixedUpdate,
-            /// <summary>Camera is updated in MonoBehaviour LateUpdate.</summary>
+            /// <summary>Camera is updated in MonoBehaviour LateUpdate (or when ManualUpdate is called).</summary>
             LateUpdate
         };
 
         /// <summary>The update time for the Brain, i.e. when the blends are evaluated and the
         /// brain's transform is updated.</summary>
-        [Tooltip("The update time for the Brain, i.e. when the blends are evaluated and the brain's transform is updated")]
+        [Tooltip("The update time for the Brain, i.e. when the blends are evaluated and "
+            + "the brain's transform is updated")]
         public BrainUpdateMethod m_BlendUpdateMethod = BrainUpdateMethod.LateUpdate;
 
         /// <summary>
         /// The blend which is used if you don't explicitly define a blend between two Virtual Cameras.
         /// </summary>
         [CinemachineBlendDefinitionProperty]
-        [Tooltip("The blend that is used in cases where you haven't explicitly defined a blend between two Virtual Cameras")]
+        [Tooltip("The blend that is used in cases where you haven't explicitly defined a "
+            + "blend between two Virtual Cameras")]
         public CinemachineBlendDefinition m_DefaultBlend
             = new CinemachineBlendDefinition(CinemachineBlendDefinition.Style.EaseInOut, 2f);
 
         /// <summary>
         /// This is the asset which contains custom settings for specific blends.
         /// </summary>
-        [Tooltip("This is the asset that contains custom settings for blends between specific virtual cameras in your scene")]
+        [Tooltip("This is the asset that contains custom settings for blends between "
+            + "specific virtual cameras in your scene")]
         public CinemachineBlenderSettings m_CustomBlends = null;
 
         /// <summary>
@@ -140,7 +153,10 @@ namespace Cinemachine
         /// <summary>Event with a CinemachineBrain parameter</summary>
         [Serializable] public class BrainEvent : UnityEvent<CinemachineBrain> {}
 
-        /// <summary>Event with a ICinemachineCamera parameter</summary>
+        /// <summary>
+        /// Event that is fired when a virtual camera is activated.
+        /// The parameters are (incoming_vcam, outgoing_vcam), in that order.
+        /// </summary>
         [Serializable] public class VcamActivatedEvent : UnityEvent<ICinemachineCamera, ICinemachineCamera> {}
 
         /// <summary>This event will fire whenever a virtual camera goes live and there is no blend</summary>
@@ -148,8 +164,11 @@ namespace Cinemachine
         public BrainEvent m_CameraCutEvent = new BrainEvent();
 
         /// <summary>This event will fire whenever a virtual camera goes live.  If a blend is involved,
-        /// then the event will fire on the first frame of the blend</summary>
-        [Tooltip("This event will fire whenever a virtual camera goes live.  If a blend is involved, then the event will fire on the first frame of the blend.")]
+        /// then the event will fire on the first frame of the blend.
+        /// 
+        /// The Parameters are (incoming_vcam, outgoing_vcam), in that order.</summary>
+        [Tooltip("This event will fire whenever a virtual camera goes live.  If a blend is "
+            + "involved, then the event will fire on the first frame of the blend.")]
         public VcamActivatedEvent m_CameraActivatedEvent = new VcamActivatedEvent();
 
         /// <summary>
@@ -262,7 +281,8 @@ namespace Cinemachine
             {
                 // FixedUpdate can be called multiple times per frame
                 yield return mWaitForFixedUpdate;
-                if (m_UpdateMethod != UpdateMethod.LateUpdate)
+                if (m_UpdateMethod == UpdateMethod.FixedUpdate
+                    || m_UpdateMethod == UpdateMethod.SmartUpdate)
                 {
                     CinemachineCore.UpdateFilter filter = CinemachineCore.UpdateFilter.Fixed;
                     if (m_UpdateMethod == UpdateMethod.SmartUpdate)
@@ -284,9 +304,22 @@ namespace Cinemachine
 
         private void LateUpdate()
         {
+            if (m_UpdateMethod != UpdateMethod.ManualUpdate)
+                ManualUpdate();
+        }
+
+        /// <summary>
+        /// Call this method explicitly from an external script to update the virtual cameras
+        /// and position the main camera, if the UpdateMode is set to ManualUpdate.
+        /// For other update modes, this method is called automatically, and should not be
+        /// called from elsewhere.
+        /// </summary>
+        public void ManualUpdate()
+        {
             float deltaTime = GetEffectiveDeltaTime(false);
-            if (m_BlendUpdateMethod == BrainUpdateMethod.LateUpdate)
+            if (m_BlendUpdateMethod != BrainUpdateMethod.FixedUpdate)
                 UpdateFrame0(deltaTime);
+
             UpdateCurrentLiveCameras();
 
             if (m_UpdateMethod == UpdateMethod.FixedUpdate)
@@ -297,7 +330,8 @@ namespace Cinemachine
                 {
                     CinemachineCore.Instance.CurrentUpdateFilter = CinemachineCore.UpdateFilter.Fixed;
                     if (SoloCamera == null)
-                        mCurrentLiveCameras.UpdateCameraState(DefaultWorldUp, GetEffectiveDeltaTime(true));
+                        mCurrentLiveCameras.UpdateCameraState(
+                            DefaultWorldUp, GetEffectiveDeltaTime(true));
                 }
             }
             else
@@ -311,8 +345,9 @@ namespace Cinemachine
                 }
                 UpdateVirtualCameras(filter, deltaTime);
             }
+
             // Choose the active vcam and apply it to the Unity camera
-            if (m_BlendUpdateMethod == BrainUpdateMethod.LateUpdate)
+            if (m_BlendUpdateMethod != BrainUpdateMethod.FixedUpdate)
                 ProcessActiveCamera(deltaTime);
         }
 
@@ -333,7 +368,7 @@ namespace Cinemachine
 
         private float GetEffectiveDeltaTime(bool fixedDelta)
         {
-            if (Application.isPlaying && CinemachineCore.UniformDeltaTimeOverride >= 0)
+            if (CinemachineCore.UniformDeltaTimeOverride >= 0)
                 return CinemachineCore.UniformDeltaTimeOverride;
 
             if (SoloCamera != null)

@@ -191,6 +191,12 @@ namespace Cinemachine
             float deltaTime, Vector3 up, ref AxisState axis,
             ref AxisState.Recentering recentering, bool isLive)
         {
+            if (m_BindingMode == BindingMode.SimpleFollowWithWorldUp)
+            {
+                axis.m_MinValue = -180;
+                axis.m_MaxValue = 180;
+            }
+
             // Only read joystick when game is playing
             if (deltaTime < 0 || !VirtualCamera.PreviousStateIsValid || !isLive)
             {
@@ -239,6 +245,18 @@ namespace Cinemachine
             }
         }
 
+        /// <summary>
+        /// Force the virtual camera to assume a given position and orientation
+        /// </summary>
+        /// <param name="pos">Worldspace pposition to take</param>
+        /// <param name="rot">Worldspace orientation to take</param>
+        public override void ForceCameraPosition(Vector3 pos, Quaternion rot)
+        {
+            base.ForceCameraPosition(pos, rot);
+            mLastCameraPosition = pos;
+            m_XAxis.Value = GetAxisClosestValue(pos, VirtualCamera.State.ReferenceUp);
+        }
+        
         /// <summary>Notification that this virtual camera is going live.
         /// Base class implementation does nothing.</summary>
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
@@ -336,7 +354,8 @@ namespace Cinemachine
                     var dir0 = mLastCameraPosition - targetPosition;
                     var dir1 = curState.RawPosition - targetPosition;
                     if (dir0.sqrMagnitude > 0.01f && dir1.sqrMagnitude > 0.01f)
-                        curState.PositionDampingBypass = Quaternion.FromToRotation(dir0, dir1).eulerAngles;
+                        curState.PositionDampingBypass = UnityVectorExtensions.SafeFromToRotation(
+                            dir0, dir1, curState.ReferenceUp).eulerAngles;
                 }
                 mLastTargetPosition = targetPosition;
                 mLastCameraPosition = curState.RawPosition;

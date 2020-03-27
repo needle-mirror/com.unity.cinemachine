@@ -51,8 +51,8 @@ namespace Cinemachine
         /// jittery predictions and also increase prediction lag</summary>
         [Tooltip("Controls the smoothness of the lookahead algorithm.  Larger values smooth out "
             + "jittery predictions and also increase prediction lag")]
-        [Range(3, 30)]
-        public float m_LookaheadSmoothing = 10;
+        [Range(0, 30)]
+        public float m_LookaheadSmoothing = 0;
 
         /// <summary>If checked, movement along the Y axis will be ignored for lookahead calculations</summary>
         [Tooltip("If checked, movement along the Y axis will be ignored for lookahead calculations")]
@@ -316,6 +316,7 @@ namespace Cinemachine
         public override bool BodyAppliesAfterAim { get { return true; } }
 
         const float kMinimumCameraDistance = 0.01f;
+        const float kMinimumGroupSize = 0.01f;
 
         /// <summary>State information for damping</summary>
         Vector3 m_PreviousCameraPosition = Vector3.zero;
@@ -339,6 +340,17 @@ namespace Cinemachine
             }
         }
 
+        /// <summary>
+        /// Force the virtual camera to assume a given position and orientation
+        /// </summary>
+        /// <param name="pos">Worldspace pposition to take</param>
+        /// <param name="rot">Worldspace orientation to take</param>
+        public override void ForceCameraPosition(Vector3 pos, Quaternion rot)
+        {
+            base.ForceCameraPosition(pos, rot);
+            m_PreviousCameraPosition = pos;
+        }
+        
         /// <summary>Notification that this virtual camera is going live.
         /// Base class implementation does nothing.</summary>
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
@@ -423,8 +435,7 @@ namespace Cinemachine
 
             // Compute group bounds and adjust follow target for group framing
             ICinemachineTargetGroup group = AbstractFollowTargetGroup;
-            bool isGroupFraming = group != null && Math.Abs(group.Sphere.radius) > 1e-5f &&
-                                  m_GroupFramingMode != FramingMode.None;
+            bool isGroupFraming = group != null && m_GroupFramingMode != FramingMode.None;
             if (isGroupFraming)
                 followTargetPosition = ComputeGroupBounds(group, ref curState);
 
@@ -440,7 +451,7 @@ namespace Cinemachine
                 if (isGroupFraming)
                 {
                     var b = LastBounds;
-                    b.center += p - followTargetPosition;
+                    b.center += LastBoundsMatrix.MultiplyPoint3x4(delta);
                     LastBounds = b;
                 }
                 TrackedPoint = p;
@@ -453,6 +464,7 @@ namespace Cinemachine
             float targetDistance = m_CameraDistance;
             bool isOrthographic = lens.Orthographic;
             float targetHeight = isGroupFraming ? GetTargetHeight(LastBounds.size / m_GroupFramingSize) : 0;
+            targetHeight = Mathf.Max(targetHeight, kMinimumGroupSize);
             if (!isOrthographic && isGroupFraming)
             {
                 // Adjust height for perspective - we want the height at the near surface
@@ -518,29 +530,19 @@ namespace Cinemachine
             }
             else
             {
-                // Move it through the soft zone
+                // Move it through the soft zone, with damping
                 cameraOffset += OrthoOffsetToScreenBounds(targetPos, softGuideOrtho);
+                cameraOffset = VirtualCamera.DetachedFollowTargetDamp(
+                    cameraOffset, new Vector3(m_XDamping, m_YDamping, m_ZDamping), deltaTime);
 
-                // Find where it intersects the hard zone
-                Vector3 hard = Vector3.zero;
-                if (!m_UnlimitedSoftZone && deltaTime < 0 
-                    || VirtualCamera.FollowTargetAttachment > 1 - Epsilon)
+                // Make sure the real target (not the lookahead one) is still in the frame
+                if (!m_UnlimitedSoftZone 
+                    && (deltaTime < 0 || VirtualCamera.FollowTargetAttachment > 1 - Epsilon))
                 {
                     Rect hardGuideOrtho = ScreenToOrtho(HardGuideRect, screenSize, lens.Aspect);
-                    hard = OrthoOffsetToScreenBounds(targetPos, hardGuideOrtho);
-                    float t = Mathf.Max(
-                        hard.x / (cameraOffset.x + Epsilon), hard.y / (cameraOffset.y + Epsilon));
-                    hard = cameraOffset * t;
-                }
-                // Apply damping, but only to the portion of the move that's inside the hard zone
-                cameraOffset = hard + VirtualCamera.DetachedFollowTargetDamp(
-                    cameraOffset - hard, new Vector3(m_XDamping, m_YDamping, m_ZDamping), deltaTime);
-
-                // If we have lookahead, make sure the real target is still in the frame
-                if (!m_UnlimitedSoftZone && !(TrackedPoint - curState.ReferenceLookAt).AlmostZero())
-                {
-                    Rect hardGuideOrtho = ScreenToOrtho(HardGuideRect, screenSize, lens.Aspect);
-                    cameraOffset += OrthoOffsetToScreenBounds(lookAtPos - cameraOffset, hardGuideOrtho);
+                    var realTargetPos = (worldToLocal * followTargetPosition) - cameraPos;
+                    cameraOffset += OrthoOffsetToScreenBounds(
+                        realTargetPos - cameraOffset, hardGuideOrtho);
                 }
             }
             curState.RawPosition = localToWorld * (cameraPos + cameraOffset);
@@ -643,9 +645,10 @@ namespace Cinemachine
             Vector2 angles = new Vector2(89.5f, 89.5f);
             if (zRange.x > 0)
             {
-                angles = Vector3.Max(maxAngles, UnityVectorExtensions.Abs(minAngles)) * Mathf.Deg2Rad;
+                angles = Vector2.Max(maxAngles, UnityVectorExtensions.Abs(minAngles));
                 angles = Vector2.Min(angles, new Vector2(89.5f, 89.5f));
             }
+            angles *= Mathf.Deg2Rad;
             return new Bounds(new Vector3(0, 0, z),
                 new Vector3(Mathf.Tan(angles.y) * z * 2, Mathf.Tan(angles.x) * z * 2, zSize));
         }

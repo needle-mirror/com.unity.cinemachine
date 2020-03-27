@@ -47,9 +47,11 @@ namespace Cinemachine
 #endif
 
 #if CINEMACHINE_PHYSICS_2D
+
         /// <summary>The 2D shape within which the camera is to be contained.</summary>
         [Tooltip("The 2D shape within which the camera is to be contained")]
         public Collider2D m_BoundingShape2D;
+        private Collider2D m_BoundingShape2DCache;
 #endif
         /// <summary>If camera is orthographic, screen edges will be confined to the volume.</summary>
         [Tooltip("If camera is orthographic, screen edges will be confined to the volume.  "
@@ -80,6 +82,7 @@ namespace Cinemachine
         {
             public Vector3 m_previousDisplacement;
             public float confinerDisplacement;
+            public bool applyAfterAim;
         };
 
         /// <summary>Check if the bounding volume is defined</summary>
@@ -98,6 +101,26 @@ namespace Cinemachine
             }
         }
 
+        protected override void ConnectToVcam(bool connect)
+        {
+            base.ConnectToVcam(connect);
+
+            CinemachineVirtualCamera vcam = VirtualCamera as CinemachineVirtualCamera;
+            if (vcam == null) return;
+            
+            var components = vcam.GetComponentPipeline();
+            foreach (var component in components)
+            {
+                if (component.BodyAppliesAfterAim)
+                {
+                    var extraState = GetExtraState<VcamExtraState>(vcam);
+                    extraState.applyAfterAim = true;
+                    break;
+                }
+            }
+        }
+        
+
         /// <summary>Callback to to the camera confining</summary>
         protected override void PostPipelineStageCallback(
             CinemachineVirtualCameraBase vcam,
@@ -105,8 +128,10 @@ namespace Cinemachine
         {
             if (IsValid)
             {
-                // Move the body before the Aim is calculated
-                if (stage == CinemachineCore.Stage.Body)
+                var extra = GetExtraState<VcamExtraState>(vcam);
+                if ((extra.applyAfterAim && stage == CinemachineCore.Stage.Finalize)
+                    ||
+                    (!extra.applyAfterAim && stage == CinemachineCore.Stage.Body))
                 {
                     Vector3 displacement;
                     if (m_ConfineScreenEdges && state.Lens.Orthographic)
@@ -114,7 +139,6 @@ namespace Cinemachine
                     else
                         displacement = ConfinePoint(state.CorrectedPosition);
 
-                    VcamExtraState extra = GetExtraState<VcamExtraState>(vcam);
                     if (m_Damping > 0 && deltaTime >= 0 && VirtualCamera.PreviousStateIsValid)
                     {
                         Vector3 delta = displacement - extra.m_previousDisplacement;
@@ -132,11 +156,21 @@ namespace Cinemachine
         private int m_pathTotalPointCount;
 
         /// <summary>Call this if the bounding shape's points change at runtime</summary>
-        public void InvalidatePathCache() { m_pathCache = null; }
+        public void InvalidatePathCache()
+        {
+            m_pathCache = null;
+            m_BoundingShape2DCache = null;
+        }
 
         bool ValidatePathCache()
         {
 #if CINEMACHINE_PHYSICS_2D
+            if (m_BoundingShape2DCache != m_BoundingShape2D)
+            {
+                InvalidatePathCache();
+                m_BoundingShape2DCache = m_BoundingShape2D;
+            }
+            
             Type colliderType = m_BoundingShape2D == null ? null:  m_BoundingShape2D.GetType();
             if (colliderType == typeof(PolygonCollider2D))
             {
