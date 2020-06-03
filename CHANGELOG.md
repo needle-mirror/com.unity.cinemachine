@@ -5,13 +5,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## [2.6.0-preview.5] - 2020-04-25
+## [2.6.0-preview.8] - 2020-06-03
 ### New Features and Bugfixes
+- Added AxisState.IInputProvider API to better support custom input systems
+- Added CinemachineInpiutProvider behaviour to support Unity's new input system
+- Added Timeline Scrubbing cache: when enabled, simulates damping and noise when scrubbing in timeline
 - Added ManualUpdate mode to the Brain, to allow for custom game loop logic
 - VolumeSettings/PostProcessing: added ability to choose custom target for focus tracking
 - Added CinemachineRecomposer for timeline-tweaking of procedural or recorded vcam Aim output
 - Added GroupWeightManipulator for animating group member weights
 - Impulse: Added PropagationSpeed, to allow the impulse to travel outward in a wave
+- Impulse: added support for continuous impulses
 - Added CinemachineIndependentImpulseListener, to give ImpulseListener ability to any game object
 - Added 3rdPersonFollow and 3rdPersonAim for dead-accurate 3rd-person aiming camera
 - Added ForceCameraPosition API of virtual cameras, to manually initialize a camera's position and rotation
@@ -41,6 +45,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Bugfix (1227606): Timeline preview and playmode not the same for composer with hand-animated rotations
 - Bugfix: Confiner's cache is reset, when bounding shape/volume is changed.
 - Bugfix (1232146): Vcam no longer jerks at edge of confiner bound box.
+- Bugfix (1234966): CompositeCollider scale was applied twice.
 
 
 ## [2.5.0] - 2020-01-15

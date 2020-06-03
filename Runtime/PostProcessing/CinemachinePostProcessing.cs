@@ -42,13 +42,13 @@ namespace Cinemachine.PostFX
         {
             /// <summary>No focus tracking</summary>
             None,
-            /// <summary>Focus offet is relative to the LookAt target</summary>
+            /// <summary>Focus offset is relative to the LookAt target</summary>
             LookAtTarget,
-            /// <summary>Focus offet is relative to the Follow target</summary>
+            /// <summary>Focus offset is relative to the Follow target</summary>
             FollowTarget,
-            /// <summary>Focus offet is relative to the Custom target set here</summary>
+            /// <summary>Focus offset is relative to the Custom target set here</summary>
             CustomTarget,
-            /// <summary>Focus offet is relative to the camera</summary>
+            /// <summary>Focus offset is relative to the camera</summary>
             Camera
         };
 
@@ -65,9 +65,9 @@ namespace Cinemachine.PostFX
         public Transform m_FocusTarget;
 
         /// <summary>Offset from target distance, to be used with Focus Tracks Target.  
-        /// Offsets the sharpest point away from the focus target</summary>
+        /// Offsets the sharpest point away from the location of the focus target</summary>
         [Tooltip("Offset from target distance, to be used with Focus Tracks Target.  "
-            + "Offsets the sharpest point away from the focus target.")]
+            + "Offsets the sharpest point away from the location of the focus target.")]
         public float m_FocusOffset;
 
         [Tooltip("This Post-Processing profile will be applied whenever this virtual camera is live")]
@@ -276,21 +276,36 @@ namespace Cinemachine.PostFX
 
         static PostProcessLayer GetPPLayer(CinemachineBrain brain)
         {
-            PostProcessLayer layer = null;
-            if (mBrainToLayer.TryGetValue(brain, out layer))
-            {
-#if UNITY_EDITOR
-                // Maybe they added it since we last checked
-                if (layer != null || Application.isPlaying)
-#endif
-                return layer;
-            }
-            layer = brain.GetComponent<PostProcessLayer>();
-            mBrainToLayer[brain] = layer;
+            bool found = mBrainToLayer.TryGetValue(brain, out PostProcessLayer layer);
             if (layer != null)
-                brain.m_CameraCutEvent.AddListener(OnCameraCut);
+                return layer;   // layer is valid and in our lookup
+
+            if (found)
+            {
+                if (layer) // note: this is not the same check as (layer == null)
+                {
+                    // layer is a deleted object
+                    brain.m_CameraCutEvent.RemoveListener(OnCameraCut);
+                    mBrainToLayer.Remove(brain);
+                    layer = null;
+                }
+            }
             else
-                brain.m_CameraCutEvent.RemoveListener(OnCameraCut);
+            {
+                // Brain is not in our lookup - add it
+#if UNITY_2019_2_OR_NEWER
+                brain.TryGetComponent(out layer);
+#else
+                layer = brain.GetComponent<PostProcessLayer>();
+#endif
+                if (layer != null)
+                    brain.m_CameraCutEvent.AddListener(OnCameraCut); // valid layer
+#if UNITY_EDITOR
+                // Never add null in edit mode in case user adds a layer dynamically
+                if (Application.isPlaying)  
+#endif
+                    mBrainToLayer[brain] = layer;
+            }
             return layer;
         }
 

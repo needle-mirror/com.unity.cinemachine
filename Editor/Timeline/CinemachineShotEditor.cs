@@ -22,11 +22,49 @@ using Cinemachine;
             set
             {
                 if (value != AutoCreateShotFromSceneView)
-                {
                     EditorPrefs.SetBool(kAutoCreateKey, value);
+            }
+        }
+
+#if UNITY_2019_2_OR_NEWER
+        static string kUseScrubbingCache = "CNMCN_Timeline_UseScrubbingCache";
+        public static bool UseScrubbingCache
+        {
+            get { return EditorPrefs.GetBool(kUseScrubbingCache, true); }
+            set
+            {
+                if (UseScrubbingCache != value)
+                {
+                    EditorPrefs.SetBool(kUseScrubbingCache, value);
+                    TargetPositionCache.UseCache = value;
                 }
             }
         }
+
+        static string kScrubbingCacheResolution = "CNMCN_Timeline_ScrubbingCacheResolution";
+        public static int ScrubbingCacheResolution
+        {
+            get { return EditorPrefs.GetInt(kScrubbingCacheResolution, TargetPositionCache.kMaxResolution); }
+            set
+            {
+                if (ScrubbingCacheResolution != value)
+                {
+                    EditorPrefs.SetInt(kScrubbingCacheResolution, value);
+                    TargetPositionCache.Resolution = value;
+                }
+            }
+        }
+
+        [InitializeOnLoad]
+        public class SyncCacheEnabledSetting
+        {
+            static SyncCacheEnabledSetting()
+            {
+                TargetPositionCache.UseCache = UseScrubbingCache;
+                TargetPositionCache.Resolution = ScrubbingCacheResolution;
+            }
+        }
+#endif
 
         static public CinemachineVirtualCameraBase CreateStaticVcamFromSceneView()
         {
@@ -48,6 +86,22 @@ using Cinemachine;
 
         private static readonly GUIContent kVirtualCameraLabel
             = new GUIContent("Virtual Camera", "The virtual camera to use for this shot");
+        private static readonly GUIContent kAutoCreateLabel = new GUIContent(
+            "Auto-create new shots",  "When enabled, new clips will be "
+                + "automatically populated to match the scene view camera.  "
+                + "This is a global setting");
+#if UNITY_2019_2_OR_NEWER
+        private static readonly GUIContent kScrubbingCacheLabel = new GUIContent(
+            "Use Scrub Bubble",
+            "For preview scrubbing, pre-simulate each frame to approximate damping "
+                + "and noise playback.  Target position cache is built when timeline is "
+                + "played forward, and used when timeline is scrubbed within the indicated zone. "
+                + "This is a global setting.");
+        private static readonly GUIContent kScrubbingCacheResolutionLabel = new GUIContent(
+            " ",
+            "Cache resolution: higher numbers improve accuracy but may degrade performance.  "
+                + "This is a global setting.");
+#endif
 
         protected override void GetExcludedPropertiesInInspector(List<string> excluded)
         {
@@ -72,13 +126,33 @@ using Cinemachine;
             EditorGUI.indentLevel = 0; // otherwise subeditor layouts get screwed up
 
             AutoCreateShotFromSceneView
-                = EditorGUILayout.Toggle(
-                    new GUIContent(
-                        "Auto-create new shots",  "When enabled, new clips will be "
-                        + "automatically populated to match the scene view camera"),
-                    AutoCreateShotFromSceneView);
+                = EditorGUILayout.Toggle(kAutoCreateLabel, AutoCreateShotFromSceneView);
 
             Rect rect;
+#if UNITY_2019_2_OR_NEWER
+            GUI.enabled = !Application.isPlaying;
+            rect = EditorGUILayout.GetControlRect();
+            var r = rect;
+            r.width = EditorGUIUtility.labelWidth + EditorGUIUtility.singleLineHeight;
+            if (Application.isPlaying)
+                EditorGUI.Toggle(r, kScrubbingCacheLabel, false);
+            else
+                UseScrubbingCache = EditorGUI.Toggle(r, kScrubbingCacheLabel, UseScrubbingCache);
+            if (UseScrubbingCache)
+            {
+                var lw = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = EditorGUIUtility.singleLineHeight;
+                r.x += r.width; r.width = rect.width - r.width;
+                TargetPositionCache.Resolution = EditorGUI.IntSlider(
+                    r, kScrubbingCacheResolutionLabel, 
+                    TargetPositionCache.Resolution, 1, TargetPositionCache.kMaxResolution);
+                EditorGUIUtility.labelWidth = lw;
+            }
+            //EditorGUI.LabelField(r, "(experimental)");
+            GUI.enabled = true;
+#endif
+
+            EditorGUILayout.Space();
             CinemachineVirtualCameraBase vcam
                 = vcamProperty.exposedReferenceValue as CinemachineVirtualCameraBase;
             if (vcam != null)

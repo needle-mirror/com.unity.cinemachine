@@ -97,6 +97,21 @@ namespace Cinemachine
             + "unless the virtual camera is doing shot evaluation.")]
         public StandbyUpdateMode m_StandbyUpdate = StandbyUpdateMode.RoundRobin;
 
+        /// <summary>
+        /// Query components and extensions for the maximum damping time.
+        /// Base class implementation queries extensions.
+        /// Only used in editor for timeline scrubbing.
+        /// </summary>
+        /// <returns>Highest damping setting in this vcam</returns>
+        public virtual float GetMaxDampTime()
+        {
+            float maxDamp = 0;
+            if (mExtensions != null)
+                for (int i = 0; i < mExtensions.Count; ++i)
+                    maxDamp = Mathf.Max(maxDamp, mExtensions[i].GetMaxDampTime());
+            return maxDamp;
+        }
+
         /// <summary>Get a damped version of a quantity.  This is the portion of the
         /// quantity that will take effect over the given time.
         /// This method takes the target attachment into account.  For general
@@ -222,7 +237,7 @@ namespace Cinemachine
                 mExtensions.Remove(extension);
         }
 
-        /// <summary> THe extensions connected to this vcam</summary>
+        /// <summary> Tee extensions connected to this vcam</summary>
         List<CinemachineExtension> mExtensions;
 
         /// <summary>
@@ -479,7 +494,7 @@ namespace Cinemachine
 
         /// <summary>
         /// Called on inactive object when being artificially activated by timeline.
-        /// This is necessary because Awak() isn't called on inactive gameObjects.
+        /// This is necessary because Awake() isn't called on inactive gameObjects.
         /// </summary>
         internal void EnsureStarted()
         {
@@ -490,6 +505,22 @@ namespace Cinemachine
                 for (int i = 0; i < extensions.Length; ++i)
                     extensions[i].EnsureStarted();
             }
+        }
+
+        /// <summary>
+        /// Locate the first component that implements AxisState.IInputAxisProvider.
+        /// </summary>
+        /// <returns>The first AxisState.IInputAxisProvider or null if none</returns>
+        public AxisState.IInputAxisProvider GetInputAxisProvider()
+        {
+            var components = GetComponentsInChildren<MonoBehaviour>();
+            for (int i = 0; i < components.Length; ++i)
+            {
+                var provider = components[i] as AxisState.IInputAxisProvider;
+                if (provider != null)
+                    return provider;
+            }
+            return null;
         }
 
         /// <summary>Enforce bounds for fields, when changed in inspector.
@@ -547,7 +578,13 @@ namespace Cinemachine
             m_parentVcam = null;
             Transform p = transform.parent;
             if (p != null)
+            {
+#if UNITY_2019_2_OR_NEWER
+                p.TryGetComponent(out m_parentVcam);
+#else
                 m_parentVcam = p.GetComponent<CinemachineVirtualCameraBase>();
+#endif
+            }
         }
 
         /// <summary>Returns this vcam's LookAt target, or if that is null, will retrun
@@ -662,8 +699,8 @@ namespace Cinemachine
         protected CameraState PullStateFromVirtualCamera(Vector3 worldUp, ref LensSettings lens)
         {
             CameraState state = CameraState.Default;
-            state.RawPosition = transform.position;
-            state.RawOrientation = transform.rotation;
+            state.RawPosition = TargetPositionCache.GetTargetPosition(transform);
+            state.RawOrientation = TargetPositionCache.GetTargetRotation(transform);
             state.ReferenceUp = worldUp;
 
             CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);

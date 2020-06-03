@@ -236,6 +236,28 @@ namespace Cinemachine
             m_RadialAxis.HasRecentering = false;
         }
 
+        /// <summary>Updates the child rig cache</summary>
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            UpdateInputAxisProvider();
+        }
+        
+        /// <summary>
+        /// API for the inspector.  Internal use only
+        /// </summary>
+        public void UpdateInputAxisProvider()
+        {
+            m_VerticalAxis.SetInputAxisProvider(0, null);
+            m_RadialAxis.SetInputAxisProvider(1, null);
+            var provider = GetInputAxisProvider();
+            if (provider != null)
+            {
+                m_VerticalAxis.SetInputAxisProvider(1, provider);
+                m_RadialAxis.SetInputAxisProvider(2, provider);
+            }
+        }
+        
         void Reset()
         {
             DestroyComponents();
@@ -357,6 +379,9 @@ namespace Cinemachine
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than 0)</param>
         override public void InternalUpdateCameraState(Vector3 worldUp, float deltaTime)
         {
+            FollowTargetAttachment = 1;
+            LookAtTargetAttachment = 1;
+
             // Initialize the camera state, in case the game object got moved in the editor
             m_State = PullStateFromVirtualCamera(worldUp, ref m_Lens);
             m_Rigs[(int)RigID.Top].m_Lens.SnapshotCameraReadOnlyProperties(ref m_Lens);

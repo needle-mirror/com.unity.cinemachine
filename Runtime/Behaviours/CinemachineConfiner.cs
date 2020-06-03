@@ -70,9 +70,18 @@ namespace Cinemachine
         /// <returns>True if the virtual camera has been repositioned</returns>
         public bool CameraWasDisplaced(CinemachineVirtualCameraBase vcam)
         {
-            return GetExtraState<VcamExtraState>(vcam).confinerDisplacement > 0;
+            return GetCameraDisplacementDistance(vcam) > 0;
         }
 
+        /// <summary>See how far virtual camera has been moved by the confiner</summary>
+        /// <param name="vcam">The virtual camera in question.  This might be different from the
+        /// virtual camera that owns the confiner, in the event that the camera has children</param>
+        /// <returns>True if the virtual camera has been repositioned</returns>
+        public float GetCameraDisplacementDistance(CinemachineVirtualCameraBase vcam)
+        {
+            return GetExtraState<VcamExtraState>(vcam).confinerDisplacement;
+        }
+        
         private void OnValidate()
         {
             m_Damping = Mathf.Max(0, m_Damping);
@@ -120,6 +129,14 @@ namespace Cinemachine
             }
         }
         
+        /// <summary>
+        /// Report maximum damping time needed for this component.
+        /// </summary>
+        /// <returns>Highest damping setting in this component</returns>
+        public override float GetMaxDampTime() 
+        { 
+            return m_Damping;
+        }
 
         /// <summary>Callback to to the camera confining</summary>
         protected override void PostPipelineStageCallback(
@@ -197,12 +214,16 @@ namespace Cinemachine
                 {
                     m_pathCache = new List<List<Vector2>>();
                     Vector2[] path = new Vector2[poly.pointCount];
+                    var lossyScale = m_BoundingShape2D.transform.lossyScale;
+                    Vector2 revertCompositeColliderScale = new Vector2(
+                        1f / lossyScale.x, 
+                        1f / lossyScale.y);
                     for (int i = 0; i < poly.pathCount; ++i)
                     {
                         int numPoints = poly.GetPath(i, path);
                         List<Vector2> dst = new List<Vector2>();
                         for (int j = 0; j < numPoints; ++j)
-                            dst.Add(path[j]);
+                            dst.Add(path[j] * revertCompositeColliderScale);
                         m_pathCache.Add(dst);
                     }
                     m_pathTotalPointCount = poly.pointCount;
@@ -240,7 +261,7 @@ namespace Cinemachine
                 int numPoints = m_pathCache[i].Count;
                 if (numPoints > 0)
                 {
-                    Vector2 v0 = m_BoundingShape2D.transform.TransformPoint(m_pathCache[i][numPoints-1]);
+                    Vector2 v0 = m_BoundingShape2D.transform.TransformPoint(m_pathCache[i][numPoints - 1]);
                     for (int j = 0; j < numPoints; ++j)
                     {
                         Vector2 v = m_BoundingShape2D.transform.TransformPoint(m_pathCache[i][j]);
