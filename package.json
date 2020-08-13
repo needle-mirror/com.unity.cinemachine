@@ -1,7 +1,7 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "2.6.0",
+  "version": "2.6.1-preview.6",
   "unity": "2018.4",
   "description": "Smart camera tools for passionate creators. \n\nIMPORTANT NOTE: If you are upgrading from the Asset Store version of Cinemachine, delete the Cinemachine asset from your project BEFORE installing this version from the Package Manager.",
   "keywords": [
@@ -33,16 +33,21 @@
   "repository": {
     "url": "https://github.com/Unity-Technologies/upm-package-cinemachine.git",
     "type": "git",
-    "revision": "d664269f17536431f3b32f36c1903fb73b926ed9"
+    "revision": "d1b64c45879b78483cb7e627ccf14b6f4a518a7b"
   },
   "samples": [
     {
       "displayName": "Cinemachine Example Scenes",
       "description": "Sample scenes illustrating various ways to use Cinemachine",
       "path": "Samples~/Cinemachine Example Scenes"
+    },
+    {
+      "displayName": "Scrub Bubble support for Nested Timelines (experimental)",
+      "description": "Experimental feature.  Adds a Timeline extension to support Scrubb Bubble for nested timelines.  This extension will become obsolete when Timeline adds native support for the missing API",
+      "path": "Samples~/Nested Timeline Scrub Bubble"
     }
   ],
   "upmCi": {
-    "footprint": "3753f3096b65d21612ef4028ad0b88753809213d"
+    "footprint": "e5f00df38d4630483eb8def1d07a058933e8bc17"
   }
 }
