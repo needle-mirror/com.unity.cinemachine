@@ -1,3 +1,8 @@
+<size=20><b>Version 2.6.2</b></size>
+- Regression fix: OnCameraCut Memory leak when using Cinemachine with PostProcessing package
+- Bugfix (1272146): Checking for null pipeline, before drawing gizmos.
+- Add support for disabling Physics module
+
 <size=20><b>Version 2.6.1</b></size>
 
 - Regression Fix: PostProcessing/VolumeSettings FocusTracksTarget was not accounting for lookAt target offset
