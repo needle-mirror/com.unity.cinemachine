@@ -9,6 +9,17 @@ namespace Cinemachine.PostFX
 {
 #if !CINEMACHINE_POST_PROCESSING_V2
     // Workaround for Unity scripting bug
+    /// <summary>
+    /// This behaviour is a liaison between Cinemachine with the Post-Processing v2 module.  You must
+    /// have the Post-Processing V2 stack package installed in order to use this behaviour.
+    ///
+    /// As a component on the Virtual Camera, it holds
+    /// a Post-Processing Profile asset that will be applied to the Unity camera whenever
+    /// the Virtual camera is live.  It also has the optional functionality of animating
+    /// the Focus Distance and DepthOfField properties of the Camera State, and
+    /// applying them to the current Post-Processing profile, provided that profile has a
+    /// DepthOfField effect that is enabled.
+    /// </summary>
     [AddComponentMenu("")] // Hide in menu
     public class CinemachinePostProcessing : CinemachineExtension 
     {
@@ -34,11 +45,7 @@ namespace Cinemachine.PostFX
     /// DepthOfField effect that is enabled.
     /// </summary>
     [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-#if UNITY_2018_3_OR_NEWER
     [ExecuteAlways]
-#else
-    [ExecuteInEditMode]
-#endif
     [AddComponentMenu("")] // Hide in menu
     [SaveDuringPlay]
     [DisallowMultipleComponent]
@@ -306,30 +313,25 @@ namespace Cinemachine.PostFX
 
             if (found)
             {
-                if (layer) // note: this is not the same check as (layer == null)
-                {
-                    // layer is a deleted object
-                    brain.m_CameraCutEvent.RemoveListener(OnCameraCut);
-                    mBrainToLayer.Remove(brain);
-                    layer = null;
-                }
+                // layer is a deleted object
+                brain.m_CameraCutEvent.RemoveListener(OnCameraCut);
+                mBrainToLayer.Remove(brain);
+                layer = null;
             }
-            else
-            {
-                // Brain is not in our lookup - add it
+            // Brain is not in our lookup - add it
 #if UNITY_2019_2_OR_NEWER
-                brain.TryGetComponent(out layer);
+            brain.TryGetComponent(out layer);
 #else
-                layer = brain.GetComponent<PostProcessLayer>();
+            layer = brain.GetComponent<PostProcessLayer>();
 #endif
-                if (layer != null)
-                    brain.m_CameraCutEvent.AddListener(OnCameraCut); // valid layer
+            if (layer != null)
+                brain.m_CameraCutEvent.AddListener(OnCameraCut); // valid layer
 #if UNITY_EDITOR
-                // Never add null in edit mode in case user adds a layer dynamically
-                if (Application.isPlaying || layer != null)  
+            // Never add null in edit mode in case user adds a layer dynamically
+            if (Application.isPlaying || layer != null)  
 #endif
-                    mBrainToLayer[brain] = layer;
-            }
+                mBrainToLayer[brain] = layer;
+
             return layer;
         }
 

@@ -1,9 +1,9 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "2.6.3",
+  "version": "2.7.1",
   "unity": "2018.4",
-  "description": "Smart camera tools for passionate creators. \n\nIMPORTANT NOTE: If you are upgrading from the Asset Store version of Cinemachine, delete the Cinemachine asset from your project BEFORE installing this version from the Package Manager.",
+  "description": "Smart camera tools for passionate creators. \n\nNew for 2.7.1: Are you looking for the Cinemachine menu?  It has moved to the GameObject menu.\n\nIMPORTANT NOTE: If you are upgrading from the legacy Asset Store version of Cinemachine, delete the Cinemachine asset from your project BEFORE installing this version from the Package Manager.",
   "keywords": [
     "camera",
     "follow",
@@ -29,11 +29,10 @@
     "impulse"
   ],
   "category": "cinematography",
-  "dependencies": {},
   "repository": {
     "url": "https://github.com/Unity-Technologies/upm-package-cinemachine.git",
     "type": "git",
-    "revision": "bec7fa48fa2d6e9e46243f24d3b1d62918a6b377"
+    "revision": "863a03db6aa5c7f91b66e644065be1cac7f73f10"
   },
   "samples": [
     {
@@ -42,12 +41,12 @@
       "path": "Samples~/Cinemachine Example Scenes"
     },
     {
-      "displayName": "Scrub Bubble support for Nested Timelines (experimental)",
-      "description": "Experimental feature.  Adds a Timeline extension to support Scrubb Bubble for nested timelines.  This extension will become obsolete when Timeline adds native support for the missing API",
+      "displayName": "Cached Scrubbing support for Nested Timelines (experimental)",
+      "description": "Experimental feature.  Adds a Timeline extension to support Cached Scrubbing for nested timelines.  This extension will become obsolete when Timeline adds native support for the missing API",
       "path": "Samples~/Nested Timeline Scrub Bubble"
     }
   ],
   "upmCi": {
-    "footprint": "65bcb31e3ad06d2f9365f80d8488ccc36390374e"
+    "footprint": "f0f0b748fb50abd137da3cd3bf260a682c76e7d7"
   }
 }

@@ -1,3 +1,7 @@
+#if !UNITY_2019_1_OR_NEWER
+#define CINEMACHINE_UGUI
+#endif
+
 using UnityEngine;
 using UnityEditor;
 using System;
@@ -71,6 +75,26 @@ namespace Cinemachine.Editor
                     {
                         string packedColour = PackColor(value);
                         EditorPrefs.SetString(kCoreInactiveGizmoColourKey, packedColour);
+                    }
+                }
+            }
+            
+            private static readonly string kCoreBoundaryObjectGizmoColorKey = "CNMCN_Core_BoundaryObject_Gizmo_Colour";
+            public static readonly Color kDefaultBoundaryObjectColour = Color.yellow;
+            public static Color BoundaryObjectGizmoColour
+            {
+                get
+                {
+                    string packedColour = EditorPrefs.GetString(kCoreBoundaryObjectGizmoColorKey, PackColor(kDefaultBoundaryObjectColour));
+                    return UnpackColour(packedColour);
+                }
+
+                set
+                {
+                    if (BoundaryObjectGizmoColour != value)
+                    {
+                        string packedColour = PackColor(value);
+                        EditorPrefs.SetString(kCoreBoundaryObjectGizmoColorKey, packedColour);
                     }
                 }
             }
@@ -232,6 +256,23 @@ namespace Cinemachine.Editor
 
         internal static event Action AdditionalCategories = null;
 
+        [InitializeOnLoadMethod]
+        /// Ensures that CM Brain logo is added to the Main Camera
+        /// after adding a virtual camera to the project for the first time
+        static void OnPackageLoadedInEditor()
+        {
+            if (CinemachineLogoTexture == null) 
+            {
+                // After adding the CM to a project, we need to wait for one update cycle for the assets to load
+                EditorApplication.update += OnPackageLoadedInEditor; 
+            }
+            else
+            {
+                EditorApplication.update -= OnPackageLoadedInEditor;
+                EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI; // Update hierarchy with CM Brain logo
+            }
+        }
+
         static CinemachineSettings()
         {
             if (CinemachineLogoTexture != null)
@@ -244,6 +285,7 @@ namespace Cinemachine.Editor
             //private static readonly GUIContent sCoreShowHiddenObjectsToggle = new GUIContent("Show Hidden Objects", "If checked, Cinemachine hidden objects will be shown in the inspector.  This might be necessary to repair broken script mappings when upgrading from a pre-release version");
             public static readonly GUIContent sCoreActiveGizmosColour = new GUIContent("Active Virtual Camera", "The colour for the active virtual camera's gizmos");
             public static readonly GUIContent sCoreInactiveGizmosColour = new GUIContent("Inactive Virtual Camera", "The colour for all inactive virtual camera gizmos");
+            public static readonly GUIContent sCoreBoundaryObjectGizmosColour = new GUIContent("Boundary Object", "The colour to indicate secondary objects like group boundaries and confiner shapes");
             public static readonly GUIContent sComposerOverlayOpacity = new GUIContent("Overlay Opacity", "The alpha of the composer's overlay when a virtual camera is selected with composer module enabled");
             public static readonly GUIContent sComposerHardBoundsOverlay = new GUIContent("Hard Bounds Overlay", "The colour of the composer overlay's hard bounds region");
             public static readonly GUIContent sComposerSoftBoundsOverlay = new GUIContent("Soft Bounds Overlay", "The colour of the composer overlay's soft bounds region");
@@ -260,7 +302,8 @@ namespace Cinemachine.Editor
         [SettingsProvider]
         static SettingsProvider CreateProjectSettingsProvider()
         {
-            var provider = new SettingsProvider("Preferences/Cinemachine", SettingsScope.User, SettingsProvider.GetSearchKeywordsFromGUIContentProperties<Styles>());
+            var provider = new SettingsProvider("Preferences/Cinemachine", 
+                SettingsScope.User, SettingsProvider.GetSearchKeywordsFromGUIContentProperties<Styles>());
             provider.guiHandler = (sarchContext) => OnGUI();
             return provider;
         }
@@ -282,6 +325,13 @@ namespace Cinemachine.Editor
 
                 GUILayout.EndScrollView();
             }
+
+#if CINEMACHINE_UGUI
+            // Storyboard global mute
+            CinemachineStoryboardMute.Enabled = EditorGUILayout.Toggle(
+                new GUIContent("Storyboard Global Mute", "If checked, all storyboards are globally muted."), 
+                CinemachineStoryboardMute.Enabled);
+#endif
 
             sScrollPosition = GUILayout.BeginScrollView(sScrollPosition);
 
@@ -322,6 +372,22 @@ namespace Cinemachine.Editor
                 if (GUILayout.Button("Reset"))
                 {
                     CinemachineCoreSettings.InactiveGizmoColour = CinemachineCoreSettings.kDefaultInactiveColour;
+                }
+                EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.BeginHorizontal();
+                EditorGUI.BeginChangeCheck();
+                Color newBoundaryObjectColor = EditorGUILayout.ColorField(Styles.sCoreBoundaryObjectGizmosColour, CinemachineCoreSettings.BoundaryObjectGizmoColour);
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    CinemachineCoreSettings.BoundaryObjectGizmoColour = newBoundaryObjectColor;
+                    UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+                }
+
+                if (GUILayout.Button("Reset"))
+                {
+                    CinemachineCoreSettings.BoundaryObjectGizmoColour = CinemachineCoreSettings.kDefaultBoundaryObjectColour;
                 }
                 EditorGUILayout.EndHorizontal();
                 EditorGUI.indentLevel--;
