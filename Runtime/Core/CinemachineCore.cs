@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.Assertions;
 
 namespace Cinemachine
 {
@@ -10,7 +11,7 @@ namespace Cinemachine
         /// or
         /// [HelpURL(Documentation.BaseURL + "manual/some-page.html")]
         /// It cannot support String.Format nor string interpolation</summary>
-        public const string BaseURL = "https://docs.unity3d.com/Packages/com.unity.cinemachine@2.6/";
+        public const string BaseURL = "https://docs.unity3d.com/Packages/com.unity.cinemachine@2.7/";
     }
 
     /// <summary>A singleton that manages complete lists of CinemachineBrain and,
@@ -23,7 +24,7 @@ namespace Cinemachine
         public static readonly int kStreamingVersion = 20170927;
 
         /// <summary>Human-readable Cinemachine Version</summary>
-        public static readonly string kVersionString = "2.6.3";
+        public static readonly string kVersionString = "2.7.2";
 
         /// <summary>
         /// Stages in the Cinemachine Component pipeline, used for
@@ -157,40 +158,44 @@ namespace Cinemachine
         /// <summary>List of all active ICinemachineCameras.</summary>
         private List<CinemachineVirtualCameraBase> mActiveCameras = new List<CinemachineVirtualCameraBase>();
 
+        private bool m_ActiveCamerasAreSorted;
+        private int m_ActivationSequence;
+        
         /// <summary>
         /// List of all active Cinemachine Virtual Cameras for all brains.
         /// This list is kept sorted by priority.
         /// </summary>
         public int VirtualCameraCount { get { return mActiveCameras.Count; } }
 
-        /// <summary>Access the array of active ICinemachineCamera in the scene
-        /// without gebnerating garbage</summary>
+        /// <summary>Access the priority-sorted array of active ICinemachineCamera in the scene
+        /// without generating garbage</summary>
         /// <param name="index">Index of the camera to access, range 0-VirtualCameraCount</param>
         /// <returns>The virtual camera at the specified index</returns>
         public CinemachineVirtualCameraBase GetVirtualCamera(int index)
         {
+            if (!m_ActiveCamerasAreSorted && mActiveCameras.Count > 1)
+            {
+                mActiveCameras.Sort((x, y) => 
+                    x.Priority == y.Priority ? y.m_ActivationId - x.m_ActivationId : y.Priority - x.Priority);
+                m_ActiveCamerasAreSorted = true;
+            }
             return mActiveCameras[index];
         }
 
         /// <summary>Called when a Cinemachine Virtual Camera is enabled.</summary>
         internal void AddActiveCamera(CinemachineVirtualCameraBase vcam)
         {
-            // Bring it to the top of the list
-            RemoveActiveCamera(vcam);
-
-            // Keep list sorted by priority
-            int insertIndex;
-            for (insertIndex = 0; insertIndex < mActiveCameras.Count; ++insertIndex)
-                if (vcam.Priority >= mActiveCameras[insertIndex].Priority)
-                    break;
-
-            mActiveCameras.Insert(insertIndex, vcam);
+            Assert.IsFalse(mActiveCameras.Contains(vcam));
+            vcam.m_ActivationId = m_ActivationSequence++;
+            mActiveCameras.Add(vcam);
+            m_ActiveCamerasAreSorted = false;
         }
 
         /// <summary>Called when a Cinemachine Virtual Camera is disabled.</summary>
         internal void RemoveActiveCamera(CinemachineVirtualCameraBase vcam)
         {
-            mActiveCameras.Remove(vcam);
+            if (mActiveCameras.Contains(vcam))
+                mActiveCameras.Remove(vcam);
         }
 
         /// <summary>Called when a Cinemachine Virtual Camera is destroyed.</summary>
@@ -428,7 +433,7 @@ namespace Cinemachine
         /// send an activation event.
         /// </summary>
         /// <param name="vcam">The virtual camera being activated</param>
-        /// <param name="vcamFrom">The previouslay-active virtual camera (may be null)</param>
+        /// <param name="vcamFrom">The previously-active virtual camera (may be null)</param>
         public void GenerateCameraActivationEvent(ICinemachineCamera vcam, ICinemachineCamera vcamFrom)
         {
             if (vcam != null)

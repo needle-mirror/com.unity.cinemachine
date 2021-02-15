@@ -54,6 +54,13 @@ namespace Cinemachine
             DestroyComponents();
         }
 
+        /// <summary>Validates the settings avter inspector edit</summary>
+        protected override void OnValidate()
+        {
+            base.OnValidate();
+            m_Lens.Validate();
+        }
+
         /// <summary>The camera state, which will be a blend of the child rig states</summary>
         override public CameraState State { get { return m_State; } }
 
@@ -143,12 +150,8 @@ namespace Cinemachine
             InvokeOnTransitionInExtensions(fromCam, worldUp, deltaTime);
             bool forceUpdate = false;
             if (m_Transitions.m_InheritPosition && fromCam != null)
-            {
-                transform.position = fromCam.State.RawPosition;
-                //transform.rotation = fromCam.State.RawOrientation;
-                PreviousStateIsValid = false;
-                forceUpdate = true;
-            }
+                ForceCameraPosition(fromCam.State.FinalPosition, fromCam.State.FinalOrientation);
+
             UpdateComponentCache();
             for (int i = 0; i < m_Components.Length; ++i)
             {

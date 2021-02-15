@@ -1,3 +1,7 @@
+#if !UNITY_2019_3_OR_NEWER
+#define CINEMACHINE_UNITY_IMGUI
+#endif
+
 using Cinemachine.Utility;
 using System;
 using System.Collections;
@@ -238,6 +242,7 @@ namespace Cinemachine
 
         private void OnGuiHandler()
         {
+#if CINEMACHINE_UNITY_IMGUI
             if (!m_ShowDebugText)
                 CinemachineDebug.ReleaseScreenPos(this);
             else
@@ -275,6 +280,7 @@ namespace Cinemachine
                 GUI.color = color;
                 CinemachineDebug.ReturnToPool(sb);
             }
+#endif
         }
 
 #if UNITY_EDITOR
@@ -580,7 +586,18 @@ namespace Cinemachine
         private void ProcessActiveCamera(float deltaTime)
         {
             var activeCamera = ActiveVirtualCamera;
-            if (activeCamera != null)
+            if (activeCamera == null)
+            {
+                // No active virtal camera.  We create a state representing its position
+                // and call the callback, but we don't actively set the transform or lens
+                var state = CameraState.Default;
+                state.RawPosition = transform.position;
+                state.RawOrientation = transform.rotation;
+                state.Lens = LensSettings.FromCamera(m_OutputCamera);
+                state.BlendHint |= CameraState.BlendHintValue.NoTransform | CameraState.BlendHintValue.NoLens;
+                PushStateToUnityCamera(SoloCamera != null ? SoloCamera.State : state);
+            }
+            else
             {
                 // Has the current camera changed this frame?
                 if (mActiveCameraPreviousFrameGameObject == null)
