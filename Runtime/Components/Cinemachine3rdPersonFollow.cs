@@ -71,14 +71,34 @@ namespace Cinemachine
         [Range(0, 1)]
         public float CameraRadius;
         
+        /// <summary>
+        /// How gradually the camera moves to correct for occlusions.  
+        /// Higher numbers will move the camera more gradually.
+        /// </summary>
+        [Range(0, 10)]
+        [Tooltip("How gradually the camera moves to correct for occlusions.  " +
+            "Higher numbers will move the camera more gradually.")]
+        public float DampingIntoCollision;
+
+        /// <summary>
+        /// How gradually the camera returns to its normal position after having been corrected by the built-in
+        /// collision resolution system. Higher numbers will move the camera more gradually back to normal.
+        /// </summary>
+        [Range(0, 10)]
+        [Tooltip("How gradually the camera returns to its normal position after having been corrected by the built-in " +
+            "collision resolution system.  Higher numbers will move the camera more gradually back to normal.")]
+        public float DampingFromCollision;
 #else
         // Keep here for code simplicity
         internal float CameraRadius;
+        internal float DampingIntoCollision;
+        internal float DampingFromCollision;
 #endif
 
         // State info
         Vector3 m_PreviousFollowTargetPosition;
         Vector3 m_DampingCorrection;
+        float m_CamPosCollisionCorrection;
 
         void OnValidate()
         {
@@ -87,6 +107,8 @@ namespace Cinemachine
             Damping.y = Mathf.Max(0, Damping.y);
             Damping.z = Mathf.Max(0, Damping.z);
             CameraRadius = Mathf.Max(0.001f, CameraRadius);
+            DampingIntoCollision = Mathf.Max(0, DampingIntoCollision);
+            DampingFromCollision = Mathf.Max(0, DampingFromCollision);
         }
 
         void Reset()
@@ -97,10 +119,13 @@ namespace Cinemachine
             CameraDistance = 2.0f;
             Damping = new Vector3(0.1f, 0.5f, 0.3f);
 #if CINEMACHINE_PHYSICS
-            CameraCollisionFilter = 1;
+            CameraCollisionFilter = 0;
             CameraRadius = 0.2f;
+            DampingIntoCollision = 0;
+            DampingFromCollision = 2f;
 #else
             CameraRadius = 0.02f;
+            DampingIntoCollision = DampingFromCollision = 0;
 #endif
         }
 
@@ -124,7 +149,9 @@ namespace Cinemachine
         /// <returns>Highest damping setting in this component</returns>
         public override float GetMaxDampTime() 
         { 
-            return Mathf.Max(Damping.x, Mathf.Max(Damping.y, Damping.z)); 
+            return Mathf.Max(
+                Mathf.Max(DampingIntoCollision, DampingFromCollision), 
+                Mathf.Max(Damping.x, Mathf.Max(Damping.y, Damping.z))); 
         }
 
         /// <summary>Orients the camera to match the Follow target's orientation</summary>
@@ -153,6 +180,7 @@ namespace Cinemachine
             {
                 // No damping - reset damping state info
                 m_DampingCorrection = Vector3.zero;
+                m_CamPosCollisionCorrection = 0;
             }
             else
             {
@@ -168,11 +196,13 @@ namespace Cinemachine
             // Check if hand is colliding with something, if yes, then move the hand 
             // closer to the player. The radius is slightly enlarged, to avoid problems 
             // next to walls
-            var collidedHand = ResolveCollisions(root, hand, CameraRadius * 1.05f);
+            float dummy = 0;
+            var collidedHand = ResolveCollisions(root, hand, -1, CameraRadius * 1.05f, ref dummy);
 
             // Place the camera at the correct distance from the hand
             Vector3 camPos = hand - (targetForward * CameraDistance);
-            camPos = ResolveCollisions(collidedHand, camPos, CameraRadius);
+            camPos = ResolveCollisions(
+                collidedHand, camPos, deltaTime, CameraRadius, ref m_CamPosCollisionCorrection);
 
             // Set state
             curState.RawPosition = camPos;
@@ -194,7 +224,8 @@ namespace Cinemachine
             var heading = GetHeading(targetForward, up);
             root = m_PreviousFollowTargetPosition;
             GetRawRigPositions(root, targetRot, heading, out shoulder, out hand);
-            hand = ResolveCollisions(root, hand, CameraRadius * 1.05f);
+            float dummy = 0;
+            hand = ResolveCollisions(root, hand, -1, CameraRadius * 1.05f, ref dummy);
         }
 
         Quaternion GetHeading(Vector3 targetForward, Vector3 up)
@@ -215,9 +246,16 @@ namespace Cinemachine
             hand = shoulder + targetRot * new Vector3(0, VerticalArmLength, 0);   
         }
 
-        Vector3 ResolveCollisions(Vector3 root, Vector3 tip, float cameraRadius)
+        Vector3 ResolveCollisions(
+            Vector3 root, Vector3 tip, float deltaTime, 
+            float cameraRadius, ref float collisionCorrection)
         {
 #if CINEMACHINE_PHYSICS
+            if (CameraCollisionFilter.value == 0)
+            {
+                return tip;
+            }
+            
             var dir = tip - root;
             var len = dir.magnitude;
             dir /= len;
@@ -233,9 +271,14 @@ namespace Cinemachine
                 desiredCorrection = (desiredResult - tip).magnitude;
             }
 
+            collisionCorrection += deltaTime < 0 ? desiredCorrection - collisionCorrection : Damper.Damp(
+                desiredCorrection - collisionCorrection, 
+                desiredCorrection > collisionCorrection ? DampingIntoCollision : DampingFromCollision, 
+                deltaTime);
+
             // Apply the correction
-            if (desiredCorrection > Epsilon)
-                result -= dir * desiredCorrection;
+            if (collisionCorrection > Epsilon)
+                result -= dir * collisionCorrection;
 
             return result;
 #else
