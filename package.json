@@ -1,7 +1,7 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "2.8.0-pre.1",
+  "version": "2.8.0",
   "unity": "2019.4",
   "description": "Smart camera tools for passionate creators. \n\nNew starting from 2.7.1: Are you looking for the Cinemachine menu? It has moved to the GameObject menu.\n\nIMPORTANT NOTE: If you are upgrading from the legacy Asset Store version of Cinemachine, delete the Cinemachine asset from your project BEFORE installing this version from the Package Manager.",
   "keywords": [
@@ -32,7 +32,7 @@
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "fbdf1d35b79a9d961d51cad4fe0a43e09320688e"
+    "revision": "7b21dbadbb998b548e730ef5f6c084940a9d82c0"
   },
   "samples": [
     {
@@ -42,6 +42,6 @@
     }
   ],
   "upmCi": {
-    "footprint": "1be3e6f856cd015093ea34e0f47562665e2bd71c"
+    "footprint": "62b1cd096dcc5791fb3c7225eaf359fdc7d9609d"
   }
 }

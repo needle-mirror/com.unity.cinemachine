@@ -4,6 +4,22 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2021-07-13
+- Bugfix: Freelook prefabs won't get corrupted after editing the Prefab via its instances.
+- Bugfix: 3rdPersonFollow works with Aim components now. 
+- Bugfix: Blends between vcams, that are rotated so that their up vector is different from World up, are correct now.
+- Bugfix: POV recentering did not always recenter correctly, when an axis range was limited.
+- Bugfix: Collider sometimes bounced a little when the camera radius was large.
+- Bugfix: CinemachineVolumeSettings inspector was making the game view flicker.
+- Bugfix: CinemachineVolumeSettings inspector displayed a misleading warning message with URP when focus tracking was enabled.
+- Bugfix: Rapidly toggling active cameras before the blends were finished did not use the correct blend time.
+- AimingRig sample scene updated with a better reactive crosshair design.
+- Added API accessor for Active Blend in Clearshot and StateDrivenCamera. 
+- Bugfix: Virtual Cameras were not updating in Edit mode when Brain's BlendUpdateMode was FixedUpdate.
+- Bugfix: Lens mode override was not working correctly in all cases.
+- Collider2D inspector: added warning when collider is of the wrong type.
+
+
 ## [2.8.0-pre.1] - 2021-04-21
 - Switching targets (Follow, LookAt) is smooth by default. For the old behaviour, set PreviousStateIsValid to false after changing the targets.
 - Bugfix: Reversing a blend in progress respects asymmetric blend times.
@@ -39,6 +55,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - New Sample scene: **2D fighters**, showing how to add/remove targets gradually to/from a TargetGroup based on some conditions (here, it is the y coord of the players).
 - Bugfix: CinemachineCollider's displacement damping was being calculated in world space instead of camera space.
 - Bugfix: TrackedDolly sometimes introduced spurious rotations if Default Up and no Aim behaviour.
+- Bugfix: 3rdPersonFollow's shoulder now changes smoothly with respect to world-up vector changes.
 
 
 ## [2.7.2] - 2021-02-15
