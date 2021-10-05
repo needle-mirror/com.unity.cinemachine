@@ -1,7 +1,7 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "2.6.10",
+  "version": "2.6.11",
   "unity": "2018.4",
   "description": "Smart camera tools for passionate creators. \n\nIMPORTANT NOTE: If you are upgrading from the Asset Store version of Cinemachine, delete the Cinemachine asset from your project BEFORE installing this version from the Package Manager.",
   "keywords": [
@@ -32,7 +32,7 @@
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "21f619698ca31d69054e96556e03097e48e43c5d"
+    "revision": "0eef4802dbe9ea60fc58767471ce4c5ea86632de"
   },
   "samples": [
     {
@@ -47,6 +47,6 @@
     }
   ],
   "upmCi": {
-    "footprint": "fa594ffb6d141ea30124e7654c700248d9b21a45"
+    "footprint": "dbdce9ba6502b01f798615cb81bbfa12c615c9b8"
   }
 }
