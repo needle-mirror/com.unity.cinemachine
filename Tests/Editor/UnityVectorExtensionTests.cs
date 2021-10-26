@@ -1,10 +1,12 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Runtime.Serialization.Json;
 using UnityEngine;
 using NUnit.Framework;
 using Cinemachine.Utility;
 using UnityEditor;
 using UnityEngine.TestTools.Utils;
+
+//using Assert = UnityEngine.Assertions.Assert;
 
 namespace Tests.Editor
 {
