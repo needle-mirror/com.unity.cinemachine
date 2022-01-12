@@ -23,11 +23,14 @@ namespace Cinemachine.Editor
                 Gizmos.DrawLine(shoulder, hand);
                 Gizmos.DrawSphere(root, 0.02f);
                 Gizmos.DrawSphere(shoulder, 0.02f);
+#if CINEMACHINE_PHYSICS
                 Gizmos.DrawSphere(hand, target.CameraRadius);
 
                 if (isLive)
                     Gizmos.color = CinemachineSettings.CinemachineCoreSettings.BoundaryObjectGizmoColour;
+
                 Gizmos.DrawSphere(target.VirtualCamera.State.RawPosition, target.CameraRadius);
+#endif
 
                 Gizmos.color = originalGizmoColour;
             }
@@ -65,11 +68,11 @@ namespace Cinemachine.Editor
                     out var armPosition);
                 var followTargetRotation = thirdPerson.FollowTargetRotation;
                 var targetForward = followTargetRotation * Vector3.forward;
+                var heading = Cinemachine3rdPersonFollow.GetHeading(
+                    followTargetRotation, thirdPerson.VirtualCamera.State.ReferenceUp);
 
                 EditorGUI.BeginChangeCheck();
                 // shoulder handle
-                var heading = Cinemachine3rdPersonFollow.GetHeading(
-                    targetForward, thirdPerson.VirtualCamera.State.ReferenceUp);
                 var sHandleMinId = GUIUtility.GetControlID(FocusType.Passive); // TODO: KGB workaround until id is exposed
                 var newShoulderPosition = Handles.PositionHandle(shoulderPosition, heading);
                 var sHandleMaxId = GUIUtility.GetControlID(FocusType.Passive); // TODO: KGB workaround until id is exposed
@@ -79,14 +82,14 @@ namespace Cinemachine.Editor
                 var followUp = followTargetRotation * Vector3.up;
                 var aHandleId = GUIUtility.GetControlID(FocusType.Passive); 
                 var newArmPosition = Handles.Slider(aHandleId, armPosition, followUp, 
-                    HandleUtility.GetHandleSize(armPosition) / 20f, Handles.DotHandleCap, 0.5f);
+                    CinemachineSceneToolHelpers.CubeHandleCapSize(armPosition), Handles.CubeHandleCap, 0.5f);
 
                 // cam distance handle
                 var camDistance = thirdPerson.CameraDistance;
                 var camPos = armPosition - targetForward * camDistance;
                 var cdHandleId = GUIUtility.GetControlID(FocusType.Passive);
                 var newCamPos = Handles.Slider(cdHandleId, camPos, targetForward, 
-                    HandleUtility.GetHandleSize(camPos) / 20f, Handles.DotHandleCap, 0.5f);
+                    CinemachineSceneToolHelpers.CubeHandleCapSize(camPos), Handles.CubeHandleCap, 0.5f);
                 if (EditorGUI.EndChangeCheck())
                 {
                     // Modify via SerializedProperty for OnValidate to get called automatically, and scene repainting too
@@ -138,8 +141,8 @@ namespace Cinemachine.Editor
                     CinemachineSceneToolHelpers.DrawLabel(labelPos, text);
                     
                 Handles.color = handleIsDraggedOrHovered ? 
-                    Handles.selectedColor : CinemachineSettings.CinemachineCoreSettings.ActiveGizmoColour;
-                Handles.DrawLine(lineStart, lineEnd, CinemachineSceneToolHelpers.lineThickness);
+                    Handles.selectedColor : CinemachineSceneToolHelpers.HelperLineDefaultColor;
+                    Handles.DrawLine(lineStart, lineEnd, CinemachineSceneToolHelpers.LineThickness);
                     
                 return handleIsDragged;
             }

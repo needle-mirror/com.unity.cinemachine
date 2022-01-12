@@ -4,13 +4,13 @@ The __Cinemachine Free Look Camera__ component provides a third-person camera ex
 
 ![Cinemachine Free Look in the Scene window](images/CinemachineFreelook.png)
 
-Each rig defines a ring around the target, with its own radius, height offset, composer, lens properties, and Noise settings. These are the same as the [properties for a regular Virtual Camera](CinemachineVirtualCamera.html).
+Each rig defines a ring around the target, with its own radius, height offset, composer, lens properties, and Noise settings. These are the same as the [properties for a regular Virtual Camera](CinemachineVirtualCamera.md).
 
 Cinemachine Free Look Camera also defines a spline that connects the rigs. The spline defines the camera’s position when blending between the rigs.
 
 ![Cinemachine Free Look properties for spline, and the __Top__, __Middle__, and __Bottom__ rigs](images/CinemachineFreeLookProperties.png)
 
-Free Look uses player input along the x and y axes. The x axis controls the orbital position along the __Top__, __Middle__, or __Bottom__ horizontal orbits, like the [Orbital Transposer](CinemachineBodyOrbitalTransposer.html). The y-axis controls the vertical position, using the spline to determine the position between rigs.
+Free Look uses player input along the x and y axes. The x axis controls the orbital position along the __Top__, __Middle__, or __Bottom__ horizontal orbits, like the [Orbital Transposer](CinemachineBodyOrbitalTransposer.md). The y-axis controls the vertical position, using the spline to determine the position between rigs.
 
 ## Properties:
 
@@ -18,10 +18,10 @@ Free Look uses player input along the x and y axes. The x axis controls the orbi
 |:---|:---|:---|
 | __Solo__ || Toggles whether or not the Virtual Camera is temporarily live. Use this property to get immediate visual feedback in the [Game view](https://docs.unity3d.com/Manual/GameView.html) to adjust the Virtual Camera. |
 | __Game Window Guides__ || Toggles the visibility of compositional guides in the Game view. These guides are available when Look At specifies a GameObject and the Aim section uses Composer or Group Composer, or when Follow specifies a target and the Body section uses Framing Composer. This property applies to all Virtual Cameras. |
-| __Save During Play__ || Check to [apply the changes while in Play mode](CinemachineSavingDuringPlay.html).  Use this feature to fine-tune a Virtual Camera without having to remember which properties to copy and paste. This property applies to all Virtual Cameras. |
+| __Save During Play__ || Check to [apply the changes while in Play mode](CinemachineSavingDuringPlay.md).  Use this feature to fine-tune a Virtual Camera without having to remember which properties to copy and paste. This property applies to all Virtual Cameras. |
 | __Priority__ || The importance of this Virtual Camera for choosing the next shot. A higher value indicates a higher priority. Cinemachine Brain chooses the next live Virtual Camera from all Virtual Cameras that are activated and have the same or higher priority as the current live Virtual Camera. This property has no effect when using a Virtual Camera with Timeline. |
-| __Follow__ || The target GameObject to move with. The [Body properties](CinemachineVirtualCameraBody.html) use this target to update the position of the Unity camera. |
-| __Look At__ || The target GameObject to aim at. The [Aim properties](CinemachineVirtualCameraAim.html) use this target to update the rotation of the Unity camera. This property is normally the same as the Follow target. |
+| __Follow__ || The target GameObject to move with. The [Body properties](CinemachineVirtualCameraBody.md) use this target to update the position of the Unity camera. |
+| __Look At__ || The target GameObject to aim at. The [Aim properties](CinemachineVirtualCameraAim.md) use this target to update the rotation of the Unity camera. This property is normally the same as the Follow target. |
 | __Common Lens__ || Check to apply a common lens setting to all three child rigs. Uncheck to use separate lens settings for each child rig. |
 | __Lens__ || If Common Lens is checked, these lens settings apply to all three rigs. These properties mirror their counterparts in the property settings for the [Unity camera](https://docs.unity3d.com/Manual/class-Camera.html). |
 | | _Vertical FOV_ | This is the camera view in vertical degrees. For example, to specify the equivalent of a 50mm lens on a Super 35 sensor, enter a Field of View of 19.6 degrees. This property is available when the Unity camera with the Cinemachine Brain component uses a Projection of Perspective.   |
@@ -40,7 +40,7 @@ Free Look uses player input along the x and y axes. The x axis controls the orbi
 | | _Decel Time_ | The amount of time in seconds to decelerate to zero. |
 | | _Input Axis Name_ | The name of this axis as specified in Unity Input manager. Setting to an empty string disables the automatic updating of the axis. |
 | | _Input Axis Value_ | The value of the input axis. A value of 0 means no input. To drive this directly, use a custom input system. Or you set the Axis Name to control the value with the Unity Input Manager. |
-| | _Invert_ | Check to invert the raw value of the input axis. |
+| | _Invert_ | Check to invert the raw value of the input axis. The X Axis and Y Axis have opposite defaults. Checking this box causes the view to move **opposite** the input for the X Axis. Checking the box for the Y Axis causes the view to move in the **same** direction as the input.|
 | __Y Axis Recentering__ || Controls the automatic recentering on the y axis. |
 | | _Enabled_ | Check to enable automatic recentering. |
 | | _Wait Time_ | When no user input has been detected on the axis, the camera waits this long in seconds before recentering. |

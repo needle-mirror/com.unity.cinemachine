@@ -103,9 +103,11 @@ namespace Cinemachine
             Damping.x = Mathf.Max(0, Damping.x);
             Damping.y = Mathf.Max(0, Damping.y);
             Damping.z = Mathf.Max(0, Damping.z);
+#if CINEMACHINE_PHYSICS
             CameraRadius = Mathf.Max(0.001f, CameraRadius);
             DampingIntoCollision = Mathf.Max(0, DampingIntoCollision);
             DampingFromCollision = Mathf.Max(0, DampingFromCollision);
+#endif
         }
 
         void Reset()
@@ -137,6 +139,7 @@ namespace Cinemachine
         /// Always returns the Aim stage</summary>
         public override CinemachineCore.Stage Stage { get { return CinemachineCore.Stage.Body; } }
 
+#if CINEMACHINE_PHYSICS
         /// <summary>
         /// Report maximum damping time needed for this component.
         /// </summary>
@@ -145,8 +148,9 @@ namespace Cinemachine
         { 
             return Mathf.Max(
                 Mathf.Max(DampingIntoCollision, DampingFromCollision), 
-                Mathf.Max(Damping.x, Mathf.Max(Damping.y, Damping.z))); 
+                Mathf.Max(Damping.x, Mathf.Max(Damping.y, Damping.z)));
         }
+#endif
 
         /// <summary>Orients the camera to match the Follow target's orientation</summary>
         /// <param name="curState">The current camera state</param>
@@ -182,7 +186,7 @@ namespace Cinemachine
             var targetPos = FollowTargetPosition;
             var targetRot = FollowTargetRotation;
             var targetForward = targetRot * Vector3.forward;
-            var heading = GetHeading(targetForward, up);
+            var heading = GetHeading(targetRot, up);
 
             if (deltaTime < 0)
             {
@@ -230,8 +234,7 @@ namespace Cinemachine
         {
             var up = VirtualCamera.State.ReferenceUp;
             var targetRot = FollowTargetRotation;
-            var targetForward = targetRot * Vector3.forward;
-            var heading = GetHeading(targetForward, up);
+            var heading = GetHeading(targetRot, up);
             root = m_PreviousFollowTargetPosition;
             GetRawRigPositions(root, targetRot, heading, out shoulder, out hand);
 #if CINEMACHINE_PHYSICS
@@ -240,10 +243,12 @@ namespace Cinemachine
 #endif
         }
 
-        internal static Quaternion GetHeading(Vector3 targetForward, Vector3 up)
+        internal static Quaternion GetHeading(Quaternion targetRot, Vector3 up)
         {
-            var planeForward = targetForward.ProjectOntoPlane(up);
-            planeForward = Vector3.Cross(up, Vector3.Cross(planeForward, up));
+            var targetForward = targetRot * Vector3.forward;
+            var planeForward = Vector3.Cross(up, Vector3.Cross(targetForward.ProjectOntoPlane(up), up));
+            if (planeForward.AlmostZero())
+                planeForward = Vector3.Cross(targetRot * Vector3.right, up);
             return Quaternion.LookRotation(planeForward, up);
         }
 
