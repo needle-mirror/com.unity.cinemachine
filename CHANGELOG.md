@@ -4,6 +4,20 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.8.6] - 2022-03-05
+- Bugfix: A memory leak no longer occurs with PostProcessing if no PP layer is present on the camera.
+- Bugfix: Cinemachine no longer produces a compiler error in Unity Editor versions older than 2020 when an Input System package is installed.
+- Bugfix: Standalone profiler no longer crashes with CM.
+- Bugfix: EmbeddedAssetProperties were not displayed correctly in the editor.
+- Timeline guards added to scripts that rely on it.
+- Bugfix: CinemachineInputProvider now correctly tracks enabled state of input action
+- Regression fix: Axis input was ignoring CM's IgnoreTimeScale setting.
+- Bugfix: POV orientation was incorrect with World Up override
+- Added AutoEnable option to CinemachineInputHandler
+- Bugfix: 3rdPersonFollow shows a warning message when no follow target is assigned like the rest of the body components.
+- Bugfix: FadeOut sample scene shader was culling some objects incorrectly.
+
+
 ## [2.8.4] - 2021-12-10
 - Regression fix: virtual cameras no longer forget that they are targeting groups on domain reload.
 - Bugfix: 3rdPersonFollow logged console messages when looking straight up or down.
