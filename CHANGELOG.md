@@ -4,6 +4,17 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
+## [2.6.14] - 2022-03-05
+- Bugfix: Standalone profiler no longer crashes with CM.
+- Bugfix: EmbeddedAssetProperties were not displayed correctly in the editor.
+- Timeline guards added to scripts that rely on it.
+- Bugfix: CinemachineInputProvider now correctly tracks enabled state of input action
+- Bugfix: POV orientation was incorrect with World Up override
+- Added AutoEnable option to CinemachineInputHandler
+- Bugfix: 3rdPersonFollow shows a warning message when no follow target is assigned like the rest of the body components.
+
+
 ## [2.6.11] - 2021-10-05
 - Bugfix: OnTargetObjectWarped() did not work properly for 3rdPersonFollow.
 - Bugfix: POV did not properly handle overridden up.
@@ -12,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Bugfix: Input system should be read only once per render frame.
 - Bugfix: Blends were sometimes incorrect when src or dst camera is looking along world up axis.
 - Bugfix: Improve accuracy of Group Framing.
+- Cinemachine3rdPersonAim exposes AimTarget, which is the position of where the player would hit.
 
 
 ## [2.6.10] - 2021-08-19
