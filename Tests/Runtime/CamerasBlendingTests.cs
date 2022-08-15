@@ -1,8 +1,8 @@
 using System.Collections;
-using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.TestTools;
 using Cinemachine;
+using NUnit.Framework;
+using UnityEngine.TestTools;
 
 [TestFixture]
 [Ignore("Instability in blending tests")]
