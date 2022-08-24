@@ -23,9 +23,6 @@ namespace Cinemachine
         /// <summary>Data version string.  Used to upgrade from legacy projects</summary>
         public static readonly int kStreamingVersion = 20170927;
 
-        /// <summary>Human-readable Cinemachine Version</summary>
-        public static readonly string kVersionString = "2.9.0";
-
         /// <summary>
         /// Stages in the Cinemachine Component pipeline, used for
         /// UI organization>.  This enum defines the pipeline order.
@@ -135,6 +132,9 @@ namespace Cinemachine
 
         /// <summary>Access the array of active CinemachineBrains in the scene</summary>
         public int BrainCount { get { return mActiveBrains.Count; } }
+
+        /// <summary>Enables frame delta compensation for not updated frames. False is useful for deterministic test results. </summary>
+        internal static bool FrameDeltaCompensationEnabled = true;
 
         /// <summary>Access the array of active CinemachineBrains in the scene
         /// without generating garbage</summary>
@@ -343,15 +343,17 @@ namespace Cinemachine
                 };
                 mUpdateStatus.Add(vcam, status);
             }
+            
             int frameDelta = (updateClock == UpdateTracker.UpdateClock.Late)
                 ? Time.frameCount - status.lastUpdateFrame
                 : s_FixedFrameCount - status.lastUpdateFixedFrame;
+            
             if (deltaTime >= 0)
             {
                 if (frameDelta == 0 && status.lastUpdateMode == updateClock
                         && status.lastUpdateDeltaTime == deltaTime)
                     return; // already updated
-                if (frameDelta > 0)
+                if (FrameDeltaCompensationEnabled && frameDelta > 0)
                     deltaTime *= frameDelta; // try to catch up if multiple frames
             }
 
