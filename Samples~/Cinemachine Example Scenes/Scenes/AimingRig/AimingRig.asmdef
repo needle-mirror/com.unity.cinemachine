@@ -1,11 +1,7 @@
 {
-    "name": "com.unity.cinemachine.Tests",
-    "references": [
-        "Cinemachine"
-    ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
-    ],
+    "name": "AimingRig",
+    "rootNamespace": "",
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -15,9 +11,10 @@
     "defineConstraints": [],
     "versionDefines": [
         {
-            "name": "com.unity.modules.physics2d",
+            "name": "com.unity.ugui",
             "expression": "1.0.0",
-            "define": "CINEMACHINE_PHYSICS_2D"
+            "define": "CINEMACHINE_UGUI"
         }
-    ]
-}
+    ],
+    "noEngineReferences": false
+} 

@@ -4,7 +4,23 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [2.8.6] - 2022-03-05
+
+## [2.8.9] - 2022-08-24
+- Bugfix: Freelook had wrong heading at first frame, which could cause a slight jitter. 
+- Bugfix: CinemachineConfiner was not confining correctly when Confine Screen Edges was enabled and the camera was rotated.
+- Bugfix: Fixed spurious Z rotations during blend.
+- Bugfix: Blending speed was not set correctly, when blending back and forth between the same cameras.
+- Regression fix: POV is relative to its parent transform.
+- Bugfix: AxisState.Recentering.RecenterNow() did not work reliably.
+- Bugfix: SensorSize is not saved when not using physical camera.
+- Bugfix: No redundant RepaintAllViews calls.
+- Bugfix: SaveDuringPlay works with ILists now.
+- Clipper library dependency is no longer conflicting with users.
+- AimingRig sample is only optionally dependent on UnityEngine.UI.
+- Dependency on com.unity.test-framework added.
+
+
+## [2.8.6] - 2022-05-03
 - Bugfix: A memory leak no longer occurs with PostProcessing if no PP layer is present on the camera.
 - Bugfix: Cinemachine no longer produces a compiler error in Unity Editor versions older than 2020 when an Input System package is installed.
 - Bugfix: Standalone profiler no longer crashes with CM.
