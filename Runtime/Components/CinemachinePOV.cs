@@ -65,6 +65,8 @@ namespace Cinemachine
         [Tooltip("Obsolete - no longer used")]
         public bool m_ApplyBeforeBody;
 
+        Quaternion m_PreviousCameraRotation;
+
         /// <summary>True if component is enabled and has a LookAt defined</summary>
         public override bool IsValid { get { return enabled; } }
 
@@ -117,17 +119,18 @@ namespace Cinemachine
                 return;
 
             // Only read joystick when game is playing
-            if (deltaTime >= 0 && CinemachineCore.Instance.IsLive(VirtualCamera))
+            if (deltaTime >= 0 && (!VirtualCamera.PreviousStateIsValid || !CinemachineCore.Instance.IsLive(VirtualCamera)))
+                deltaTime = -1;
+            if (deltaTime >= 0)
             {
                 if (m_HorizontalAxis.Update(deltaTime))
                     m_HorizontalRecentering.CancelRecentering();
                 if (m_VerticalAxis.Update(deltaTime))
                     m_VerticalRecentering.CancelRecentering();
-
-                var recenterTarget = GetRecenterTarget();
-                m_HorizontalRecentering.DoRecentering(ref m_HorizontalAxis, deltaTime, recenterTarget.x);
-                m_VerticalRecentering.DoRecentering(ref m_VerticalAxis, deltaTime, recenterTarget.y);
             }
+            var recenterTarget = GetRecenterTarget();
+            m_HorizontalRecentering.DoRecentering(ref m_HorizontalAxis, deltaTime, recenterTarget.x);
+            m_VerticalRecentering.DoRecentering(ref m_VerticalAxis, deltaTime, recenterTarget.y);
 
             // If we have a transform parent, then apply POV in the local space of the parent
             Quaternion rot = Quaternion.Euler(m_VerticalAxis.Value, m_HorizontalAxis.Value, 0);
@@ -140,6 +143,12 @@ namespace Cinemachine
             }
             rot = Quaternion.FromToRotation(curState.ReferenceUp, up) * rot;
             curState.RawOrientation = rot;
+
+            if (VirtualCamera.PreviousStateIsValid)
+                curState.PositionDampingBypass = UnityVectorExtensions.SafeFromToRotation(
+                    m_PreviousCameraRotation * Vector3.forward, 
+                    rot * Vector3.forward, curState.ReferenceUp).eulerAngles;
+            m_PreviousCameraRotation = rot;
         }
 
         /// <summary>

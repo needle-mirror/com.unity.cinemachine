@@ -326,13 +326,13 @@ namespace Cinemachine
 
             if (UpdateRigCache())
             {
-                if (m_BindingMode != CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
-                    m_XAxis.Value = mOrbitals[1].GetAxisClosestValue(pos, up);
-
-                PushSettingsToRigs();
                 for (int i = 0; i < 3; ++i)
                     m_Rigs[i].ForceCameraPosition(pos, rot);
 
+                if (m_BindingMode != CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
+                    m_XAxis.Value = mOrbitals[1].m_XAxis.Value;
+
+                PushSettingsToRigs();
                 InternalUpdateCameraState(up, -1);
             }
             base.ForceCameraPosition(pos, rot);
@@ -392,7 +392,6 @@ namespace Cinemachine
             if (!RigsAreCreated)
                 return;
             InvokeOnTransitionInExtensions(fromCam, worldUp, deltaTime);
-            bool forceUpdate = false;
 //            m_RecenterToTargetHeading.DoRecentering(ref m_XAxis, -1, 0);
 //              m_YAxis.m_Recentering.DoRecentering(ref m_YAxis, -1, 0.5f);
 //            m_RecenterToTargetHeading.CancelRecentering();
@@ -412,14 +411,7 @@ namespace Cinemachine
                 }
                 ForceCameraPosition(cameraPos, fromCam.State.FinalOrientation);
             }
-            if (forceUpdate)
-            {
-                for (int i = 0; i < 3; ++i)
-                    m_Rigs[i].InternalUpdateCameraState(worldUp, deltaTime);
-                InternalUpdateCameraState(worldUp, deltaTime);
-            }
-            else
-                UpdateCameraState(worldUp, deltaTime);
+            UpdateCameraState(worldUp, deltaTime);
             if (m_Transitions.m_OnCameraLive != null)
                 m_Transitions.m_OnCameraLive.Invoke(this, fromCam);
         }
@@ -442,44 +434,60 @@ namespace Cinemachine
                 Vector3 flatDir = dir; flatDir.y = 0;
                 if (!flatDir.AlmostZero())
                 {
-                    float angle = Vector3.SignedAngle(flatDir, Vector3.back, Vector3.up);
+                    float angle = UnityVectorExtensions.SignedAngle(flatDir, Vector3.back, Vector3.up);
                     dir = Quaternion.AngleAxis(angle, Vector3.up) * dir;
                 }
                 dir.x = 0;
 
-                // Sample the spline in a few places, find the 2 closest, and lerp
-                int i0 = 0, i1 = 0;
-                float a0 = 0, a1 = 0;
-                const int NumSamples = 13;
-                float step = 1f / (NumSamples-1);
-                for (int i = 0; i < NumSamples; ++i)
-                {
-                    float a = Vector3.SignedAngle(
-                        dir, GetLocalPositionForCameraFromInput(i * step), Vector3.right);
-                    if (i == 0)
-                        a0 = a1 = a;
-                    else
-                    {
-                        if (Mathf.Abs(a) < Mathf.Abs(a0))
-                        {
-                            a1 = a0;
-                            i1 = i0;
-                            a0 = a;
-                            i0 = i;
-                        }
-                        else if (Mathf.Abs(a) < Mathf.Abs(a1))
-                        {
-                            a1 = a;
-                            i1 = i;
-                        }
-                    }
-                }
-                if (Mathf.Sign(a0) == Mathf.Sign(a1))
-                    return i0 * step;
-                float t = Mathf.Abs(a0) / (Mathf.Abs(a0) + Mathf.Abs(a1));
-                return Mathf.Lerp(i0 * step, i1 * step, t);
+                // We need to find the minimum of the angle of function using steepest descent
+                return SteepestDescent(dir.normalized * (cameraPos - Follow.position).magnitude);
             }
             return m_YAxis.Value; // stay conservative
+        }
+
+        float SteepestDescent(Vector3 cameraOffset)
+        {
+            const int maxIteration = 10;
+            const float epsilon = 0.00005f;
+            var x = InitialGuess(cameraOffset);
+            for (var i = 0; i < maxIteration; ++i)
+            {
+                var angle = AngleFunction(x);
+                var slope = SlopeOfAngleFunction(x);
+                if (Mathf.Abs(slope) < epsilon || Mathf.Abs(angle) < epsilon)
+                    break; // found best
+                x = Mathf.Clamp01(x - (angle / slope)); // clamping is needed so we don't overshoot
+            }
+            return x;
+
+            // localFunctions
+            float AngleFunction(float input)
+            {
+                var point = GetLocalPositionForCameraFromInput(input);
+                return Mathf.Abs(UnityVectorExtensions.SignedAngle(cameraOffset, point, Vector3.right));
+            }
+            // approximating derivative using symmetric difference quotient (finite diff)
+            float SlopeOfAngleFunction(float input)
+            {
+                var angleBehind = AngleFunction(input - epsilon);
+                var angleAfter = AngleFunction(input + epsilon);
+                return (angleAfter - angleBehind) / (2f * epsilon);
+            }
+            // initial guess based on closest line (approximating spline) to point 
+            float InitialGuess(Vector3 cameraPosInRigSpace)
+            {
+                UpdateCachedSpline();
+                var pb = m_CachedKnots[1]; // point at the bottom of spline
+                var pm = m_CachedKnots[2]; // point in the middle of spline
+                var pt = m_CachedKnots[3]; // point at the top of spline
+                var t1 = cameraPosInRigSpace.ClosestPointOnSegment(pb, pm);
+                var d1 = Vector3.SqrMagnitude(Vector3.Lerp(pb, pm, t1) - cameraPosInRigSpace);
+                var t2 = cameraPosInRigSpace.ClosestPointOnSegment(pm, pt);
+                var d2 = Vector3.SqrMagnitude(Vector3.Lerp(pm, pt, t2) - cameraPosInRigSpace);
+
+                // [0,0.5] represent bottom to mid, and [0.5,1] represents mid to top
+                return d1 < d2 ? Mathf.Lerp(0f, 0.5f, t1) : Mathf.Lerp(0.5f, 1f, t2);
+            }
         }
 
         CameraState m_State = CameraState.Default;          // Current state this frame
@@ -734,12 +742,14 @@ namespace Cinemachine
                 return 0; // deleted
 
             // Update the axis only once per frame
-            if (m_LastHeadingUpdateFrame != Time.frameCount)
+            if (!PreviousStateIsValid)
+                deltaTime = -1;
+            if (m_LastHeadingUpdateFrame != Time.frameCount || deltaTime < 0)
             {
                 m_LastHeadingUpdateFrame = Time.frameCount;
                 var oldValue = m_XAxis.Value;
                 m_CachedXAxisHeading = orbital.UpdateHeading(
-                    PreviousStateIsValid ? deltaTime : -1, up,
+                    deltaTime, up,
                     ref m_XAxis, ref m_RecenterToTargetHeading,
                     CinemachineCore.Instance.IsLive(this));
                 // Allow externally-driven values to work in this mode
