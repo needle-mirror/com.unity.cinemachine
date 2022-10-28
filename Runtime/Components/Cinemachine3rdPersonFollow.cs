@@ -1,7 +1,3 @@
-#if !UNITY_2019_3_OR_NEWER
-#define CINEMACHINE_PHYSICS
-#endif
-
 using UnityEngine;
 using Cinemachine.Utility;
 
@@ -11,9 +7,14 @@ namespace Cinemachine
     /// Third-person follower, with complex pivoting: horizontal about the origin, 
     /// vertical about the shoulder.  
     /// </summary>
-    [AddComponentMenu("")] // Don't display in add component menu
+    [AddComponentMenu("Cinemachine/Procedural/Position Control/Cinemachine 3rd Person Follow")]
     [SaveDuringPlay]
+    [CameraPipeline(CinemachineCore.Stage.Body)]
+    [HelpURL(Documentation.BaseURL + "manual/Cinemachine3rdPersonFollow.html")]
     public class Cinemachine3rdPersonFollow : CinemachineComponentBase
+        , CinemachineFreeLookModifier.IModifierValueSource
+        , CinemachineFreeLookModifier.IModifiablePositionDamping
+        , CinemachineFreeLookModifier.IModifiableDistance
     {
         /// <summary>How responsively the camera tracks the target.  Each axis (camera-local) 
         /// can have its own setting.  Value is the approximate time it takes the camera 
@@ -42,11 +43,11 @@ namespace Cinemachine
 
         /// <summary>Specifies which shoulder (left, right, or in-between) the camera is on.</summary>
         [Tooltip("Specifies which shoulder (left, right, or in-between) the camera is on")]
-        [Range(0, 1)]
+        [RangeSlider(0, 1)]
         public float CameraSide;
 
-        /// <summary>How far baehind the hand the camera will be placed.</summary>
-        [Tooltip("How far baehind the hand the camera will be placed")]
+        /// <summary>How far behind the hand the camera will be placed.</summary>
+        [Tooltip("How far behind the hand the camera will be placed")]
         public float CameraDistance;
 
 #if CINEMACHINE_PHYSICS
@@ -68,14 +69,14 @@ namespace Cinemachine
         /// Specifies how close the camera can get to obstacles
         /// </summary>
         [Tooltip("Specifies how close the camera can get to obstacles")]
-        [Range(0, 1)]
+        [RangeSlider(0, 1)]
         public float CameraRadius;
         
         /// <summary>
         /// How gradually the camera moves to correct for occlusions.  
         /// Higher numbers will move the camera more gradually.
         /// </summary>
-        [Range(0, 10)]
+        [RangeSlider(0, 10)]
         [Tooltip("How gradually the camera moves to correct for occlusions.  " +
             "Higher numbers will move the camera more gradually.")]
         public float DampingIntoCollision;
@@ -84,7 +85,7 @@ namespace Cinemachine
         /// How gradually the camera returns to its normal position after having been corrected by the built-in
         /// collision resolution system. Higher numbers will move the camera more gradually back to normal.
         /// </summary>
-        [Range(0, 10)]
+        [RangeSlider(0, 10)]
         [Tooltip("How gradually the camera returns to its normal position after having been corrected by the built-in " +
             "collision resolution system.  Higher numbers will move the camera more gradually back to normal.")]
         public float DampingFromCollision;
@@ -131,6 +132,29 @@ namespace Cinemachine
             RuntimeUtility.DestroyScratchCollider();
         }
 #endif
+
+        float CinemachineFreeLookModifier.IModifierValueSource.NormalizedModifierValue
+        {
+            get
+            {
+                var up = VirtualCamera.State.ReferenceUp;
+                var rot = FollowTargetRotation;
+                var a = Vector3.SignedAngle(rot * Vector3.up, up, rot * Vector3.right);
+                return Mathf.Clamp(a, -90, 90) / -90;
+            }
+        }
+
+        Vector3 CinemachineFreeLookModifier.IModifiablePositionDamping.PositionDamping
+        {
+            get => Damping;
+            set => Damping = value;
+        }
+
+        float CinemachineFreeLookModifier.IModifiableDistance.Distance
+        {
+            get => CameraDistance;
+            set => CameraDistance = value;
+        }
         
         /// <summary>True if component is enabled and has a Follow target defined</summary>
         public override bool IsValid => enabled && FollowTarget != null;
@@ -166,9 +190,9 @@ namespace Cinemachine
             }
         }
 
-        /// <summary>This is called to notify the us that a target got warped,
+        /// <summary>This is called to notify the user that a target got warped,
         /// so that we can update its internal state to make the camera
-        /// also warp seamlessy.</summary>
+        /// also warp seamlessly.</summary>
         /// <param name="target">The object that was warped</param>
         /// <param name="positionDelta">The amount the target's position changed</param>
         public override void OnTargetObjectWarped(Transform target, Vector3 positionDelta)

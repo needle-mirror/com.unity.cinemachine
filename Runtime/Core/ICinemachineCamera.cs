@@ -19,12 +19,6 @@ namespace Cinemachine
         string Description { get; }
 
         /// <summary>
-        /// Gets the priority of this <c>ICinemachineCamera</c>. The virtual camera
-        /// will be inserted into the global priority stack based on this value.
-        /// </summary>
-        int Priority { get; set; }
-
-        /// <summary>
         /// The thing the camera wants to look at (aim).  May be null.
         /// </summary>
         Transform LookAt { get; set; }
@@ -40,11 +34,6 @@ namespace Cinemachine
         CameraState State { get; }
 
         /// <summary>
-        /// Gets the virtual camera game attached to this class.
-        /// </summary>
-        GameObject VirtualCameraGameObject { get; }
-
-        /// <summary>
         /// Will return false if this references a deleted object
         /// </summary>
         bool IsValid { get; }
@@ -56,7 +45,7 @@ namespace Cinemachine
 
         /// <summary>Check whether the vcam is a live child of this camera.</summary>
         /// <param name="vcam">The Virtual Camera to check</param>
-        /// <param name="dominantChildOnly">If truw, will only return true if this vcam is the dominat live child</param>
+        /// <param name="dominantChildOnly">If truw, will only return true if this vcam is the dominant live child</param>
         /// <returns>True if the vcam is currently actively influencing the state of this vcam</returns>
         bool IsLiveChild(ICinemachineCamera vcam, bool dominantChildOnly = false);
 
@@ -92,7 +81,7 @@ namespace Cinemachine
 
         /// <summary>This is called to notify the component that a target got warped,
         /// so that the component can update its internal state to make the camera
-        /// also warp seamlessy.  Base class implementation does nothing.</summary>
+        /// also warp seamlessly.  Base class implementation does nothing.</summary>
         /// <param name="target">The object that was warped</param>
         /// <param name="positionDelta">The amount the target's position changed</param>
         void OnTargetObjectWarped(Transform target, Vector3 positionDelta);

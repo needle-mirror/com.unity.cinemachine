@@ -4,36 +4,68 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [2.9.2] - 2022-10-21
-- Bugfix: StateDrivenCamera/Clearshot: Transition glitch when backing out of a transition in progress
-- Bugfix: Occasional 1-frame glitch when transitioning between some freelooks
-- Bugfix: Transposer with LockToTarget binding sometimes had gimbal lock.
-- Bugfix: Collider damping is more robust with extreme FreeLook configurations
-- Add support for HDRP 14 (Unity 2022.2)
-- Bugfix: InputValueGain mode of axis input was not framerate-independent
-- Bugfix: When recording with an accumulation buffer, camera lens was not always set correctly
-- Bugfix: POV starts up in its centered position, if recentering is enabled
+## [3.0.0-pre.3] - 2022-10-28
+- Bugfix: rotation composer lookahead sometimes popped
+
+
+## [3.0.0-pre.2] - 2022-10-20
+- Add Show Hierarchy Icon preference option.
+- New icons for cinemachine (cameras, components, extensions, tracks).
 - Freelook ForcePosition is more precise now.
+- Confiner2D supports BoxCollider2D now.
+- Added "Place Objects At World Origin" preference option support.
+- Added Channel setting, to use for multiple CM Brains, instead of piggybacking on the layer system.
+- CinemachineConfiner renamed to CinemachineDeoccluder.
+- New inspector and API for composition guides.
+- Game View Guides now indicate when they are hot and can be dragged.
+- CinemachineTrack assigns the default CinemachineBrain on creation.
+- Add support for HDRP 14 (Unity 2022.2).
+- Bugfix: StateDrivenCamera/Clearshot: Transition glitch when backing out of a transition in progress.
+- Bugfix: Occasional 1-frame glitch when transitioning between some freelooks.
+- Bugfix: Transposer with LockToTarget binding sometimes had gimbal lock.
+- Bugfix: InputValueGain mode of axis input was not framerate-independent.
+- Bugfix: POV starts up in its centered position, if recentering is enabled.
 
 
-## [2.9.1] - 2022-08-24
-- Bugfix: CinemachineConfiner was not confining correctly when Confine Screen Edges was enabled and the camera was rotated.
-- AimingRig sample is only optionally dependent on UnityEngine.UI.
-- Bugfix: A memory leak no longer occurs with PostProcessing if no PP layer is present on the camera.
-- Bugfix: Confiner2D confines to midpoint when the camera window is bigger than the axis-aligned bounding box of the input confiner.
-- Bugfix: The FadeOut sample scene shader was culling some objects incorrectly.
-- Bugfix: Freelook had the wrong heading at the first frame, which could cause a slight jitter.
-- Bugfix: FramingTransposer and Composer had a slight rounding error in their Bias fields when the Screen X and Y fields were modified. 
-- Bugfix: Fixed spurious Z rotations during blend.
-- Regression fix: POV is relative to its parent transform.
-- Bugfix: Blending speed was not set correctly when blending back and forth between the same cameras.
-- Bugfix: AxisState.Recentering.RecenterNow() did not work reliably.
-- Bugfix: SensorSize is not saved when not using physical camera.
+## [3.0.0-pre.1] - 2022-06-01
+- Upgrade mechanism for upgrading Cinemachine 2 to Cinemachine 3.
+- VirtualCamera refactor: CinemachineVirtualCamera is now CmCamera.
+- FreeLook refactor: CinemachineFreeLook is now CmCamera with FreeLook Modifier.
+- Combine Follow and LookAt Targets to single Tracking Target with optional LookAt Target.
+- Add flag for custom priority setting.
+- HDRP only: Added FocusDistance setting to lens
+- HDRP only: New AutoFocus extension.  Use instead of VolumeSettings for Focus Tracking.  Includes Automatic mode that queries depth buffer instead of tracking a specific target.
+- Added Lens Mode Override property to CM Brain.  When enabled, it allows CM cameras to override the lens mode (Perspective vs Ortho vs Physical).
+- Added Unity Spline support.  Old Cinemachine Paths are deprecated in favour of Unity Splines.
+- Added customizable Auto Dolly to cameras and Spline Cart.
+- Added IShotQualityEvaluator to enable customization of shot quality evaluation for ClearShot
 - Bugfix: No redundant RepaintAllViews calls.
+- Bugfix: Collider damping is more robust with extreme FreeLook configurations
+
+
+## [2.9.0] - 2022-08-15
+- Bugfix: CinemachineConfiner was not confining correctly when Confine Screen Edges was enabled and the camera was rotated.
+- Bugfix: Confiner2D confines to midpoint when camera window is bigger than the axis aligned bounding box of the input confiner.
+- Bugfix: 3rdPersonFollow shows a warning message when no follow target is assigned like the rest of the body components.
+- Bugfix: FadeOut sample scene shader was culling some objects incorrectly.
+- Bugfix: Freelook had wrong heading at first frame, which could cause a slight jitter.
+- Bugfix: FramingTransposer and Composer had a slight rounding error in their Bias fields when the Screen X and Y fields were modified. 
+- Bugfix: Fixed spurious Z rotations during speherical blend.
+- Bugfix: Blending speed was not set correctly, when blending back and forth between the same cameras.
+- Regression fix: POV is relative to its parent transform.
+- Bugfix: SensorSize is not saved when not using physical camera.
 - Clipper library dependency is no longer conflicting with users.
-- Bugfix: Standalone profiler no longer crashes with CM.
+- AimingRig sample is only optionally dependent on UnityEngine.UI.
+- Bugfix: Transposer with LockToTarget binding sometimes had gibmal lock
+- Bugfix: StateDrivenCamera/Clearshot: Transition glitch when backing out of a transition in progress
+
+
+## [2.9.0-pre.7] - 2022-03-29
+- Bugfix: memory leak with PostProcessing if no PP layer is present on the camera
+- Bugfix: Standalone profiler no longer crashed with CM.
 - Bugfix: Cinemachine does not produce compiler error in unity editor versions older than 2020, when Input System package is installed.
 - Bugfix: EmbeddedAssetProperties were not displayed correctly in the editor.
+- Timeline guards added to scripts that rely on it.
 - Bugfix: SaveDuringPlay works with ILists now.
 - Bugfix: Paste VirtualCamera and FreeLook components onto prefab works for subcomponents
 - Bugfix: CinemachineInputProvider now correctly tracks enabled state of input action
@@ -45,17 +77,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Bugfix: Negative Near Clip Plane value is kept when camera is orthographic.
 - Regression fix: could not change the projection of the main camera if a CM virtual camera is active.
 - Regression fix: Axis input was ignoring CM's IgnoreTimeScale setting.
+- Removed legacy .unitypackages
 - New feature: CinemachineBrain may control other GameObject instead of the one it is attached to.
 - Bugfix: Cinemachine assigns a default input controller delegate that returns 0 when the legacy input system is disabled.
 - Cinemachine example scenes show informative text when used with Input System instead of throwing error messages.
 - Regression fix: compilation errors when physics module is not present.
+- GameObjects created with Gameobject menu items now follow Unity naming conventions.
 - Regression fix: virtual cameras no longer forget that they are targeting groups on domain reload.
+- Moved Cinemachine tools into the main Tools overlay (2022.1+), moved Freelook rig selection to a separate overlay, updated icons to support light and dark themes.
 - Bugfix: 3rdPersonFollow logged console messages when looking straight up or down.
 - BugFix: InputProvider no longer causes a tiny gc alloc every frame.
 - Regression fix: CinemachineCollider smoothing time did not reset correctly, so it was working once only.
+- Cinemachine supports Splines package. Added new Body component: CinemachineSplineDolly. 
+- Bugfix: Overlay tooltip names were incorrect.
 - Bugfix: Confiner2D now displays the calculated confining area when its vcam is selected.
 - Samples no longer throw errors with HDRP and URP. 3rdPersonWithAimMode and Timeline samples no longer have invalid references.
-- Bugfix: 3rdPersonFollow shows a warning message when no follow target is assigned like the rest of the body components.
+
+
+## [2.9.0-pre.1] - 2021-10-26
 - Added ability to directly set the active blend in CinemachineBrain.
 - Bugfix: OnTargetObjectWarped() did not work properly for 3rdPersonFollow.
 - Bugfix: POV did not properly handle overridden up.
@@ -65,6 +104,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Bugfix: Blends were sometimes incorrect when src or dst camera is looking along world up axis.
 - Bugfix: Improve accuracy of Group Framing.
 - New feature: Added scene view overlay tools for Cinemachine components.
+- Regression fix: Lookahead works again.
 - Cinemachine3rdPersonAim exposes AimTarget, which is the position of where the player would hit.
 
 

@@ -1,40 +1,31 @@
-#if !UNITY_2019_3_OR_NEWER
-#define CINEMACHINE_PHYSICS
-#define CINEMACHINE_PHYSICS_2D
-#endif
-
 using UnityEditor;
 using UnityEngine;
 
 namespace Cinemachine.Editor
 {
-#if CINEMACHINE_PHYSICS
     [CustomEditor(typeof(CinemachineClearShot))]
     [CanEditMultipleObjects]
-    internal sealed class CinemachineClearShotEditor
-        : CinemachineVirtualCameraBaseEditor<CinemachineClearShot>
+    class CinemachineClearShotEditor : CinemachineVirtualCameraBaseEditor<CinemachineClearShot>
     {
         EmbeddeAssetEditor<CinemachineBlenderSettings> m_BlendsEditor;
-        ColliderState m_ColliderState;
+        EvaluatorState m_EvaluatorState;
 
-        private UnityEditorInternal.ReorderableList mChildList;
+        private UnityEditorInternal.ReorderableList m_ChildList;
 
         protected override void OnEnable()
         {
             base.OnEnable();
-            m_BlendsEditor = new EmbeddeAssetEditor<CinemachineBlenderSettings>(
-                    FieldPath(x => x.m_CustomBlends), this);
-            m_BlendsEditor.OnChanged = (CinemachineBlenderSettings b) =>
+            m_BlendsEditor = new EmbeddeAssetEditor<CinemachineBlenderSettings>
+            {
+                OnChanged = (CinemachineBlenderSettings b) => InspectorUtility.RepaintGameView(),
+                OnCreateEditor = (UnityEditor.Editor ed) =>
                 {
-                    InspectorUtility.RepaintGameView();
-                };
-            m_BlendsEditor.OnCreateEditor = (UnityEditor.Editor ed) =>
-                {
-                    CinemachineBlenderSettingsEditor editor = ed as CinemachineBlenderSettingsEditor;
+                    var editor = ed as CinemachineBlenderSettingsEditor;
                     if (editor != null)
-                        editor.GetAllVirtualCameras = () => { return Target.ChildCameras; };
-                };
-            mChildList = null;
+                        editor.GetAllVirtualCameras = (list) => list.AddRange(Target.ChildCameras);
+                }
+            };
+            m_ChildList = null;
         }
 
         protected override void OnDisable()
@@ -44,45 +35,65 @@ namespace Cinemachine.Editor
                 m_BlendsEditor.OnDisable();
         }
 
+
+        static string GetAvailableQualityEvaluatorNames()
+        {
+            var names = InspectorUtility.GetAssignableBehaviourNames(typeof(IShotQualityEvaluator));
+            if (names == InspectorUtility.s_NoneString)
+                return "No Shot Quality Evaluator extensions are available.  This might be because the "
+                    + "physics module is disabled and all Shot Quality Evaluator implementations "
+                    + "depend on physics raycasts";
+            return "Available Shot Quality Evaluators are: " + names;
+        }
+
         public override void OnInspectorGUI()
         {
             BeginInspector();
-            if (mChildList == null)
+            if (m_ChildList == null)
                 SetupChildList();
 
-            m_ColliderState = GetColliderState();
-            switch (m_ColliderState)
+            m_EvaluatorState = GetEvaluatorState();
+            switch (m_EvaluatorState)
             {
-                case ColliderState.ColliderOnParent:
-                case ColliderState.ColliderOnAllChildren:
+                case EvaluatorState.EvaluatorOnParent:
+                case EvaluatorState.EvaluatorOnAllChildren:
                     break;
-                case ColliderState.NoCollider:
+                case EvaluatorState.NoEvaluator:
                     EditorGUILayout.HelpBox(
-                        "ClearShot requires a Collider extension to rank the shots.  Either add one to the ClearShot itself, or to each of the child cameras.",
+                        "ClearShot requires a Shot Quality Evaluator extension to rank the shots.  "
+                            + "Either add one to the ClearShot itself, or to each of the child cameras.  "
+                            + GetAvailableQualityEvaluatorNames(),
                         MessageType.Warning);
                     break;
-                case ColliderState.ColliderOnSomeChildren:
+                case EvaluatorState.EvaluatorOnSomeChildren:
                     EditorGUILayout.HelpBox(
-                        "Some child cameras do not have a Collider extension.  ClearShot requires a Collider on all the child cameras, or alternatively on the ClearShot iself.",
+                        "Some child cameras do not have a Shot Quality Evaluator extension.  ClearShot requires a "
+                            + "Shot Quality Evaluator on all the child cameras, or alternatively on the ClearShot iself.  "
+                            + GetAvailableQualityEvaluatorNames(),
                         MessageType.Warning);
                     break;
-                case ColliderState.ColliderOnChildrenAndParent:
+                case EvaluatorState.EvaluatorOnChildrenAndParent:
                     EditorGUILayout.HelpBox(
-                        "There is a Collider extension on the ClearShot camera, and also on some of its child cameras.  You can't have both.",
+                        "There is a Shot Quality Evaluator extension on the ClearShot camera, and also on some "
+                            + "of its child cameras.  You can't have both.  " + GetAvailableQualityEvaluatorNames(),
                         MessageType.Error);
                     break;
             }
 
-            DrawHeaderInInspector();
-            DrawPropertyInInspector(FindProperty(x => x.m_Priority));
-            DrawTargetsInInspector(FindProperty(x => x.m_Follow), FindProperty(x => x.m_LookAt));
+            var children = Target.ChildCameras; // force the child cache to rebuild
+
+            DrawCameraStatusInInspector();
+            DrawPropertyInInspector(FindProperty(x => x.StandbyUpdate));
+            DrawPropertyInInspector(FindProperty(x => x.PriorityAndChannel));
+            DrawGlobalControlsInInspector();
+            DrawPropertyInInspector(FindProperty(x => x.DefaultTarget));
             DrawRemainingPropertiesInInspector();
 
             // Blends
             m_BlendsEditor.DrawEditorCombo(
+                FindProperty(x => x.CustomBlends),
                 "Create New Blender Asset",
-                Target.gameObject.name + " Blends", "asset", string.Empty,
-                "Custom Blends", false);
+                Target.gameObject.name + " Blends", "asset", string.Empty, false);
 
             // vcam children
             EditorGUILayout.Separator();
@@ -90,7 +101,7 @@ namespace Cinemachine.Editor
             if (Selection.objects.Length == 1)
             {
                 EditorGUI.BeginChangeCheck();
-                mChildList.DoLayoutList();
+                m_ChildList.DoLayoutList();
                 if (EditorGUI.EndChangeCheck())
                     serializedObject.ApplyModifiedProperties();
             }
@@ -103,40 +114,43 @@ namespace Cinemachine.Editor
             DrawExtensionsWidgetInInspector();
         }
 
-        enum ColliderState
+        enum EvaluatorState
         {
-            NoCollider,
-            ColliderOnAllChildren,
-            ColliderOnSomeChildren,
-            ColliderOnParent,
-            ColliderOnChildrenAndParent
+            NoEvaluator,
+            EvaluatorOnAllChildren,
+            EvaluatorOnSomeChildren,
+            EvaluatorOnParent,
+            EvaluatorOnChildrenAndParent
         }
 
-        ColliderState GetColliderState()
+        EvaluatorState GetEvaluatorState()
         {
-            int numChildren = 0;
-            int numColliderChildren = 0;
-            bool colliderOnParent = ObjectHasCollider(Target);
+            int numEvaluatorChildren = 0;
+            bool colliderOnParent = ObjectHasEvaluator(Target);
 
-            var children = Target.m_ChildCameras;
-            numChildren = children == null ? 0 : children.Length;
-            for (int i = 0; i < numChildren; ++i)
-                if (ObjectHasCollider(children[i]))
-                    ++numColliderChildren;
+            var children = Target.ChildCameras;
+            var numChildren = children == null ? 0 : children.Count;
+            for (var i = 0; i < numChildren; ++i)
+                if (ObjectHasEvaluator(children[i]))
+                    ++numEvaluatorChildren;
             if (colliderOnParent)
-                return (numColliderChildren > 0)
-                    ? ColliderState.ColliderOnChildrenAndParent : ColliderState.ColliderOnParent;
-            if (numColliderChildren > 0)
-                return (numColliderChildren == numChildren)
-                    ? ColliderState.ColliderOnAllChildren : ColliderState.ColliderOnSomeChildren;
-            return ColliderState.NoCollider;
+                return numEvaluatorChildren > 0
+                    ? EvaluatorState.EvaluatorOnChildrenAndParent : EvaluatorState.EvaluatorOnParent;
+            if (numEvaluatorChildren > 0)
+                return numEvaluatorChildren == numChildren
+                    ? EvaluatorState.EvaluatorOnAllChildren : EvaluatorState.EvaluatorOnSomeChildren;
+            return EvaluatorState.NoEvaluator;
         }
 
-        bool ObjectHasCollider(object obj)
+        bool ObjectHasEvaluator(object obj)
         {
-            CinemachineVirtualCameraBase vcam = obj as CinemachineVirtualCameraBase;
-            var collider = (vcam == null) ? null : vcam.GetComponent<CinemachineCollider>();
-            return (collider != null && collider.enabled);
+            var vcam = obj as CinemachineVirtualCameraBase;
+            if (vcam != null && vcam.TryGetComponent<IShotQualityEvaluator>(out var evaluator))
+            {
+                var b = evaluator as MonoBehaviour;
+                return b != null && b.enabled;
+            }
+            return false;
         }
 
         void SetupChildList()
@@ -145,10 +159,10 @@ namespace Cinemachine.Editor
             float hSpace = 3;
             float floatFieldWidth = EditorGUIUtility.singleLineHeight * 2.5f;
 
-            mChildList = new UnityEditorInternal.ReorderableList(
+            m_ChildList = new UnityEditorInternal.ReorderableList(
                     serializedObject, FindProperty(x => x.m_ChildCameras), true, true, true, true);
 
-            mChildList.drawHeaderCallback = (Rect rect) =>
+            m_ChildList.drawHeaderCallback = (Rect rect) =>
                 {
                     EditorGUI.LabelField(rect, "Virtual Camera Children");
                     GUIContent priorityText = new GUIContent("Priority");
@@ -157,19 +171,19 @@ namespace Cinemachine.Editor
                     rect.width = textDimensions.x;
                     EditorGUI.LabelField(rect, priorityText);
                 };
-            mChildList.drawElementCallback
+            m_ChildList.drawElementCallback
                 = (Rect rect, int index, bool isActive, bool isFocused) =>
                 {
                     rect.y += vSpace;
                     rect.width -= floatFieldWidth + hSpace;
                     rect.height = EditorGUIUtility.singleLineHeight;
-                    SerializedProperty element = mChildList.serializedProperty.GetArrayElementAtIndex(index);
-                    if (m_ColliderState == ColliderState.ColliderOnSomeChildren
-                        || m_ColliderState == ColliderState.ColliderOnChildrenAndParent)
+                    SerializedProperty element = m_ChildList.serializedProperty.GetArrayElementAtIndex(index);
+                    if (m_EvaluatorState == EvaluatorState.EvaluatorOnSomeChildren
+                        || m_EvaluatorState == EvaluatorState.EvaluatorOnChildrenAndParent)
                     {
-                        bool hasCollider = ObjectHasCollider(element.objectReferenceValue);
-                        if ((m_ColliderState == ColliderState.ColliderOnSomeChildren && !hasCollider)
-                            || (m_ColliderState == ColliderState.ColliderOnChildrenAndParent && hasCollider))
+                        bool hasEvaluator = ObjectHasEvaluator(element.objectReferenceValue);
+                        if ((m_EvaluatorState == EvaluatorState.EvaluatorOnSomeChildren && !hasEvaluator)
+                            || (m_EvaluatorState == EvaluatorState.EvaluatorOnChildrenAndParent && hasEvaluator))
                         {
                             float width = rect.width;
                             rect.width = rect.height;
@@ -179,18 +193,20 @@ namespace Cinemachine.Editor
                             width -= rect.width; rect.x += rect.width; rect.width = width;
                         }
                     }
+                    GUI.enabled = false;
                     EditorGUI.PropertyField(rect, element, GUIContent.none);
+                    GUI.enabled = true;
 
                     SerializedObject obj = new SerializedObject(element.objectReferenceValue);
                     rect.x += rect.width + hSpace; rect.width = floatFieldWidth;
-                    SerializedProperty priorityProp = obj.FindProperty(() => Target.m_Priority);
+                    SerializedProperty priorityProp = obj.FindProperty(() => Target.PriorityAndChannel).FindPropertyRelative("Priority");
                     float oldWidth = EditorGUIUtility.labelWidth;
                     EditorGUIUtility.labelWidth = hSpace * 2;
                     EditorGUI.PropertyField(rect, priorityProp, new GUIContent(" "));
                     EditorGUIUtility.labelWidth = oldWidth;
                     obj.ApplyModifiedProperties();
                 };
-            mChildList.onChangedCallback = (UnityEditorInternal.ReorderableList l) =>
+            m_ChildList.onChangedCallback = (UnityEditorInternal.ReorderableList l) =>
                 {
                     if (l.index < 0 || l.index >= l.serializedProperty.arraySize)
                         return;
@@ -201,17 +217,13 @@ namespace Cinemachine.Editor
                     if (vcam != null)
                         vcam.transform.SetSiblingIndex(l.index);
                 };
-            mChildList.onAddCallback = (UnityEditorInternal.ReorderableList l) =>
+            m_ChildList.onAddCallback = (UnityEditorInternal.ReorderableList l) =>
                 {
                     var index = l.serializedProperty.arraySize;
-                    var vcam = CinemachineMenu.CreateDefaultVirtualCamera();
-                    Undo.SetTransformParent(vcam.transform, Target.transform, "");
-                    var collider = Undo.AddComponent<CinemachineCollider>(vcam.gameObject);
-                    collider.m_AvoidObstacles = false;
-                    Undo.RecordObject(collider, "create ClearShot child");
+                    var vcam = CinemachineMenu.CreatePassiveCmCamera(parentObject: Target.gameObject);
                     vcam.transform.SetSiblingIndex(index);
                 };
-            mChildList.onRemoveCallback = (UnityEditorInternal.ReorderableList l) =>
+            m_ChildList.onRemoveCallback = (UnityEditorInternal.ReorderableList l) =>
                 {
                     Object o = l.serializedProperty.GetArrayElementAtIndex(
                             l.index).objectReferenceValue;
@@ -222,5 +234,4 @@ namespace Cinemachine.Editor
                 };
         }
     }
-#endif
 }

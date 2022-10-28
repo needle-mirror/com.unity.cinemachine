@@ -6,8 +6,7 @@ using System.Collections.Generic;
 namespace Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineMixingCamera))]
-    internal sealed class CinemachineMixingCameraEditor 
-        : CinemachineVirtualCameraBaseEditor<CinemachineMixingCamera>
+    class CinemachineMixingCameraEditor : CinemachineVirtualCameraBaseEditor<CinemachineMixingCamera>
     {
         /// <summary>Get the property names to exclude in the inspector.</summary>
         /// <param name="excluded">Add the names to this list</param>
@@ -18,23 +17,26 @@ namespace Cinemachine.Editor
                 excluded.Add(WeightPropertyName(i));
         }
 
-        static string WeightPropertyName(int i) { return "m_Weight" + i; }
+        static string WeightPropertyName(int i) { return "Weight" + i; }
 
         public override void OnInspectorGUI()
         {
             BeginInspector();
-            DrawHeaderInInspector();
+            DrawCameraStatusInInspector();
+            DrawPropertyInInspector(FindProperty(x => x.StandbyUpdate));
+            DrawPropertyInInspector(FindProperty(x => x.PriorityAndChannel));
+            DrawGlobalControlsInInspector();
             DrawRemainingPropertiesInInspector();
 
             float totalWeight = 0;
-            CinemachineVirtualCameraBase[] children = Target.ChildCameras;
-            int numCameras = Mathf.Min(CinemachineMixingCamera.MaxCameras, children.Length);
+            var children = Target.ChildCameras;
+            int numCameras = Mathf.Min(CinemachineMixingCamera.MaxCameras, children.Count);
             for (int i = 0; i < numCameras; ++i)
                 if (children[i].isActiveAndEnabled)
                     totalWeight += Target.GetWeight(i);
 
             if (numCameras == 0)
-                EditorGUILayout.HelpBox("There are no Virtual Camera children", MessageType.Warning);
+                EditorGUILayout.HelpBox("There are no CmCamera children", MessageType.Warning);
             else 
             {
                 EditorGUILayout.Separator();
@@ -50,9 +52,9 @@ namespace Cinemachine.Editor
                 if (totalWeight <= UnityVectorExtensions.Epsilon)
                     EditorGUILayout.HelpBox("No input channels are active", MessageType.Warning);
 
-                if (children.Length > numCameras)
+                if (children.Count > numCameras)
                     EditorGUILayout.HelpBox(
-                        "There are " + children.Length 
+                        "There are " + children.Count 
                         + " child cameras.  A maximum of " + numCameras + " is supported.", 
                         MessageType.Warning);
 
@@ -67,7 +69,7 @@ namespace Cinemachine.Editor
         }
 
         void DrawProportionIndicator(
-            CinemachineVirtualCameraBase[] children, int numCameras, float totalWeight)
+            List<CinemachineVirtualCameraBase> children, int numCameras, float totalWeight)
         {
             GUIStyle style = EditorStyles.centeredGreyMiniLabel;
             Color bkg = new Color(0.27f, 0.27f, 0.27f); // ack! no better way than this?

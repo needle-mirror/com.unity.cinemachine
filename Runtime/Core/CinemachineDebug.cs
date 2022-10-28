@@ -1,7 +1,3 @@
-#if !UNITY_2019_3_OR_NEWER
-#define CINEMACHINE_UNITY_IMGUI
-#endif
-
 using UnityEngine;
 using System.Collections.Generic;
 using System.Text;
@@ -9,19 +5,11 @@ using System.Text;
 namespace Cinemachine.Utility
 {
     /// <summary>Manages onscreen positions for Cinemachine debugging output</summary>
-    public class CinemachineDebug
+    class CinemachineDebug
     {
-        static HashSet<Object> mClients;
+        static List<StringBuilder> m_AvailableStringBuilders;
 
 #if CINEMACHINE_UNITY_IMGUI
-        /// <summary>Release a screen rectangle previously obtained through GetScreenPos()</summary>
-        /// <param name="client">The client caller.  Used as a handle.</param>
-        public static void ReleaseScreenPos(Object client)
-        {
-            if (mClients != null && mClients.Contains(client))
-                mClients.Remove(client);
-        }
-        
         /// <summary>Reserve an on-screen rectangle for debugging output.</summary>
         /// <param name="client">The client caller.  This is used as a handle.</param>
         /// <param name="text">Sample text, for determining rectangle size</param>
@@ -29,23 +17,15 @@ namespace Cinemachine.Utility
         /// determining rect size</param>
         /// <returns>An area on the game screen large enough to print the text
         /// in the style indicated</returns>
-        public static Rect GetScreenPos(Object client, string text, GUIStyle style)
+        public static Rect GetScreenPos(Camera camera, string text, GUIStyle style)
         {
-            if (mClients == null)
-                mClients = new HashSet<Object>();
-            if (!mClients.Contains(client))
-                mClients.Add(client);
-
+            var size = style.CalcSize(new GUIContent(text));
             var pos = Vector2.zero;
-            Vector2 size = style.CalcSize(new GUIContent(text));
-            if (mClients != null)
+            if (camera != null)
             {
-                foreach (var c in mClients)
-                {
-                    if (c == client)
-                        break;
-                    pos.y += size.y;
-                }
+                var r = camera.rect; 
+                pos.x += r.x * Screen.width;
+                pos.y += (1 - r.y - r.height) * Screen.height;
             }
             return new Rect(pos, size);
         }
@@ -55,7 +35,7 @@ namespace Cinemachine.Utility
         /// Delegate for OnGUI debugging.  
         /// This will be called by the CinemachineBrain in its OnGUI (editor only)
         /// </summary>
-        public delegate void OnGUIDelegate();
+        public delegate void OnGUIDelegate(CinemachineBrain brain);
 
         /// <summary>
         /// Delegate for OnGUI debugging.  
@@ -63,17 +43,15 @@ namespace Cinemachine.Utility
         /// </summary>
         public static OnGUIDelegate OnGUIHandlers;
 
-        private static List<StringBuilder> mAvailableStringBuilders;
-
         /// <summary>Get a preallocated StringBuilder from the pool</summary>
         /// <returns>The preallocated StringBuilder from the pool.  
         /// Client must call ReturnToPool when done</returns>
         public static StringBuilder SBFromPool()
         {
-            if (mAvailableStringBuilders == null || mAvailableStringBuilders.Count == 0)
+            if (m_AvailableStringBuilders == null || m_AvailableStringBuilders.Count == 0)
                 return new StringBuilder();
-            var sb = mAvailableStringBuilders[mAvailableStringBuilders.Count - 1];
-            mAvailableStringBuilders.RemoveAt(mAvailableStringBuilders.Count - 1);
+            var sb = m_AvailableStringBuilders[m_AvailableStringBuilders.Count - 1];
+            m_AvailableStringBuilders.RemoveAt(m_AvailableStringBuilders.Count - 1);
             sb.Length = 0;
             return sb;
         }
@@ -82,9 +60,9 @@ namespace Cinemachine.Utility
         /// <param name="sb">The string builder object to return to the pool</param>
         public static void ReturnToPool(StringBuilder sb)
         {
-            if (mAvailableStringBuilders == null)
-                mAvailableStringBuilders = new List<StringBuilder>();
-            mAvailableStringBuilders.Add(sb);
+            if (m_AvailableStringBuilders == null)
+                m_AvailableStringBuilders = new List<StringBuilder>();
+            m_AvailableStringBuilders.Add(sb);
         }
     }
 }

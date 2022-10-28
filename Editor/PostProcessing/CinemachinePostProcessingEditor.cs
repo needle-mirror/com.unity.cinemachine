@@ -1,17 +1,32 @@
-#if CINEMACHINE_POST_PROCESSING_V2
 using UnityEngine;
 using UnityEditor;
+using System.Collections.Generic;
+
+#if CINEMACHINE_POST_PROCESSING_V2
 using UnityEngine.Rendering.PostProcessing;
 using UnityEditor.Rendering.PostProcessing;
-using System.Collections.Generic;
 #endif
 
-namespace Cinemachine.PostFX.Editor
+namespace Cinemachine.Editor
 {
-#if CINEMACHINE_POST_PROCESSING_V2
     [CustomEditor(typeof(CinemachinePostProcessing))]
-    public sealed class CinemachinePostProcessingEditor : Cinemachine.Editor.BaseEditor<CinemachinePostProcessing>
+    class CinemachinePostProcessingEditor : BaseEditor<CinemachinePostProcessing>
     {
+#if !CINEMACHINE_POST_PROCESSING_V2
+        public override void OnInspectorGUI()
+        {
+    #if CINEMACHINE_HDRP || CINEMACHINE_LWRP_7_3_1
+            EditorGUILayout.HelpBox(
+                "This component is not valid for HDRP and URP projects.  Use the CinemachineVolumeSettings component instead.",
+                MessageType.Warning);
+    #else
+            EditorGUILayout.HelpBox(
+                "This component requires the PostProcessing package, which can be downloaded from the Package Manager.\n\n"
+                + "Note: For HDRP and URP projects, use the CinemachineVolumeSettings component instead.",
+                MessageType.Warning);
+    #endif
+        }
+#else
         SerializedProperty m_Profile;
         SerializedProperty m_FocusTracking;
 
@@ -21,15 +36,14 @@ namespace Cinemachine.PostFX.Editor
         void OnEnable()
         {
             Texture texture = AssetDatabase.LoadAssetAtPath<Texture>(
-                Cinemachine.Editor.ScriptableObjectUtility.CinemachineRealativeInstallPath
-                     + "/Editor/EditorResources/PostProcessLayer.png");
+                $"{ScriptableObjectUtility.kPackageRoot}/Editor/EditorResources/PostProcessLayer.png");
             m_ProfileLabel = new GUIContent("Profile", texture, "A reference to a profile asset");
 
-            m_FocusTracking = FindProperty(x => x.m_FocusTracking);
-            m_Profile = FindProperty(x => x.m_Profile);
+            m_FocusTracking = FindProperty(x => x.FocusTracking);
+            m_Profile = FindProperty(x => x.Profile);
 
             m_EffectList = new EffectListEditor(this);
-            RefreshEffectListEditor(Target.m_Profile);
+            RefreshEffectListEditor(Target.Profile);
         }
 
         void OnDisable()
@@ -54,15 +68,21 @@ namespace Cinemachine.PostFX.Editor
             base.GetExcludedPropertiesInInspector(excluded);
             var mode = (CinemachinePostProcessing.FocusTrackingMode)m_FocusTracking.intValue;
             if (mode != CinemachinePostProcessing.FocusTrackingMode.CustomTarget)
-                excluded.Add(FieldPath(x => x.m_FocusTarget));
+                excluded.Add(FieldPath(x => x.FocusTarget));
             if (mode == CinemachinePostProcessing.FocusTrackingMode.None)
-                excluded.Add(FieldPath(x => x.m_FocusOffset));
-            excluded.Add(FieldPath(x => x.m_Profile));
+                excluded.Add(FieldPath(x => x.FocusOffset));
+            excluded.Add(FieldPath(x => x.Profile));
         }
 
         public override void OnInspectorGUI()
         {
+#if CINEMACHINE_HDRP || CINEMACHINE_LWRP_7_3_1
+            EditorGUILayout.HelpBox(
+                "This component is not valid for HDRP and URP projects.  Use the CinemachineVolumeSettings component instead.",
+                MessageType.Warning);
+#endif
             BeginInspector();
+            CmPipelineComponentInspectorUtility.IMGUI_DrawMissingCmCameraHelpBox(this);
             DrawRemainingPropertiesInInspector();
 
             var focusMode = (CinemachinePostProcessing.FocusTrackingMode)m_FocusTracking.intValue;
@@ -70,7 +90,7 @@ namespace Cinemachine.PostFX.Editor
             {
                 bool valid = false;
                 DepthOfField dof;
-                if (Target.m_Profile != null && Target.m_Profile.TryGetSettings(out dof))
+                if (Target.Profile != null && Target.Profile.TryGetSettings(out dof))
                     valid = dof.enabled && dof.active && dof.focusDistance.overrideState;
                 if (!valid)
                     EditorGUILayout.HelpBox(
@@ -182,8 +202,7 @@ namespace Cinemachine.PostFX.Editor
         // Copied from UnityEditor.Rendering.PostProcessing.ProfileFactory.CreatePostProcessProfile() because it's internal
         static PostProcessProfile CreatePostProcessProfile(UnityEngine.SceneManagement.Scene scene, string targetName)
         {
-            var path = string.Empty;
-
+            string path;
             if (string.IsNullOrEmpty(scene.path))
             {
                 path = "Assets/";
@@ -209,6 +228,6 @@ namespace Cinemachine.PostFX.Editor
             AssetDatabase.Refresh();
             return profile;
         }
-    }
 #endif
+    }
 }

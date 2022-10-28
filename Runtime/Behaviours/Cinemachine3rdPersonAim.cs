@@ -1,12 +1,8 @@
-﻿#if !UNITY_2019_3_OR_NEWER
-#define CINEMACHINE_PHYSICS
-#endif
-
+﻿#if CINEMACHINE_PHYSICS
 using UnityEngine;
 
 namespace Cinemachine
 {
-#if CINEMACHINE_PHYSICS
     /// <summary>
     /// An add-on module for Cinemachine Virtual Camera that forces the LookAt
     /// point to the center of the screen, based on the Follow target's orientation,
@@ -14,10 +10,11 @@ namespace Cinemachine
     /// This is useful for third-person style aim cameras that want a dead-accurate
     /// aim at all times, even in the presence of positional or rotational noise.
     /// </summary>
-    [AddComponentMenu("")] // Hide in menu
+    [AddComponentMenu("Cinemachine/Procedural/Rotation Control/Cinemachine 3rd Person Aim")]
     [ExecuteAlways]
     [SaveDuringPlay]
     [DisallowMultipleComponent]
+    [HelpURL(Documentation.BaseURL + "manual/Cinemachine3rdPersonAim.html")]
     public class Cinemachine3rdPersonAim : CinemachineExtension
     {
         /// <summary>Objects on these layers will be detected.</summary>
@@ -36,51 +33,21 @@ namespace Cinemachine
         [Tooltip("How far to project the object detection ray")]
         public float AimDistance;
 
-        /// <summary>This 2D object will be positioned in the game view over the raycast hit point, 
-        /// if any, or will remain in the center of the screen if no hit point is 
-        /// detected.  May be null, in which case no on-screen indicator will appear.</summary>
-        [Tooltip("This 2D object will be positioned in the game view over the raycast hit point, if any, "
-            + "or will remain in the center of the screen if no hit point is detected.  "
-            + "May be null, in which case no on-screen indicator will appear")]
-        public RectTransform AimTargetReticle;
-
         /// <summary>World space position of where the player would hit if a projectile were to 
         /// be fired from the player origin.  This may be different
         /// from state.ReferenceLookAt due to camera offset from player origin.</summary>
         public Vector3 AimTarget { get; private set; }
 
-        private void OnValidate()
+        void OnValidate()
         {
             AimDistance = Mathf.Max(1, AimDistance);
         }
 
-        private void Reset()
+        void Reset()
         {
             AimCollisionFilter = 1;
             IgnoreTag = string.Empty;
             AimDistance = 200.0f;
-            AimTargetReticle = null;
-        }
-
-        /// <summary>Notification that this virtual camera is going live.</summary>
-        /// <param name="fromCam">The camera being deactivated.  May be null.</param>
-        /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
-        /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
-        /// <returns>True to request a vcam update of internal state</returns>
-        public override bool OnTransitionFromCamera(
-            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime) 
-        { 
-            CinemachineCore.CameraUpdatedEvent.RemoveListener(DrawReticle);
-            CinemachineCore.CameraUpdatedEvent.AddListener(DrawReticle);
-            return false; 
-        }
-
-        void DrawReticle(CinemachineBrain brain)
-        {
-            if (!brain.IsLive(VirtualCamera) || brain.OutputCamera == null)
-                CinemachineCore.CameraUpdatedEvent.RemoveListener(DrawReticle);
-            else if (AimTargetReticle != null)
-                AimTargetReticle.position = brain.OutputCamera.WorldToScreenPoint(AimTarget);
         }
 
         Vector3 ComputeLookAtPoint(Vector3 camPos, Transform player)
@@ -125,27 +92,34 @@ namespace Cinemachine
             CinemachineVirtualCameraBase vcam,
             CinemachineCore.Stage stage, ref CameraState state, float deltaTime)
         {
-            if (stage == CinemachineCore.Stage.Body)
+            switch (stage)
             {
-                // Raycast to establish what we're actually aiming at
-                var player = vcam.Follow;
-                if (player != null)
+                case CinemachineCore.Stage.Body:
                 {
-                    state.ReferenceLookAt = ComputeLookAtPoint(state.CorrectedPosition, player);
-                    AimTarget = ComputeAimTarget(state.ReferenceLookAt, player);
+                    // Raycast to establish what we're actually aiming at
+                    var player = vcam.Follow;
+                    if (player != null)
+                    {
+                        state.ReferenceLookAt = ComputeLookAtPoint(state.GetCorrectedPosition(), player);
+                        AimTarget = ComputeAimTarget(state.ReferenceLookAt, player);
+                    }
+
+                    break;
                 }
-            }
-            if (stage == CinemachineCore.Stage.Finalize)
-            {
-                // Stabilize the LookAt point in the center of the screen
-                var dir = state.ReferenceLookAt - state.FinalPosition;
-                if (dir.sqrMagnitude > 0.01f)
+                case CinemachineCore.Stage.Finalize:
                 {
-                    state.RawOrientation = Quaternion.LookRotation(dir, state.ReferenceUp);
-                    state.OrientationCorrection = Quaternion.identity;
+                    // Stabilize the LookAt point in the center of the screen
+                    var dir = state.ReferenceLookAt - state.GetFinalPosition();
+                    if (dir.sqrMagnitude > 0.01f)
+                    {
+                        state.RawOrientation = Quaternion.LookRotation(dir, state.ReferenceUp);
+                        state.OrientationCorrection = Quaternion.identity;
+                    }
+
+                    break;
                 }
             }
         }
     }
-#endif
 }
+#endif

@@ -1,9 +1,10 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "2.9.2",
-  "unity": "2019.4",
-  "description": "Smart camera tools for passionate creators. \n\nNew starting from 2.7.1: Are you looking for the Cinemachine menu? It has moved to the GameObject menu.\n\nIMPORTANT NOTE: If you are upgrading from the legacy Asset Store version of Cinemachine, delete the Cinemachine asset from your project BEFORE installing this version from the Package Manager.",
+  "version": "3.0.0-pre.3",
+  "unity": "2022.2",
+  "unityRelease": "0b8",
+  "description": "Smart camera tools for passionate creators. \n\n Cinemachine 3.0 is a newer and better version of Cinemachine, but upgrading an existing project from 2.X will likely require some effort.  If you're considering upgrading an older project, please see our upgrade guide in the user manual.",
   "keywords": [
     "camera",
     "follow",
@@ -30,21 +31,27 @@
   ],
   "category": "cinematography",
   "dependencies": {
-    "com.unity.test-framework": "1.1.31"
+    "com.unity.splines": "2.0.0-pre.4",
+    "com.unity.test-framework": "1.1.33"
   },
   "samples": [
     {
-      "displayName": "Cinemachine Example Scenes",
+      "displayName": "Sample Scenes",
       "description": "Sample scenes illustrating various ways to use Cinemachine",
-      "path": "Samples~/Cinemachine Example Scenes"
+      "path": "Samples~/Sample Scenes"
+    },
+    {
+      "displayName": "Old Samples from CM2",
+      "description": "Samples made with CM 2.X, using obsolete API",
+      "path": "Samples~/Old Samples from CM2"
     }
   ],
   "upmCi": {
-    "footprint": "12e24943d6bb961ff62e802efd2ce2b03b27bb0f"
+    "footprint": "6feb752fa4a15a473be0c7517bc5b1a12c75aecf"
   },
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "2cf333415b8b110b132992a53dbb9e64e0436b89"
+    "revision": "add34be463ae9128663cacba430e3a683c8ff625"
   }
 }

@@ -1,60 +1,25 @@
-#if !UNITY_2019_1_OR_NEWER
-#define CINEMACHINE_TIMELINE
-#endif
 #if CINEMACHINE_TIMELINE
 
 using UnityEditor;
 using UnityEngine;
-using Cinemachine.Editor;
 using System.Collections.Generic;
 using UnityEditor.Timeline;
-using Cinemachine;
 
-//namespace Cinemachine.Timeline
-//{
+namespace Cinemachine.Editor
+{
     [CustomEditor(typeof(CinemachineShot))]
-    internal sealed class CinemachineShotEditor : BaseEditor<CinemachineShot>
+    sealed class CinemachineShotEditor : BaseEditor<CinemachineShot>
     {
-        static string kAutoCreateKey = "CM_Timeline_AutoCreateShotFromSceneView";
-        public static bool AutoCreateShotFromSceneView
-        {
-            get { return EditorPrefs.GetBool(kAutoCreateKey, false); }
-            set
-            {
-                if (value != AutoCreateShotFromSceneView)
-                    EditorPrefs.SetBool(kAutoCreateKey, value);
-            }
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        static string kUseScrubbingCache = "CNMCN_Timeline_CachedScrubbing";
-        public static bool UseScrubbingCache
-        {
-            get { return EditorPrefs.GetBool(kUseScrubbingCache, false); }
-            set
-            {
-                if (UseScrubbingCache != value)
-                {
-                    EditorPrefs.SetBool(kUseScrubbingCache, value);
-                    TargetPositionCache.UseCache = value;
-                }
-            }
-        }
-
         [InitializeOnLoad]
-        public class SyncCacheEnabledSetting
+        class SyncCacheEnabledSetting
         {
-            static SyncCacheEnabledSetting()
-            {
-                TargetPositionCache.UseCache = UseScrubbingCache;
-            }
+            static SyncCacheEnabledSetting() => TargetPositionCache.UseCache = CinemachineTimelinePrefs.UseScrubbingCache.Value;
         }
-#endif
 
-        static public CinemachineVirtualCameraBase CreatePassiveVcamFromSceneView()
+        public static CinemachineVirtualCameraBase CreatePassiveVcamFromSceneView()
         {
-            var vcam = CinemachineMenu.CreatePassiveVirtualCamera("Virtual Camera", null, false);
-            vcam.m_StandbyUpdate = CinemachineVirtualCameraBase.StandbyUpdateMode.Never;
+            var vcam = CinemachineMenu.CreatePassiveCmCamera("CmCamera", null, false);
+            vcam.StandbyUpdate = CinemachineVirtualCameraBase.StandbyUpdateMode.Never;
 
 #if false 
             // GML this is too bold.  What if timeline is a child of something moving?
@@ -67,21 +32,8 @@ using Cinemachine;
             return vcam;
         }
 
-        private static readonly GUIContent kVirtualCameraLabel
-            = new GUIContent("Virtual Camera", "The virtual camera to use for this shot");
-        private static readonly GUIContent kAutoCreateLabel = new GUIContent(
-            "Auto-create new shots",  "When enabled, new clips will be "
-                + "automatically populated to match the scene view camera.  "
-                + "This is a global setting");
-#if UNITY_2019_2_OR_NEWER
-        private static readonly GUIContent kScrubbingCacheLabel = new GUIContent(
-            "Cached Scrubbing",
-            "For preview scrubbing, caches target positions and pre-simulates each frame to "
-                + "approximate damping and noise playback.  Target position cache is built when timeline is "
-                + "played forward, and used when timeline is scrubbed within the indicated zone. "
-                + "This is a global setting,.");
-        GUIContent m_ClearText = new GUIContent("Clear", "Clear the target position scrubbing cache");
-#endif
+        readonly GUIContent s_CmCameraLabel = new GUIContent("CmCamera", "The Cinemachine camera to use for this shot");
+        readonly GUIContent m_ClearText = new GUIContent("Clear", "Clear the target position scrubbing cache");
 
         /// <summary>Get the property names to exclude in the inspector.</summary>
         /// <param name="excluded">Add the names to this list</param>
@@ -91,12 +43,12 @@ using Cinemachine;
             excluded.Add(FieldPath(x => x.VirtualCamera));
         }
 
-        private void OnDisable()
+        void OnDisable()
         {
             DestroyComponentEditors();
         }
 
-        private void OnDestroy()
+        void OnDestroy()
         {
             DestroyComponentEditors();
         }
@@ -107,19 +59,19 @@ using Cinemachine;
             SerializedProperty vcamProperty = FindProperty(x => x.VirtualCamera);
             EditorGUI.indentLevel = 0; // otherwise subeditor layouts get screwed up
 
-            AutoCreateShotFromSceneView
-                = EditorGUILayout.Toggle(kAutoCreateLabel, AutoCreateShotFromSceneView);
+            CinemachineTimelinePrefs.AutoCreateShotFromSceneView.Value = EditorGUILayout.Toggle(
+                CinemachineTimelinePrefs.s_AutoCreateLabel, CinemachineTimelinePrefs.AutoCreateShotFromSceneView.Value);
 
             Rect rect;
-#if UNITY_2019_2_OR_NEWER
             GUI.enabled = !Application.isPlaying;
             rect = EditorGUILayout.GetControlRect();
             var r = rect;
             r.width = EditorGUIUtility.labelWidth + EditorGUIUtility.singleLineHeight;
             if (Application.isPlaying)
-                EditorGUI.Toggle(r, kScrubbingCacheLabel, false);
+                EditorGUI.Toggle(r, CinemachineTimelinePrefs.s_ScrubbingCacheLabel, false);
             else
-                UseScrubbingCache = EditorGUI.Toggle(r, kScrubbingCacheLabel, UseScrubbingCache);
+                CinemachineTimelinePrefs.UseScrubbingCache.Value = EditorGUI.Toggle(
+                    r, CinemachineTimelinePrefs.s_ScrubbingCacheLabel, CinemachineTimelinePrefs.UseScrubbingCache.Value);
             r.x += r.width; r.width = rect.width - r.width;
             var buttonWidth = GUI.skin.button.CalcSize(m_ClearText).x;
             r.width -= buttonWidth;
@@ -129,13 +81,12 @@ using Cinemachine;
             if (GUI.Button(r, m_ClearText))
                 TargetPositionCache.ClearCache();
             GUI.enabled = true;
-#endif
 
             EditorGUILayout.Space();
             CinemachineVirtualCameraBase vcam
                 = vcamProperty.exposedReferenceValue as CinemachineVirtualCameraBase;
             if (vcam != null)
-                EditorGUILayout.PropertyField(vcamProperty, kVirtualCameraLabel);
+                EditorGUILayout.PropertyField(vcamProperty, s_CmCameraLabel);
             else
             {
                 GUIContent createLabel = new GUIContent("Create");
@@ -144,7 +95,7 @@ using Cinemachine;
                 rect = EditorGUILayout.GetControlRect(true);
                 rect.width -= createSize.x;
 
-                EditorGUI.PropertyField(rect, vcamProperty, kVirtualCameraLabel);
+                EditorGUI.PropertyField(rect, vcamProperty, s_CmCameraLabel);
                 rect.x += rect.width; rect.width = createSize.x;
                 if (GUI.Button(rect, createLabel))
                 {
@@ -199,7 +150,7 @@ using Cinemachine;
 
         CinemachineVirtualCameraBase m_cachedReferenceObject;
         UnityEditor.Editor[] m_editors = null;
-        static Dictionary<System.Type, bool> s_EditorExpanded = new Dictionary<System.Type, bool>();
+        static Dictionary<System.Type, bool> s_EditorExpanded = new();
 
         void UpdateComponentEditors(CinemachineVirtualCameraBase obj)
         {
@@ -237,5 +188,5 @@ using Cinemachine;
             }
         }
     }
-//}
+}
 #endif

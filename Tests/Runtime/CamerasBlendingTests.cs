@@ -3,13 +3,14 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Cinemachine;
+using Tests.Runtime;
 
 namespace Tests.Runtime
 {
     [TestFixture]
-    public class CamerasBlendingTests : CinemachineFixtureBase
+    public class CamerasBlendingTests : CinemachineRuntimeFixtureBase
     {
-        const float k_BlendingTime = 1;
+        private const float k_BlendingTime = 1;
 
         CinemachineBrain m_Brain;
         CinemachineVirtualCameraBase m_Source, m_Target;
@@ -22,7 +23,7 @@ namespace Tests.Runtime
             m_Brain = cameraHolder.GetComponent<CinemachineBrain>();
 
             // Blending
-            m_Brain.m_DefaultBlend = new CinemachineBlendDefinition(
+            m_Brain.DefaultBlend = new CinemachineBlendDefinition(
                 CinemachineBlendDefinition.Style.Linear,
                 k_BlendingTime);
             
@@ -42,7 +43,7 @@ namespace Tests.Runtime
 
             base.SetUp();
             
-            m_Brain.m_UpdateMethod = CinemachineBrain.UpdateMethod.ManualUpdate; 
+            m_Brain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate; 
         }
 
         [UnityTest]

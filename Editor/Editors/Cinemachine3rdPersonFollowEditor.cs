@@ -5,18 +5,21 @@ namespace Cinemachine.Editor
 {
     [CustomEditor(typeof(Cinemachine3rdPersonFollow))]
     [CanEditMultipleObjects]
-    internal class Cinemachine3rdPersonFollowEditor : BaseEditor<Cinemachine3rdPersonFollow>
+    class Cinemachine3rdPersonFollowEditor : BaseEditor<Cinemachine3rdPersonFollow>
     {
         [DrawGizmo(GizmoType.Active | GizmoType.Selected, typeof(Cinemachine3rdPersonFollow))]
         static void Draw3rdPersonGizmos(Cinemachine3rdPersonFollow target, GizmoType selectionType)
         {
+            if (CinemachineSceneToolUtility.IsToolActive(typeof(FollowOffsetTool)))
+                return; // don't draw gizmo when using handles
+            
             if (target.IsValid)
             {
                 var isLive = CinemachineCore.Instance.IsLive(target.VirtualCamera);
                 Color originalGizmoColour = Gizmos.color;
                 Gizmos.color = isLive
-                    ? CinemachineSettings.CinemachineCoreSettings.ActiveGizmoColour
-                    : CinemachineSettings.CinemachineCoreSettings.InactiveGizmoColour;
+                    ? CinemachineCorePrefs.ActiveGizmoColour.Value
+                    : CinemachineCorePrefs.InactiveGizmoColour.Value;
 
                 target.GetRigPositions(out Vector3 root, out Vector3 shoulder, out Vector3 hand);
                 Gizmos.DrawLine(root, shoulder);
@@ -27,7 +30,7 @@ namespace Cinemachine.Editor
                 Gizmos.DrawSphere(hand, target.CameraRadius);
 
                 if (isLive)
-                    Gizmos.color = CinemachineSettings.CinemachineCoreSettings.BoundaryObjectGizmoColour;
+                    Gizmos.color = CinemachineCorePrefs.BoundaryObjectGizmoColour.Value;
 
                 Gizmos.DrawSphere(target.VirtualCamera.State.RawPosition, target.CameraRadius);
 #endif
@@ -36,20 +39,6 @@ namespace Cinemachine.Editor
             }
         }
         
-        public override void OnInspectorGUI()
-        {
-            BeginInspector();
-            bool needWarning = false;
-            for (int i = 0; !needWarning && i < targets.Length; ++i)
-                needWarning = (targets[i] as Cinemachine3rdPersonFollow).FollowTarget == null;
-            if (needWarning)
-                EditorGUILayout.HelpBox(
-                    "3rd Person Follow requires a Follow Target.  Change Body to Do Nothing if you don't want a Follow target.",
-                    MessageType.Warning);
-            DrawRemainingPropertiesInInspector();
-        }
-
-#if UNITY_2021_2_OR_NEWER
         protected virtual void OnEnable()
         {
             CinemachineSceneToolUtility.RegisterTool(typeof(FollowOffsetTool));
@@ -60,18 +49,18 @@ namespace Cinemachine.Editor
             CinemachineSceneToolUtility.UnregisterTool(typeof(FollowOffsetTool));
         }
         
-        void OnSceneGUI()
+        public override void OnInspectorGUI()
         {
-            DrawSceneTools();
+            BeginInspector();
+            CmPipelineComponentInspectorUtility.IMGUI_DrawMissingCmCameraHelpBox(this, CmPipelineComponentInspectorUtility.RequiredTargets.Follow);
+            DrawRemainingPropertiesInInspector();
         }
 
-        void DrawSceneTools()
+        void OnSceneGUI()
         {
             var thirdPerson = Target;
             if (thirdPerson == null || !thirdPerson.IsValid)
-            {
                 return;
-            }
 
             if (CinemachineSceneToolUtility.IsToolActive(typeof(FollowOffsetTool)))
             {
@@ -85,17 +74,10 @@ namespace Cinemachine.Editor
                     followTargetRotation, thirdPerson.VirtualCamera.State.ReferenceUp);
 
                 EditorGUI.BeginChangeCheck();
+
                 // shoulder handle
-#if UNITY_2022_2_OR_NEWER
                 var sHandleIds = Handles.PositionHandleIds.@default;
                 var newShoulderPosition = Handles.PositionHandle(sHandleIds, shoulderPosition, heading);
-                var sHandleMinId = sHandleIds.x - 1;
-                var sHandleMaxId = sHandleIds.xyz + 1;
-#else
-                var sHandleMinId = GUIUtility.GetControlID(FocusType.Passive);
-                var newShoulderPosition = Handles.PositionHandle(shoulderPosition, heading);
-                var sHandleMaxId = GUIUtility.GetControlID(FocusType.Passive);
-#endif
 
                 Handles.color = Handles.preselectionColor;
                 // arm handle
@@ -128,14 +110,14 @@ namespace Cinemachine.Editor
                     so.ApplyModifiedProperties();
                 }
 
-                var isDragged = IsHandleDragged(sHandleMinId, sHandleMaxId, shoulderPosition, "Shoulder Offset " 
+                var isDragged = IsHandleDragged(sHandleIds.x, sHandleIds.xyz, shoulderPosition, "Shoulder Offset " 
                     + thirdPerson.ShoulderOffset.ToString("F1"), followTargetPosition, shoulderPosition);
                 isDragged |= IsHandleDragged(aHandleId, aHandleId, armPosition, "Vertical Arm Length (" 
                     + thirdPerson.VerticalArmLength.ToString("F1") + ")", shoulderPosition, armPosition);
                 isDragged |= IsHandleDragged(cdHandleId, cdHandleId, camPos, "Camera Distance (" 
                     + camDistance.ToString("F1") + ")", armPosition, camPos);
 
-                CinemachineSceneToolHelpers.SoloOnDrag(isDragged, thirdPerson.VirtualCamera, sHandleMaxId);
+                CinemachineSceneToolHelpers.SoloOnDrag(isDragged, thirdPerson.VirtualCamera, sHandleIds.xyz);
 
                 Handles.color = originalColor;
             }
@@ -144,18 +126,9 @@ namespace Cinemachine.Editor
             static bool IsHandleDragged
                 (int handleMinId, int handleMaxId, Vector3 labelPos, string text, Vector3 lineStart, Vector3 lineEnd)
             {
-                bool handleIsDragged;
-                bool handleIsDraggedOrHovered;
-                if (handleMinId == handleMaxId) {
-                    handleIsDragged = GUIUtility.hotControl == handleMinId; 
-                    handleIsDraggedOrHovered = handleIsDragged || HandleUtility.nearestControl == handleMinId;
-                }
-                else
-                {
-                    handleIsDragged = handleMinId < GUIUtility.hotControl && GUIUtility.hotControl < handleMaxId;
-                    handleIsDraggedOrHovered = handleIsDragged ||
-                        (handleMinId < HandleUtility.nearestControl && HandleUtility.nearestControl < handleMaxId);
-                }
+                var handleIsDragged = handleMinId <= GUIUtility.hotControl && GUIUtility.hotControl <= handleMaxId;
+                var handleIsDraggedOrHovered = handleIsDragged ||
+                    (handleMinId <= HandleUtility.nearestControl && HandleUtility.nearestControl <= handleMaxId);
 
                 if (handleIsDraggedOrHovered)
                     CinemachineSceneToolHelpers.DrawLabel(labelPos, text);
@@ -167,7 +140,6 @@ namespace Cinemachine.Editor
                 return handleIsDragged;
             }
         }
-#endif
     }
 }
 

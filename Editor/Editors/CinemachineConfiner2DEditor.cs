@@ -1,18 +1,13 @@
-#if !UNITY_2019_3_OR_NEWER
-#define CINEMACHINE_PHYSICS_2D
-#endif
-
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEditor;
 
+#if CINEMACHINE_PHYSICS_2D
 namespace Cinemachine.Editor
 {
-#if CINEMACHINE_PHYSICS_2D
     [CustomEditor(typeof(CinemachineConfiner2D))]
     [CanEditMultipleObjects]
-    internal sealed class CinemachineConfiner2DEditor : BaseEditor<CinemachineConfiner2D>
+    class CinemachineConfiner2DEditor : BaseEditor<CinemachineConfiner2D>
     {
         SerializedProperty m_MaxWindowSizeProperty;
         GUIContent m_ComputeSkeletonLabel = new GUIContent(
@@ -27,12 +22,12 @@ namespace Cinemachine.Editor
         protected override void GetExcludedPropertiesInInspector(List<string> excluded)
         {
             base.GetExcludedPropertiesInInspector(excluded);
-            excluded.Add(FieldPath(x => x.m_MaxWindowSize));
+            excluded.Add(FieldPath(x => x.MaxWindowSize));
         }
 
         private void OnEnable()
         {
-            m_MaxWindowSizeProperty = FindProperty(x => x.m_MaxWindowSize);
+            m_MaxWindowSizeProperty = FindProperty(x => x.MaxWindowSize);
             m_MaxWindowSizeLabel = new GUIContent(
                 m_MaxWindowSizeProperty.displayName, 
                 "To optimize computation and memory costs, set this to the largest view size that the "
@@ -47,18 +42,21 @@ namespace Cinemachine.Editor
         {
             BeginInspector();
 
-            if (Target.m_BoundingShape2D == null)
+            CmPipelineComponentInspectorUtility.IMGUI_DrawMissingCmCameraHelpBox(this);
+
+            if (Target.BoundingShape2D == null)
                 EditorGUILayout.HelpBox("A Bounding Shape is required.", MessageType.Warning);
-            else if (Target.m_BoundingShape2D.GetType() != typeof(PolygonCollider2D)
-                && Target.m_BoundingShape2D.GetType() != typeof(CompositeCollider2D))
+            else if (Target.BoundingShape2D.GetType() != typeof(PolygonCollider2D)
+                && Target.BoundingShape2D.GetType() != typeof(CompositeCollider2D)
+                && Target.BoundingShape2D.GetType() != typeof(BoxCollider2D))
             {
                 EditorGUILayout.HelpBox(
-                    "Must be a PolygonCollider2D or CompositeCollider2D.",
+                    "Must be a PolygonCollider2D, BoxCollider2D, or CompositeCollider2D.",
                     MessageType.Warning);
             }
-            else if (Target.m_BoundingShape2D.GetType() == typeof(CompositeCollider2D))
+            else if (Target.BoundingShape2D.GetType() == typeof(CompositeCollider2D))
             {
-                CompositeCollider2D poly = Target.m_BoundingShape2D as CompositeCollider2D;
+                CompositeCollider2D poly = Target.BoundingShape2D as CompositeCollider2D;
                 if (poly.geometryType != CompositeCollider2D.GeometryType.Polygons)
                 {
                     EditorGUILayout.HelpBox(
@@ -145,7 +143,7 @@ namespace Cinemachine.Editor
             if (!confiner2D.GetGizmoPaths(out var originalPath, ref s_currentPathCache, out var pathLocalToWorld))
                 return;
 
-            Color color = CinemachineSettings.CinemachineCoreSettings.BoundaryObjectGizmoColour;
+            Color color = CinemachineCorePrefs.BoundaryObjectGizmoColour.Value;
             Color colorDimmed = new Color(color.r, color.g, color.b, color.a / 2f);
             
             var oldMatrix = Gizmos.matrix;
@@ -170,5 +168,5 @@ namespace Cinemachine.Editor
             Gizmos.matrix = oldMatrix;
         }
     }
-#endif
 }
+#endif

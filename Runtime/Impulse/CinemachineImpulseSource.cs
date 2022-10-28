@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Cinemachine
 {
@@ -12,15 +13,16 @@ namespace Cinemachine
     /// methods from your custom code, or hook them up to game events in the Editor.
     /// 
     /// </summary>
-    [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
     [SaveDuringPlay]
-    [HelpURL(Documentation.BaseURL + "manual/CinemachineImpulseSourceOverview.html")]
+    [AddComponentMenu("Cinemachine/Helpers/Cinemachine Impulse Source")]
+    [HelpURL(Documentation.BaseURL + "manual/CinemachineImpulseSource.html")]
     public class CinemachineImpulseSource : MonoBehaviour
     {
         /// <summary>
         /// This defines the complete impulse signal that will be broadcast.
         /// </summary>
-        public CinemachineImpulseDefinition m_ImpulseDefinition = new CinemachineImpulseDefinition();
+        [FormerlySerializedAs("m_ImpulseDefinition")]
+        public CinemachineImpulseDefinition ImpulseDefinition = new CinemachineImpulseDefinition();
 
         /// <summary>
         /// The default direction and force of the Impulse Signal in the absense of any 
@@ -31,27 +33,28 @@ namespace Cinemachine
         [Tooltip("The default direction and force of the Impulse Signal in the absense "
             + "of any specified overrides.  Overrides can be specified by calling the appropriate "
                 + "GenerateImpulse method in the API.")]
-        public Vector3 m_DefaultVelocity = Vector3.down;
+        [FormerlySerializedAs("m_DefaultVelocity")]
+        public Vector3 DefaultVelocity = Vector3.down;
 
         void OnValidate()
         {
-            m_ImpulseDefinition.OnValidate();
+            ImpulseDefinition.OnValidate();
         }
 
         void Reset()
         {
-            m_ImpulseDefinition = new CinemachineImpulseDefinition
+            ImpulseDefinition = new CinemachineImpulseDefinition
             {
-                m_ImpulseChannel = 1,
-                m_ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Bump,
-                m_CustomImpulseShape = new AnimationCurve(),
-                m_ImpulseDuration = 0.2f,
-                m_ImpulseType = CinemachineImpulseDefinition.ImpulseTypes.Uniform,
-                m_DissipationDistance = 100,
-                m_DissipationRate = 0.25f,
-                m_PropagationSpeed = 343
+                ImpulseChannel = 1,
+                ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Bump,
+                CustomImpulseShape = new AnimationCurve(),
+                ImpulseDuration = 0.2f,
+                ImpulseType = CinemachineImpulseDefinition.ImpulseTypes.Uniform,
+                DissipationDistance = 100,
+                DissipationRate = 0.25f,
+                PropagationSpeed = 343
             };
-            m_DefaultVelocity = Vector3.down;
+            DefaultVelocity = Vector3.down;
         }
 
         /// <summary>Broadcast the Impulse Signal onto the appropriate channels,
@@ -60,8 +63,8 @@ namespace Cinemachine
         /// <param name="velocity">The impact magnitude and direction</param>
         public void GenerateImpulseAtPositionWithVelocity(Vector3 position, Vector3 velocity)
         {
-            if (m_ImpulseDefinition != null)
-                m_ImpulseDefinition.CreateEvent(position, velocity);
+            if (ImpulseDefinition != null)
+                ImpulseDefinition.CreateEvent(position, velocity);
         }
 
         /// <summary>Broadcast the Impulse Signal onto the appropriate channels, using
@@ -77,8 +80,7 @@ namespace Cinemachine
         /// <param name="force">The impact magnitude.  1 is normal</param>
         public void GenerateImpulseWithForce(float force)
         {
-            GenerateImpulseAtPositionWithVelocity(
-                transform.position, m_DefaultVelocity * force);
+            GenerateImpulseAtPositionWithVelocity(transform.position, DefaultVelocity * force);
         }
 
         /// <summary>Broadcast the Impulse Signal onto the appropriate channels, 
@@ -86,7 +88,7 @@ namespace Cinemachine
         /// this transform's location.</summary>
         public void GenerateImpulse()
         {
-            GenerateImpulseWithVelocity(m_DefaultVelocity);
+            GenerateImpulseWithVelocity(DefaultVelocity);
         }
 
         /// <summary>Legacy API: Please use GenerateImpulseAtPositionWithVelocity() instead.  

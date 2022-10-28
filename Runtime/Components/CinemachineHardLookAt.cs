@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Cinemachine
 {
@@ -6,9 +7,10 @@ namespace Cinemachine
     /// This is a CinemachineComponent in the Aim section of the component pipeline.
     /// Its job is to aim the camera hard at the LookAt target.
     /// </summary>
-    [DocumentationSorting(DocumentationSortingAttribute.Level.UserRef)]
-    [AddComponentMenu("")] // Don't display in add component menu
+    [AddComponentMenu("Cinemachine/Procedural/Rotation Control/Cinemachine Hard Look At")]
     [SaveDuringPlay]
+    [CameraPipeline(CinemachineCore.Stage.Aim)]
+    [HelpURL(Documentation.BaseURL + "manual/CinemachineHardLookAt.html")]
     public class CinemachineHardLookAt : CinemachineComponentBase
     {
         /// <summary>True if component is enabled and has a LookAt defined</summary>
@@ -24,9 +26,9 @@ namespace Cinemachine
         /// zero, then target will snap to the center of the dead zone.</param>
         public override void MutateCameraState(ref CameraState curState, float deltaTime)
         {
-            if (IsValid && curState.HasLookAt)
+            if (IsValid && curState.HasLookAt())
             {
-                Vector3 dir = (curState.ReferenceLookAt - curState.CorrectedPosition);
+                Vector3 dir = (curState.ReferenceLookAt - curState.GetCorrectedPosition());
                 if (dir.magnitude > Epsilon)
                 {
                     if (Vector3.Cross(dir.normalized, curState.ReferenceUp).magnitude < Epsilon)
