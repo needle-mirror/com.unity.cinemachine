@@ -4,6 +4,16 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.9.5] - 2023-01-16
+- Unity 2022.2 and up: FocusDistance added to lens settings and is pushed to the camera.
+- Optimized path gizmo drawing.  Now 3-5 times faster.
+- TargetGroup now ignores members whose gameObjects are inactive.
+- Bugfix: CinemachinePathBase search radius fixed for not looped paths.
+- Regression fix: POV was not handling ReferenceUp correctly
+- Bugfix: priority ordering was wrong when the difference between any priority values were smaller than integer min or bigger than integer max values.
+- Bugfix: Extensions were not respecting execution order on domain reload.
+
+
 ## [2.9.4] - 2022-11-18
 - Bugfix: VirtualCameras did not set the focal length property of physical cameras.
 - Bugfix: could not set main camera to physical mode while a vcam with ModeOverride = None was active
