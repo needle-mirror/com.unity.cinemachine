@@ -44,9 +44,19 @@ namespace Cinemachine.Editor
                 // It's some kind of vcam.  Check for FreeLook first because it has
                 // hidden child VirtualCameras and we need to remove them
                 if (go.TryGetComponent<CinemachineFreeLook>(out var freelook))
+                {
                     notUpgradable = UpgradeFreelook(freelook);
+                    var manager = freelook.ParentCamera as CinemachineCameraManagerBase;
+                    if (manager != null)
+                        manager.InvalidateCameraCache();
+                }
                 else if (go.TryGetComponent<CinemachineVirtualCamera>(out var vcam))
+                {
                     notUpgradable = UpgradeVcam(vcam);
+                    var manager = vcam.ParentCamera as CinemachineCameraManagerBase;
+                    if (manager != null)
+                        manager.InvalidateCameraCache();
+                }
 
                 // Upgrade the pipeline components (there will be more of these...)
                 if (ReplaceComponent<CinemachineComposer, CinemachineRotationComposer>(go))
@@ -58,7 +68,7 @@ namespace Cinemachine.Editor
                     if (!go.TryGetComponent<CinemachineGroupFraming>(out var _))
                     {
                         var framer = Undo.AddComponent<CinemachineGroupFraming>(go);
-                        go.GetComponent<CmCamera>().AddExtension(framer);
+                        go.GetComponent<CinemachineCamera>().AddExtension(framer);
                         gc.UpgradeToCm3(framer);
                     }
                 }
@@ -73,7 +83,7 @@ namespace Cinemachine.Editor
                         && !go.TryGetComponent<CinemachineGroupFraming>(out var _))
                     {
                         var framer = Undo.AddComponent<CinemachineGroupFraming>(go);
-                        go.GetComponent<CmCamera>().AddExtension(framer);
+                        go.GetComponent<CinemachineCamera>().AddExtension(framer);
                         ft.UpgradeToCm3(framer);
                     }
                 }
@@ -81,24 +91,59 @@ namespace Cinemachine.Editor
                 {
                      var pov = go.GetComponent<CinemachinePOV>();
                      pov.UpgradeToCm3(go.GetComponent<CinemachinePanTilt>());
-                     ConvertInputAxis(go, "Look X (Pan)", ref pov.m_HorizontalAxis, ref pov.m_HorizontalRecentering);
-                     ConvertInputAxis(go, "Look Y (Tilt)", ref pov.m_VerticalAxis, ref pov.m_VerticalRecentering);
+                     ConvertInputAxis(go, "Look X (Pan)", ref pov.m_HorizontalAxis);
+                     ConvertInputAxis(go, "Look Y (Tilt)", ref pov.m_VerticalAxis);
                 }
                 if (ReplaceComponent<CinemachineOrbitalTransposer, CinemachineOrbitalFollow>(go))
                 {
                      var orbital = go.GetComponent<CinemachineOrbitalTransposer>();
                      orbital.UpgradeToCm3(go.GetComponent<CinemachineOrbitalFollow>());
-                     ConvertInputAxis(go, "Look Orbit X", ref orbital.m_XAxis, ref orbital.m_RecenterToTargetHeading);
+                     ConvertInputAxis(go, "Look Orbit X", ref orbital.m_XAxis);
                 }
 
+                if (ReplaceComponent<Cinemachine3rdPersonFollow, CinemachineThirdPersonFollow>(go)) 
+                    go.GetComponent<Cinemachine3rdPersonFollow>().UpgradeToCm3(go.GetComponent<CinemachineThirdPersonFollow>());
+
                 if (ReplaceComponent<CinemachineTrackedDolly, CinemachineSplineDolly>(go))
+                    go.GetComponent<CinemachineTrackedDolly>().UpgradeToCm3(go.GetComponent<CinemachineSplineDolly>());
+
+#if CINEMACHINE_PHYSICS
+                if (ReplaceComponent<CinemachineCollider, CinemachineDeoccluder>(go)) 
+                    go.GetComponent<CinemachineCollider>().UpgradeToCm3(go.GetComponent<CinemachineDeoccluder>());
+#endif
+
+#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
+                if (go.TryGetComponent<CinemachineConfiner>(out var confiner))
                 {
-                    var obsoleteDolly = go.GetComponent<CinemachineTrackedDolly>();
-                    var splineDolly = go.GetComponent<CinemachineSplineDolly>();
-                    obsoleteDolly.UpgradeToCm3(splineDolly);
+    #if CINEMACHINE_PHYSICS
+                    if (confiner.UpgradeToCm3_GetTargetType() == typeof(CinemachineConfiner3D))
+                    {
+                        ReplaceComponent<CinemachineConfiner, CinemachineConfiner3D>(go);
+                        confiner.UpgradeToCm3(go.GetComponent<CinemachineConfiner3D>());
+                    }
+    #endif
+    #if CINEMACHINE_PHYSICS_2D
+                    if (confiner.UpgradeToCm3_GetTargetType() == typeof(CinemachineConfiner2D))
+                    {
+                        ReplaceComponent<CinemachineConfiner, CinemachineConfiner2D>(go);
+                        confiner.UpgradeToCm3(go.GetComponent<CinemachineConfiner2D>());
+                    }
+    #endif
                 }
+#endif
             }
             return notUpgradable;
+        }
+
+        public static Type GetBehaviorReferenceUpgradeType(MonoBehaviour b)
+        {
+#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
+            // Hack for Confiner upgrade: 2D or 3D?
+            if (b is CinemachineConfiner c)
+                return c.UpgradeToCm3_GetTargetType();
+#endif
+            var oldType = b.GetType();
+            return ClassUpgradeMap.ContainsKey(oldType) ? ClassUpgradeMap[oldType] : oldType;
         }
 
         /// <summary>
@@ -107,6 +152,9 @@ namespace Cinemachine.Editor
         /// </summary>
         public void ProcessAnimationClip(AnimationClip animationClip, Animator trackAnimator)
         {
+            if (animationClip == null || trackAnimator == null)
+                return;
+            
             var existingEditorBindings = AnimationUtility.GetCurveBindings(animationClip);
             foreach (var previousBinding in existingEditorBindings)
             {
@@ -193,6 +241,9 @@ namespace Cinemachine.Editor
         /// <param name="go">The GameObject being upgraded</param>
         public void DeleteObsoleteComponents(GameObject go)
         {
+            if (go == null) 
+                return;
+            
             foreach (var t in ObsoleteComponentTypesToDelete)
             {
                 var components = go.GetComponentsInChildren(t);
@@ -226,23 +277,23 @@ namespace Cinemachine.Editor
             JsonUtility.FromJsonOverwrite(json, to);
         }
 
-        static CmCamera UpgradeVcamBaseToCmCamera(CinemachineVirtualCameraBase vcam)
+        static CinemachineCamera UpgradeVcamBaseToCmCamera(CinemachineVirtualCameraBase vcam)
         {
             var go = vcam.gameObject;
-            if (!go.TryGetComponent(out CmCamera cmCamera)) // Check if RequireComponent already added CmCamera
+            if (!go.TryGetComponent(out CinemachineCamera cmCamera)) // Check if RequireComponent already added CinemachineCamera
             {
                 // First disable the old vcamBase, or new one will be rejected
                 Undo.RecordObject(vcam, "Upgrader: disable obsolete");
                 vcam.enabled = false;
 
-                cmCamera = Undo.AddComponent<CmCamera>(go);
+                cmCamera = Undo.AddComponent<CinemachineCamera>(go);
                 CopyValues(vcam, cmCamera);
 
                 // Register the extensions with the cmCamera
                 foreach (var extension in vcam.gameObject.GetComponents<CinemachineExtension>())
                     cmCamera.AddExtension(extension);
             }
-            else if (vcam.enabled) // RequireComponent added CmCamera, it should be enabled iff vcam was enabled
+            else if (vcam.enabled) // RequireComponent added CinemachineCamera, it should be enabled iff vcam was enabled
             {
                 Undo.RecordObject(vcam, "Upgrader: disable obsolete");
                 vcam.enabled = false;
@@ -287,9 +338,7 @@ namespace Cinemachine.Editor
             }
         }
 
-        static void ConvertInputAxis(
-            GameObject go, string name, 
-            ref AxisState axis, ref AxisState.Recentering recentering)
+        static void ConvertInputAxis(GameObject go, string name, ref AxisState axis)
         {
             if (!go.TryGetComponent<InputAxisController>(out var iac))
                 iac = Undo.AddComponent<InputAxisController>(go);
@@ -323,13 +372,6 @@ namespace Cinemachine.Editor
 #endif
                     c.Control.AccelTime = axis.m_AccelTime;
                     c.Control.DecelTime = axis.m_DecelTime;
-
-                    c.Recentering = new InputAxisRecenteringSettings
-                    {
-                        Enabled = recentering.m_enabled,
-                        Wait = recentering.m_WaitTime,
-                        Time = recentering.m_RecenteringTime
-                    };
                     break;
                 }
             }
@@ -350,7 +392,7 @@ namespace Cinemachine.Editor
             {
                 notUpgradable = Object.Instantiate(go);
                 notUpgradable.SetActive(false);
-                notUpgradable.AddComponent<CinemachineDoNotUpgrade>();
+                Undo.AddComponent<CinemachineDoNotUpgrade>(notUpgradable);
                 Undo.RegisterCreatedObjectUndo(notUpgradable, "Upgrader: clone of non upgradable");
             }
 
@@ -367,8 +409,8 @@ namespace Cinemachine.Editor
             ConvertFreelookAim(freelook, go, freeLookModifier);
             ConvertFreelookNoise(freelook, go, freeLookModifier);
 
-            ConvertInputAxis(go, "Look Orbit X", ref freelook.m_XAxis, ref freelook.m_RecenterToTargetHeading);
-            ConvertInputAxis(go, "Look Orbit Y", ref freelook.m_YAxis, ref freelook.m_YAxisRecentering);
+            ConvertInputAxis(go, "Look Orbit X", ref freelook.m_XAxis);
+            ConvertInputAxis(go, "Look Orbit Y", ref freelook.m_YAxis);
 
             // Destroy the hidden child objects
             UnparentAndDestroy(topRig.GetComponentOwner());
@@ -457,7 +499,7 @@ namespace Cinemachine.Editor
 
         static void ConvertFreelookLens(
             CinemachineFreeLook freelook, 
-            CmCamera cmCamera, CinemachineFreeLookModifier freeLookModifier)
+            CinemachineCamera cmCamera, CinemachineFreeLookModifier freeLookModifier)
         {
             if (freelook.m_CommonLens)
                 cmCamera.Lens = freelook.m_Lens;
@@ -489,6 +531,12 @@ namespace Cinemachine.Editor
             // Use middle rig as template
             var orbital = Undo.AddComponent<CinemachineOrbitalFollow>(go);
             middle.UpgradeToCm3(orbital);
+            orbital.HorizontalAxis.Recentering = new () 
+            { 
+                Enabled = freelook.m_RecenterToTargetHeading.m_enabled, 
+                Time = freelook.m_RecenterToTargetHeading.m_RecenteringTime, 
+                Wait = freelook.m_RecenterToTargetHeading.m_WaitTime 
+            };
 
             orbital.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.ThreeRing;
             orbital.Orbits = new Cinemachine3OrbitRig.Settings
@@ -516,6 +564,13 @@ namespace Cinemachine.Editor
             orbital.VerticalAxis.Center = 0.5f;
             orbital.VerticalAxis.Wrap = false;
             orbital.VerticalAxis.Value = freelook.m_YAxis.Value;
+
+            orbital.VerticalAxis.Recentering = new () 
+            { 
+                Enabled = freelook.m_YAxisRecentering.m_enabled, 
+                Time = freelook.m_YAxisRecentering.m_RecenteringTime, 
+                Wait = freelook.m_YAxisRecentering.m_WaitTime 
+            };
 
             // Do we need a modifier?
             var topDamping = new Vector3(top.m_XDamping, top.m_YDamping, top.m_ZDamping);
@@ -654,13 +709,17 @@ namespace Cinemachine.Editor
                 case CinemachineSmoothPath smoothPath:
                 {
                     var waypoints = smoothPath.m_Waypoints;
-                    spline.Spline = new Spline(waypoints.Length, smoothPath.Looped) { EditType = SplineType.CatmullRom };
+                    spline.Spline = new Spline(waypoints.Length, smoothPath.Looped);
                     for (var i = 0; i < waypoints.Length; i++)
                     {
+                        var tangent = smoothPath.EvaluateLocalTangent(i); 
+                        tangent /= 3f; // divide by magic number to match spline tangent scale correctly
                         spline.Spline.Add(new BezierKnot
                         {
                             Position = waypoints[i].position,
                             Rotation = Quaternion.identity,
+                            TangentIn = -tangent,
+                            TangentOut = tangent,
                         });
                         splineRoll.Roll.Add(new DataPoint<float>(i, waypoints[i].roll));
                     }
@@ -669,7 +728,7 @@ namespace Cinemachine.Editor
                 default:
                 {
                     // GML todo: handle this message properly
-                    pathBase.gameObject.AddComponent<CinemachineDoNotUpgrade>();
+                    Undo.AddComponent<CinemachineDoNotUpgrade>(pathBase.gameObject);
                     Debug.LogError($"{go.name}: Path type {pathBase.GetType().Name} is not handled by the upgrader");
                     break;
                 }

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Cinemachine
 {
     /// <summary>
-    /// This is an add-on for Cinemachine virtual cameras containing the OrbitalFollow component.
+    /// This is an add-on for CinemachineCameras containing the OrbitalFollow component.
     /// It modifies the camera distance as a function of vertical angle.
     /// </summary>
     [SaveDuringPlay] 
@@ -15,8 +15,8 @@ namespace Cinemachine
     public class CinemachineFreeLookModifier : CinemachineExtension
     {
         /// <summary>
-        /// Interface for CInemachineComponentBase-derived to expose a normalized value that 
-        /// can be consumed by CinemachineFreeLookModifier to drive the rig selecion.
+        /// Interface for CinemachineComponentBase-derived to expose a normalized value that 
+        /// can be consumed by CinemachineFreeLookModifier to drive the rig selection.
         /// </summary>
         public interface IModifierValueSource
         {
@@ -87,7 +87,7 @@ namespace Cinemachine
             /// <summary>Return true if cached vcam component is present or not required</summary>
             public virtual bool HasRequiredComponent => true;
 
-            /// <summary>Called from OnEnable and from the inspector.  Refresh any performace-sensitive stuff.</summary>
+            /// <summary>Called from OnEnable and from the inspector.  Refresh any performance-sensitive stuff.</summary>
             /// <param name="vcam">the virtual camera owner</param>
             public virtual void RefreshCache(CinemachineVirtualCameraBase vcam) {}
             
@@ -131,7 +131,7 @@ namespace Cinemachine
             /// <summary>The CinemachineComponentBase that will be modified.  Cached here for efficiency.</summary>
             protected T CachedComponent;
 
-            /// <summary>True if the CmCamera has the component we intend to modify.</summary>
+            /// <summary>True if the CinemachineCamera has the component we intend to modify.</summary>
             public override bool HasRequiredComponent => CachedComponent != null;
 
             /// <summary>The type of the component being modified</summary>
@@ -153,7 +153,7 @@ namespace Cinemachine
             [HideFoldout]
             public TopBottomRigs<float> Tilt;
 
-            /// <summary>Called from OnValidate to calidate this component</summary>
+            /// <summary>Called from OnValidate to validate this component</summary>
             /// <param name="vcam">the virtual camera owner</param>
             public override void Validate(CinemachineVirtualCameraBase vcam)
             {
@@ -207,7 +207,7 @@ namespace Cinemachine
             [LensSettingsHideModeOverrideProperty]
             public LensSettings Bottom;
         
-            /// <summary>Called from OnValidate to calidate this component</summary>
+            /// <summary>Called from OnValidate to validate this component</summary>
             /// <param name="vcam">the virtual camera owner</param>
             public override void Validate(CinemachineVirtualCameraBase vcam) 
             {
@@ -237,9 +237,8 @@ namespace Cinemachine
                 CinemachineVirtualCameraBase vcam, 
                 ref CameraState state, float deltaTime, float modifierValue) 
             {
-                Top.SnapshotCameraReadOnlyProperties(ref state.Lens);
-                Bottom.SnapshotCameraReadOnlyProperties(ref state.Lens);
-                Top.ModeOverride = Bottom.ModeOverride = LensSettings.OverrideModes.None;
+                Top.CopyCameraMode(ref state.Lens);
+                Bottom.CopyCameraMode(ref state.Lens);
                 if (modifierValue >= 0)
                     state.Lens.Lerp(Top, modifierValue);
                 else
@@ -248,7 +247,7 @@ namespace Cinemachine
         }
     
         /// <summary>
-        /// Builtin Freelook modifier for positional damping. Modifies positional damping at the start of the camera pipeline.
+        /// Builtin FreeLook modifier for positional damping. Modifies positional damping at the start of the camera pipeline.
         /// </summary>
         public class PositionDampingModifier : ComponentModifier<IModifiablePositionDamping>
         {
@@ -256,7 +255,7 @@ namespace Cinemachine
             [HideFoldout]
             public TopBottomRigs<Vector3> Damping;
 
-            /// <summary>Called from OnValidate to calidate this component</summary>
+            /// <summary>Called from OnValidate to validate this component</summary>
             /// <param name="vcam">the virtual camera owner</param>
             public override void Validate(CinemachineVirtualCameraBase vcam)
             {
@@ -327,7 +326,7 @@ namespace Cinemachine
             [HideFoldout]
             public TopBottomRigs<ScreenComposerSettings> Composition;
 
-            /// <summary>Called from OnValidate to calidate this component</summary>
+            /// <summary>Called from OnValidate to validate this component</summary>
             /// <param name="vcam">the virtual camera owner</param>
             public override void Validate(CinemachineVirtualCameraBase vcam)
             {
@@ -576,7 +575,7 @@ namespace Cinemachine
 
         void OnValidate()
         {
-            var vcam = VirtualCamera;
+            var vcam = ComponentOwner;
             for (int i = 0; i < Modifiers.Count; ++i)
                 Modifiers[i].Validate(vcam);
         }
@@ -591,22 +590,13 @@ namespace Cinemachine
         // GML todo: clean this up
         static void TryGetVcamComponent<T>(CinemachineVirtualCameraBase vcam, out T component)
         {
-    #pragma warning disable 618
-            var legacyVcam = vcam as CinemachineVirtualCamera;
-            if (legacyVcam != null)
-            {
-                if (!legacyVcam.GetComponentOwner().TryGetComponent(out component))
-                    component = default;
-                return;
-            }
-    #pragma warning restore 618
             if (vcam == null || !vcam.TryGetComponent(out component))
                 component = default;
         }
 
         void RefreshComponentCache()
         {
-            var vcam = VirtualCamera;
+            var vcam = ComponentOwner;
             TryGetVcamComponent(vcam, out m_ValueSource);
             for (int i = 0; i < Modifiers.Count; ++i)
                 Modifiers[i].RefreshCache(vcam);
@@ -623,7 +613,7 @@ namespace Cinemachine
         public override void PrePipelineMutateCameraStateCallback(
             CinemachineVirtualCameraBase vcam, ref CameraState curState, float deltaTime) 
         {
-            if (m_ValueSource != null)
+            if (m_ValueSource != null && vcam == ComponentOwner)
             {
                 // Apply easing
                 if (s_EasingCurve == null)
@@ -657,7 +647,7 @@ namespace Cinemachine
             CinemachineVirtualCameraBase vcam,
             CinemachineCore.Stage stage, ref CameraState state, float deltaTime)
         {
-            if (m_ValueSource != null && stage == CinemachineCore.Stage.Finalize)
+            if (m_ValueSource != null && stage == CinemachineCore.Stage.Finalize && vcam == ComponentOwner)
             {
                 for (int i = 0; i < Modifiers.Count; ++i)
                     Modifiers[i].AfterPipeline(vcam, ref state, deltaTime, m_CurrentValue);

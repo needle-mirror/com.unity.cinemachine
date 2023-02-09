@@ -1,6 +1,7 @@
+#if CINEMACHINE_PHYSICS_2D
+
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cinemachine.Utility;
 using UnityEngine;
 
@@ -23,7 +24,7 @@ namespace Cinemachine
             readonly double m_SqrPolygonDiagonal;
 
             List<List<IntPoint>> m_OriginalPolygon;
-            List<List<IntPoint>> m_Solution;
+            internal List<List<IntPoint>> m_Solution;
 
             const double k_ClipperEpsilon = 0.01f * k_FloatToIntScaler;
 
@@ -110,8 +111,12 @@ namespace Cinemachine
                 
                 bool IsInsideOriginal(IntPoint point)
                 {
-                    return m_OriginalPolygon.Any(
-                        t => Clipper.PointInPolygon(point, t) != PointInPolygonResult.IsOutside);
+                    for (int p = 0; p < m_OriginalPolygon.Count; p++)
+                    {
+                        if (Clipper.PointInPolygon(point, m_OriginalPolygon[p]) != PointInPolygonResult.IsOutside) 
+                            return true;
+                    }
+                    return false;
                 }
 
                 float ClosestPointOnSegment(IntPoint point, IntPoint s0, IntPoint s1)
@@ -230,7 +235,7 @@ namespace Cinemachine
 
         List<List<IntPoint>> m_OriginalPolygon;
         IntPoint m_MidPoint;
-        List<List<IntPoint>> m_Skeleton = new();
+        internal List<List<IntPoint>> m_Skeleton = new();
 
         const long k_FloatToIntScaler = 100000;
         const float k_IntToFloatScaler = 1f / k_FloatToIntScaler;
@@ -361,7 +366,7 @@ namespace Cinemachine
                 m_OriginalPolygon.Add(path);
             }
             
-            // calculate mid point and use it as the most shrank down version at theoritical max
+            // calculate mid point and use it as the most shrank down version at theoretical max
             m_MidPoint = MidPointOfIntRect(Clipper.GetBounds(m_OriginalPolygon));
             m_Cache.theoreticalMaxCandidate = new List<List<Point64>> { new() { m_MidPoint } };
 
@@ -579,3 +584,4 @@ namespace Cinemachine
         }
     }
 }
+#endif

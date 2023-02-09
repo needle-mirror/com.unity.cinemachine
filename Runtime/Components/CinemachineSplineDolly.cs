@@ -45,7 +45,7 @@ namespace Cinemachine
             + "interpolation between the specific knot index and the next knot.\n")]
         public PathIndexUnit PositionUnits = PathIndexUnit.Normalized;
 
-        /// <summary>Where to put the camera relative to the spline postion.  X is perpendicular 
+        /// <summary>Where to put the camera relative to the spline position.  X is perpendicular 
         /// to the spline, Y is up, and Z is parallel to the spline.</summary>
         [Tooltip("Where to put the camera relative to the spline position.  X is perpendicular "
             + "to the spline, Y is up, and Z is parallel to the spline.")]
@@ -116,9 +116,10 @@ namespace Cinemachine
             + "move gradually towards the desired spline position")]
         public DampingSettings Damping;
         
-        /// <summary>Controls how automatic dollying occurs</summary>
-        [Tooltip("Controls how automatic dollying occurs.  A tracking target may be necessary to use this feature.")]
+        /// <summary>Controls how automatic dolly occurs</summary>
         [NoSaveDuringPlay]
+        [FoldoutWithEnabledButton]
+        [Tooltip("Controls how automatic dolly occurs.  A tracking target may be necessary to use this feature.")]
         public SplineAutoDolly AutomaticDolly;
 
         // State info for damping
@@ -134,8 +135,8 @@ namespace Cinemachine
             Damping.Position.y = Mathf.Clamp(Damping.Position.y, 0, 20);
             Damping.Position.z = Mathf.Clamp(Damping.Position.z, 0, 20);
             Damping.Angular = Mathf.Clamp(Damping.Angular, 0, 20);
-            if (AutomaticDolly.Implementation != null)
-                AutomaticDolly.Implementation.Validate();
+            if (AutomaticDolly.Method != null)
+                AutomaticDolly.Method.Validate();
         }
 
         void Reset()
@@ -146,13 +147,16 @@ namespace Cinemachine
             SplineOffset = Vector3.zero;
             CameraUp = CameraUpMode.Default;
             Damping = default;
-            AutomaticDolly.Implementation = null;
+            AutomaticDolly.Method = null;
         }
 
+        /// <summary>Called when the behaviour is enabled.</summary>
         protected override void OnEnable()
         {
             base.OnEnable();
             RefreshRollCache();
+            if (AutomaticDolly.Method != null)
+                AutomaticDolly.Method.Reset();
         }
 
         /// <summary>True if component is enabled and has a spline</summary>
@@ -194,8 +198,8 @@ namespace Cinemachine
             }
 
             // Invoke AutoDolly algorithm to get new desired spline position
-            if (AutomaticDolly.Implementation != null)
-                splinePos = AutomaticDolly.Implementation.GetSplinePosition(
+            if (AutomaticDolly.Enabled && AutomaticDolly.Method != null)
+                splinePos = AutomaticDolly.Method.GetSplinePosition(
                     this, FollowTarget, Spline, splinePos, PositionUnits, deltaTime);
 
             // Apply damping in the spline direction

@@ -46,7 +46,7 @@ namespace Cinemachine
             get
             {
                 Vector3 offset = FollowOffset;
-                if (TrackerSettings.BindingMode == BindingMode.SimpleFollowWithWorldUp)
+                if (TrackerSettings.BindingMode == BindingMode.LazyFollow)
                 {
                     offset.x = 0;
                     offset.z = -Mathf.Abs(offset.z);
@@ -110,8 +110,8 @@ namespace Cinemachine
         /// <summary>
         /// Force the virtual camera to assume a given position and orientation
         /// </summary>
-        /// <param name="pos">Worldspace position to take</param>
-        /// <param name="rot">Worldspace orientation to take</param>
+        /// <param name="pos">World-space position to take</param>
+        /// <param name="rot">World-space orientation to take</param>
         public override void ForceCameraPosition(Vector3 pos, Quaternion rot)
         {
             base.ForceCameraPosition(pos, rot);

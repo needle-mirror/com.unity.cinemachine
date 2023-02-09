@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Cinemachine
 {
     /// <summary>
-    /// An abstract representation of a mutator acting on a Cinemachine Virtual Camera
+    /// An abstract representation of a mutator acting on a CinemachineCamera
     /// </summary>
     [ExecuteAlways]
     public abstract class CinemachineComponentBase : MonoBehaviour
@@ -35,7 +35,7 @@ namespace Cinemachine
         /// </summary>
         protected virtual void OnEnable()
         {
-            var vcam = VirtualCamera as CmCamera;
+            var vcam = VirtualCamera as CinemachineCamera;
             if (vcam != null)
                 vcam.InvalidatePipelineCache();
         }
@@ -46,7 +46,7 @@ namespace Cinemachine
         /// </summary>
         protected virtual void OnDisable()
         {
-            var vcam = VirtualCamera as CmCamera;
+            var vcam = VirtualCamera as CinemachineCamera;
             if (vcam != null)
                 vcam.InvalidatePipelineCache();
         }
@@ -162,7 +162,7 @@ namespace Cinemachine
         /// <summary>Returns true if this object is enabled and set up to produce results.</summary>
         public abstract bool IsValid { get; }
 
-        /// <summary>Override this to do such things as offset the RefereceLookAt.
+        /// <summary>Override this to do such things as offset the ReferenceLookAt.
         /// Base class implementation does nothing.</summary>
         /// <param name="curState">Input state that must be mutated</param>
         /// <param name="deltaTime">Current effective deltaTime</param>
@@ -172,7 +172,7 @@ namespace Cinemachine
         // GML todo: remove this - use attribute
         public abstract CinemachineCore.Stage Stage { get; }
 
-        /// <summary>Special for Body Stage compoments that want to be applied after Aim 
+        /// <summary>Special for Body Stage components that want to be applied after Aim 
         /// stage because they use the aim as inout for the procedural placement</summary>
         public virtual bool BodyAppliesAfterAim => false;
 
@@ -203,8 +203,8 @@ namespace Cinemachine
         /// Force the virtual camera to assume a given position and orientation.  
         /// Procedural placement then takes over.
         /// Base class implementation does nothing.</summary>
-        /// <param name="pos">Worldspace position to take</param>
-        /// <param name="rot">Worldspace orientation to take</param>
+        /// <param name="pos">World-space position to take</param>
+        /// <param name="rot">World-space orientation to take</param>
         public virtual void ForceCameraPosition(Vector3 pos, Quaternion rot) {}
 
         /// <summary>

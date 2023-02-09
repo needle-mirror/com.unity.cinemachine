@@ -4,17 +4,16 @@ using Cinemachine.Utility;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
+using System.Reflection;
 
 namespace Cinemachine.Editor
 {
-    [CustomPropertyDrawer(typeof(SplineAutoDolly))]
+    [CustomPropertyDrawer(typeof(SplineAutoDolly.ISplineAutoDolly), true)]
     class SplineAutoDollyPropertyDrawer : PropertyDrawer
     {
-        SerializedProperty GetImplementation(SerializedProperty p) => p.FindPropertyRelative("Implementation");
-
         int GetImplementationIndex(SerializedProperty p)
         {
-            var value = GetImplementation(p).managedReferenceValue;
+            var value = p.managedReferenceValue;
             return AutoDollyMenuItems.GetTypeIndex(value == null ? null : value.GetType());
         }
 
@@ -35,9 +34,15 @@ namespace Cinemachine.Editor
                 var index = AutoDollyMenuItems.GetTypeIndex(evt.newValue);
                 if (index != GetImplementationIndex(property))
                 {
-                    GetImplementation(property).managedReferenceValue = (index == 0) 
-                        ? null : Activator.CreateInstance(AutoDollyMenuItems.s_AllItems[index]);
-                    property.serializedObject.ApplyModifiedProperties();
+                    var targets = property.serializedObject.targetObjects;
+                    foreach (var t in targets)
+                    {
+                        var o = new SerializedObject(t);
+                        var p2 = o.FindProperty(property.propertyPath);
+                        p2.managedReferenceValue = (index == 0) 
+                            ? null : Activator.CreateInstance(AutoDollyMenuItems.s_AllItems[index]);
+                        o.ApplyModifiedProperties();
+                    }
                 }
             });
             
@@ -64,7 +69,7 @@ namespace Cinemachine.Editor
                 {
                     var foldout = ux.AddChild(new Foldout() { name = kElementName, value = true });
                     foldout.Q<Toggle>(className: "unity-foldout__toggle").RemoveFromHierarchy(); // remove the header
-                    var childProperty = GetImplementation(property);
+                    var childProperty = property.Copy();
                     var endProperty = childProperty.GetEndProperty();
                     childProperty.NextVisible(true);
                     while (!SerializedProperty.EqualContents(childProperty, endProperty))
@@ -106,7 +111,8 @@ namespace Cinemachine.Editor
                 // Get all eligible types
                 var allTypes
                     = ReflectionHelpers.GetTypesInAllDependentAssemblies(
-                        (Type t) => typeof(SplineAutoDolly.ISplineAutoDolly).IsAssignableFrom(t) && !t.IsAbstract);
+                        (Type t) => typeof(SplineAutoDolly.ISplineAutoDolly).IsAssignableFrom(t) 
+                            && !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
 
                 s_AllItems.Clear();
                 s_AllItems.Add(null);

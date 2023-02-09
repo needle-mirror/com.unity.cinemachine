@@ -30,8 +30,8 @@ namespace Cinemachine.Editor
         public enum RequiredTargets { None, Follow, LookAt, FollowGroup };
 
         /// <summary>
-        /// Add helpbox for CinemachineComponentBase or CinemachineExtension editors, 
-        /// prompting to solve a missing CmCamera component or a missing tracking target
+        /// Add help box for CinemachineComponentBase or CinemachineExtension editors, 
+        /// prompting to solve a missing CinemachineCamera component or a missing tracking target
         /// </summary>
         public void AddMissingCmCameraHelpBox(
             VisualElement ux, RequiredTargets requiredTargets = RequiredTargets.None)
@@ -40,16 +40,16 @@ namespace Cinemachine.Editor
             EditorApplication.update += UpdateState;
             var targets = Targets;
             m_NoCameraHelp = ux.AddChild(InspectorUtility.CreateHelpBoxWithButton(
-                "This component is intended to be used only with a CmCamera.", HelpBoxMessageType.Warning,
-                "Add\nCmCamera", () => AddCmCameraToTargets(targets)));
+                "This component is intended to be used only with a CinemachineCamera.", HelpBoxMessageType.Warning,
+                "Add\nCinemachineCamera", () => AddCmCameraToTargets(targets)));
 
             m_RequiredTargets = requiredTargets;
             string text = string.Empty;
             switch (requiredTargets)
             {
-                case RequiredTargets.Follow: text = "A Tracking Target is required in the CmCamera."; break;
-                case RequiredTargets.LookAt: text = "A LookAt Tracking Target is required in the CmCamera."; break;
-                case RequiredTargets.FollowGroup: text = "Tracking Target in the CmCamera must be a Target Group."; break;
+                case RequiredTargets.Follow: text = "A Tracking Target is required in the CinemachineCamera."; break;
+                case RequiredTargets.LookAt: text = "A LookAt Tracking Target is required in the CinemachineCamera."; break;
+                case RequiredTargets.FollowGroup: text = "Tracking Target in the CinemachineCamera must be a Target Group."; break;
                 default: break;
             }
             if (text.Length > 0)
@@ -64,13 +64,13 @@ namespace Cinemachine.Editor
                 if (t != null)
                 {
                     if (t.VirtualCamera == null)
-                        Undo.AddComponent<CmCamera>(t.gameObject);
+                        Undo.AddComponent<CinemachineCamera>(t.gameObject);
                 }
                 else
                 {
                     var x = targets[i] as CinemachineExtension;
-                    if (x != null && x.VirtualCamera == null)
-                        Undo.AddComponent<CmCamera>(x.gameObject).AddExtension(x);
+                    if (x != null && x.ComponentOwner == null)
+                        Undo.AddComponent<CinemachineCamera>(x.gameObject).AddExtension(x);
                 }
             }
         }
@@ -99,15 +99,15 @@ namespace Cinemachine.Editor
                 else
                 {
                     var x = targets[i] as CinemachineExtension;
-                    noCamera |= x.VirtualCamera == null;
+                    noCamera |= x.ComponentOwner == null;
                     switch (m_RequiredTargets)
                     {
-                        case RequiredTargets.Follow: noTarget |= noCamera || x.VirtualCamera.Follow == null; break;
-                        case RequiredTargets.LookAt: noTarget |= noCamera || x.VirtualCamera.LookAt == null; break;
-                        case RequiredTargets.FollowGroup: noTarget |= noCamera || x.VirtualCamera.FollowTargetAsGroup == null; break;
+                        case RequiredTargets.Follow: noTarget |= noCamera || x.ComponentOwner.Follow == null; break;
+                        case RequiredTargets.LookAt: noTarget |= noCamera || x.ComponentOwner.LookAt == null; break;
+                        case RequiredTargets.FollowGroup: noTarget |= noCamera || x.ComponentOwner.FollowTargetAsGroup == null; break;
                         default: break;
                     }
-                    noTarget = noCamera || x.VirtualCamera.Follow == null;
+                    noTarget = noCamera || x.ComponentOwner.Follow == null;
                 }
             }
             if (m_NoCameraHelp != null)
@@ -142,22 +142,22 @@ namespace Cinemachine.Editor
                 else
                 {
                     var x = targets[i] as CinemachineExtension;
-                    noCamera |= x.VirtualCamera == null;
+                    noCamera |= x.ComponentOwner == null;
                     switch (requiredTargets)
                     {
-                        case RequiredTargets.Follow: noTarget |= noCamera || x.VirtualCamera.Follow == null; break;
-                        case RequiredTargets.LookAt: noTarget |= noCamera || x.VirtualCamera.LookAt == null; break;
-                        case RequiredTargets.FollowGroup: noTarget |= noCamera || x.VirtualCamera.FollowTargetAsGroup == null; break;
+                        case RequiredTargets.Follow: noTarget |= noCamera || x.ComponentOwner.Follow == null; break;
+                        case RequiredTargets.LookAt: noTarget |= noCamera || x.ComponentOwner.LookAt == null; break;
+                        case RequiredTargets.FollowGroup: noTarget |= noCamera || x.ComponentOwner.FollowTargetAsGroup == null; break;
                         default: break;
                     }
-                    noTarget = noCamera || x.VirtualCamera.Follow == null;
+                    noTarget = noCamera || x.ComponentOwner.Follow == null;
                 }
             }
             if (noCamera)
             {
                 InspectorUtility.HelpBoxWithButton(
-                    "This component is intended to be used only with a CmCamera.", UnityEditor.MessageType.Warning,
-                    new GUIContent("Add\nCmCamera"), () => AddCmCameraToTargets(targets));
+                    "This component is intended to be used only with a CinemachineCamera.", UnityEditor.MessageType.Warning,
+                    new GUIContent("Add\nCinemachineCamera"), () => AddCmCameraToTargets(targets));
                 EditorGUILayout.Space();
             }
             else if (noTarget)
@@ -165,9 +165,9 @@ namespace Cinemachine.Editor
                 string text = string.Empty;
                 switch (requiredTargets)
                 {
-                    case RequiredTargets.Follow: text = "A Tracking Target is required in the CmCamera."; break;
-                    case RequiredTargets.LookAt: text = "A LookAt Tracking Target is required in the CmCamera."; break;
-                    case RequiredTargets.FollowGroup: text = "Tracking Target in the CmCamera must be a Target Group."; break;
+                    case RequiredTargets.Follow: text = "A Tracking Target is required in the CinemachineCamera."; break;
+                    case RequiredTargets.LookAt: text = "A LookAt Tracking Target is required in the CinemachineCamera."; break;
+                    case RequiredTargets.FollowGroup: text = "Tracking Target in the CinemachineCamera must be a Target Group."; break;
                     default: break;
                 }
                 if (text.Length > 0)

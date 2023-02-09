@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cinemachine.Utility;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -12,7 +11,7 @@ namespace Cinemachine
     ///
     /// This is intended to be attached to an empty Transform GameObject.
     /// Inherited classes can be either standalone virtual cameras such
-    /// as CmCamera, or meta-cameras such as
+    /// as CinemachineCamera, or meta-cameras such as
     /// CinemachineClearShot or CinemachineBlendListCamera.
     ///
     /// A CinemachineVirtualCameraBase exposes a OutputChannel property.  When the behaviour is
@@ -31,21 +30,21 @@ namespace Cinemachine
     public abstract class CinemachineVirtualCameraBase : MonoBehaviour, ICinemachineCamera, ISerializationCallbackReceiver
     {
         /// <summary>Priority can be used to control which Cm Camera is live when multiple CM Cameras are 
-        /// active simultaneously.  The most-recently-activated CmCamera will take control, unless there 
+        /// active simultaneously.  The most-recently-activated CinemachineCamera will take control, unless there 
         /// is another Cm Camera active with a higher priority.  In general, the most-recently-activated 
-        /// highest-priority CmCamera will control the main camera. 
+        /// highest-priority CinemachineCamera will control the main camera. 
         /// 
         /// The default priority is 0.  Often it is sufficient to leave the default setting.  
-        /// In special cases where you want a CmCamera to have a higher or lower priority than 0, 
+        /// In special cases where you want a CinemachineCamera to have a higher or lower priority than 0, 
         /// the value can be set here.
         /// </summary>
         [NoSaveDuringPlay]
         [Tooltip("Priority can be used to control which Cm Camera is live when multiple CM Cameras are "
-            + "active simultaneously.  The most-recently-activated CmCamera will take control, unless there "
+            + "active simultaneously.  The most-recently-activated CinemachineCamera will take control, unless there "
             + "is another Cm Camera active with a higher priority.  In general, the most-recently-activated "
-            + "highest-priority CmCamera will control the main camera. \n\n"
+            + "highest-priority CinemachineCamera will control the main camera. \n\n"
             + "The default priority is 0.  Often it is sufficient to leave the default setting.  "
-            + "In special cases where you want a CmCamera to have a higher or lower priority than 0, "
+            + "In special cases where you want a CinemachineCamera to have a higher or lower priority than 0, "
             + "the value can be set here.")]
         [FoldoutWithEnabledButton(toggleText: "(using default)")]
         public OutputChannel PriorityAndChannel = OutputChannel.Default;
@@ -100,6 +99,9 @@ namespace Cinemachine
             + "unless the virtual camera is doing shot evaluation.")]
         [FormerlySerializedAs("m_StandbyUpdate")]
         public StandbyUpdateMode StandbyUpdate = StandbyUpdateMode.RoundRobin;
+
+        // Cache for GameObject name, to avoid GC allocs
+        string m_CachedName;
 
         //============================================================================
         // Legacy streaming support
@@ -293,7 +295,7 @@ namespace Cinemachine
         /// <summary>
         /// Invokes the PostPipelineStageDelegate for this camera, and up the hierarchy for all
         /// parent cameras (if any).
-        /// Implementaion must be sure to call this after each pipeline stage, to allow
+        /// Implementation must be sure to call this after each pipeline stage, to allow
         /// other services to hook into the pipeline.
         /// See CinemachineCore.Stage.
         /// </summary>
@@ -320,7 +322,7 @@ namespace Cinemachine
                         e.InvokePostPipelineStageCallback(vcam, stage, ref newState, deltaTime);
                 }
             }
-            CinemachineVirtualCameraBase parent = ParentCamera as CinemachineVirtualCameraBase;
+            var parent = ParentCamera as CinemachineVirtualCameraBase;
             if (parent != null)
                 parent.InvokePostPipelineStageCallback(vcam, stage, ref newState, deltaTime);
         }
@@ -328,7 +330,7 @@ namespace Cinemachine
         /// <summary>
         /// Invokes the PrePipelineMutateCameraStateCallback for this camera, 
         /// and up the hierarchy for all parent cameras (if any).
-        /// Implementaion must be sure to call this after each pipeline stage, to allow
+        /// Implementation must be sure to call this after each pipeline stage, to allow
         /// other services to hook into the pipeline.
         /// See CinemachineCore.Stage.
         /// </summary>
@@ -353,7 +355,7 @@ namespace Cinemachine
                         e.PrePipelineMutateCameraStateCallback(vcam, ref newState, deltaTime);
                 }
             }
-            CinemachineVirtualCameraBase parent = ParentCamera as CinemachineVirtualCameraBase;
+            var parent = ParentCamera as CinemachineVirtualCameraBase;
             if (parent != null)
                 parent.InvokePrePipelineMutateCameraStateCallback(vcam, ref newState, deltaTime);
         }
@@ -388,10 +390,23 @@ namespace Cinemachine
         }
 
         /// <summary>Get the name of the Virtual Camera.  Base implementation
-        /// returns the owner GameObject's name.</summary>
-        public string Name => name;
+        /// returns a cache of the owner GameObject's name.</summary>
+        public string Name 
+        {
+            get 
+            {
+#if UNITY_EDITOR
+                // Allow vcam name changes when not playing
+                if (!Application.isPlaying || m_CachedName == null)
+#else
+                if (m_CachedName == null)
+#endif
+                    m_CachedName = (this == null) ? "(deleted)" : name;
+                return m_CachedName;
+            }
+        }
 
-        /// <summary>Gets a brief debug description of this virtual camera, for use when displayiong debug info</summary>
+        /// <summary>Gets a brief debug description of this virtual camera, for use when displaying debug info</summary>
         public virtual string Description => "";
 
         /// <summary>Get the Priority of the virtual camera.  This determines its placement
@@ -514,10 +529,10 @@ namespace Cinemachine
         [Serializable]
         public struct TransitionParams
         {
-            /// <summary>Hint for transitioning to and from this CmCamera.  Hints can be combined, although 
+            /// <summary>Hint for transitioning to and from this CinemachineCamera.  Hints can be combined, although 
             /// not all combinations make sense.  In the case of conflicting hints, Cinemachine will 
             /// make an arbitrary choice.</summary>
-            [Tooltip("Hint for transitioning to and from this CmCamera.  Hints can be combined, although "
+            [Tooltip("Hint for transitioning to and from this CinemachineCamera.  Hints can be combined, although "
                 + "not all combinations make sense.  In the case of conflicting hints, Cinemachine will "
                 + "make an arbitrary choice.")]
             public BlendHint BlendHint;
@@ -531,8 +546,8 @@ namespace Cinemachine
             [Serializable]
             public struct TransitionEvents
             {
-                /// <summary>This event fires when the CmCamera goes Live</summary>
-                [Tooltip("This event fires when the CmCamera goes Live")]
+                /// <summary>This event fires when the CinemachineCamera goes Live</summary>
+                [Tooltip("This event fires when the CinemachineCamera goes Live")]
                 public CinemachineBrain.VcamActivatedEvent OnCameraLive;
             }
             /// <summary>
@@ -654,7 +669,7 @@ namespace Cinemachine
                 p.TryGetComponent(out m_ParentVcam);
         }
 
-        /// <summary>Returns this vcam's LookAt target, or if that is null, will retrun
+        /// <summary>Returns this vcam's LookAt target, or if that is null, will return
         /// the parent vcam's LookAt target.</summary>
         /// <param name="localLookAt">This vcam's LookAt value.</param>
         /// <returns>The same value, or the parent's if null and a parent exists.</returns>
@@ -691,7 +706,7 @@ namespace Cinemachine
         /// it shares the highest priority in the queue with its peers.
         ///
         /// This happens automatically when a
-        /// new vcam is enabled: the most recent one goes to the top of the priority subqueue.
+        /// new vcam is enabled: the most recent one goes to the top of the priority sub-queue.
         /// Use this method to push a vcam to the top of its priority peers.
         /// If it and its peers share the highest priority, then this vcam will become Live.</summary>
         [Obsolete("Please use Prioritize()")]
@@ -702,7 +717,7 @@ namespace Cinemachine
         /// it shares the highest priority in the queue with its peers.
         ///
         /// This happens automatically when a
-        /// new CmCamera is enabled: the most recent one goes to the top of the priority subqueue.
+        /// new CinemachineCamera is enabled: the most recent one goes to the top of the priority sub-queue.
         /// Use this method to push a camera to the top of its priority peers.
         /// If it and its peers share the highest priority, then this vcam will become Live.</summary>
         public void Prioritize()
@@ -715,21 +730,27 @@ namespace Cinemachine
         /// also warp seamlessly.</summary>
         /// <param name="target">The object that was warped</param>
         /// <param name="positionDelta">The amount the target's position changed</param>
-        public virtual void OnTargetObjectWarped(Transform target, Vector3 positionDelta)
+        public virtual void OnTargetObjectWarped(Transform target, Vector3 positionDelta) 
+            => OnTargetObjectWarped(this, target, positionDelta);
+
+        void OnTargetObjectWarped(CinemachineVirtualCameraBase vcam, Transform target, Vector3 positionDelta)
         {
             // inform the extensions
             if (Extensions != null)
             {
                 for (int i = 0; i < Extensions.Count; ++i)
-                    Extensions[i].OnTargetObjectWarped(target, positionDelta);
+                    Extensions[i].OnTargetObjectWarped(vcam, target, positionDelta);
             }
+            var parent = ParentCamera as CinemachineVirtualCameraBase;
+            if (parent != null)
+                parent.OnTargetObjectWarped(vcam, target, positionDelta);
         }
 
         /// <summary>
         /// Force the virtual camera to assume a given position and orientation
         /// </summary>
-        /// <param name="pos">Worldspace position to take</param>
-        /// <param name="rot">Worldspace orientation to take</param>
+        /// <param name="pos">World-space position to take</param>
+        /// <param name="rot">World-space orientation to take</param>
         public virtual void ForceCameraPosition(Vector3 pos, Quaternion rot)
         {
             // inform the extensions
@@ -738,6 +759,9 @@ namespace Cinemachine
                 for (int i = 0; i < Extensions.Count; ++i)
                     Extensions[i].ForceCameraPosition(pos, rot);
             }
+            var parent = ParentCamera as CinemachineVirtualCameraBase;
+            if (parent != null)
+                parent.ForceCameraPosition(pos, rot);
         }
 
         /// <summary>
@@ -754,8 +778,8 @@ namespace Cinemachine
             state.ReferenceUp = worldUp;
 
             CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(this);
-            if (brain != null)
-                lens.SnapshotCameraReadOnlyProperties(brain.OutputCamera);
+            if (brain != null && brain.OutputCamera != null)
+                lens.PullInheritedPropertiesFromCamera(brain.OutputCamera);
 
             state.Lens = lens;
             return state;
@@ -785,7 +809,12 @@ namespace Cinemachine
         { 
             static OnDomainReload() 
             {
+#if UNITY_2023_1_OR_NEWER
+                var vcams = FindObjectsByType<CinemachineVirtualCameraBase>
+                    (FindObjectsInactive.Include, FindObjectsSortMode.None);
+#else
                 var vcams = FindObjectsOfType<CinemachineVirtualCameraBase>(true);
+#endif
                 foreach (var vcam in vcams)
                     vcam.InvalidateCachedTargets();
             }
@@ -798,7 +827,7 @@ namespace Cinemachine
         public bool FollowTargetChanged { get; private set; }
 
         /// <summary>
-        /// This property is true if the LookAttarget was changed this frame.
+        /// This property is true if the LookAtTarget was changed this frame.
         /// </summary>
         public bool LookAtTargetChanged { get; private set; }
 

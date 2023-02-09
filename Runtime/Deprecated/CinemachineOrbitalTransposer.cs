@@ -314,7 +314,7 @@ namespace Cinemachine
             float deltaTime, Vector3 up, ref AxisState axis,
             ref AxisState.Recentering recentering, bool isLive)
         {
-            if (m_BindingMode == BindingMode.SimpleFollowWithWorldUp)
+            if (m_BindingMode == BindingMode.LazyFollow)
             {
                 axis.m_MinValue = -180;
                 axis.m_MaxValue = 180;
@@ -329,7 +329,7 @@ namespace Cinemachine
             else if (axis.Update(deltaTime))
                 recentering.CancelRecentering();
 
-            if (m_BindingMode == BindingMode.SimpleFollowWithWorldUp)
+            if (m_BindingMode == BindingMode.LazyFollow)
             {
                 float finalHeading = axis.Value;
                 axis.Value = 0;
@@ -356,6 +356,8 @@ namespace Cinemachine
             UpdateInputAxisProvider();
         }
 
+        /// <summary>Returns true if this object requires user input from a IInputAxisProvider.</summary>
+        /// <returns>Returns true when input is required.</returns>
         bool AxisState.IRequiresInput.RequiresInput() => true;
 
         /// <summary>
@@ -421,7 +423,7 @@ namespace Cinemachine
             m_RecenterToTargetHeading.DoRecentering(ref m_XAxis, -1, 0);
             m_RecenterToTargetHeading.CancelRecentering();
             if (fromCam != null //&& fromCam.Follow == FollowTarget
-                && m_BindingMode != BindingMode.SimpleFollowWithWorldUp
+                && m_BindingMode != BindingMode.LazyFollow
                 && transitionParams.InheritPosition
                 && !CinemachineCore.Instance.IsLiveInBlend(VirtualCamera))
             {
@@ -445,7 +447,7 @@ namespace Cinemachine
             {
                 // Get the base camera placement
                 float heading = 0;
-                if (m_BindingMode != BindingMode.SimpleFollowWithWorldUp)
+                if (m_BindingMode != BindingMode.LazyFollow)
                     heading += m_Heading.m_Bias;
                 orient = orient *  Quaternion.AngleAxis(heading, up);
                 Vector3 targetPos = FollowTargetPosition;
@@ -482,7 +484,7 @@ namespace Cinemachine
             if (IsValid)
             {
                 // Calculate the heading
-                if (m_BindingMode != BindingMode.SimpleFollowWithWorldUp)
+                if (m_BindingMode != BindingMode.LazyFollow)
                     heading += m_Heading.m_Bias;
                 Quaternion headingRot = Quaternion.AngleAxis(heading, Vector3.up);
 
@@ -513,8 +515,8 @@ namespace Cinemachine
                     var dir0 = m_LastCameraPosition - lookAt;
                     var dir1 = curState.RawPosition - lookAt;
                     if (dir0.sqrMagnitude > 0.01f && dir1.sqrMagnitude > 0.01f)
-                        curState.PositionDampingBypass = UnityVectorExtensions.SafeFromToRotation(
-                            dir0, dir1, curState.ReferenceUp).eulerAngles;
+                        curState.RotationDampingBypass = UnityVectorExtensions.SafeFromToRotation(
+                            dir0, dir1, curState.ReferenceUp);
                 }
                 m_LastTargetPosition = targetPosition;
                 m_LastCameraPosition = curState.RawPosition;
@@ -529,7 +531,7 @@ namespace Cinemachine
             if (!IsValid)
                 return Vector3.zero;
             float heading = m_LastHeading;
-            if (m_BindingMode != BindingMode.SimpleFollowWithWorldUp)
+            if (m_BindingMode != BindingMode.LazyFollow)
                 heading += m_Heading.m_Bias;
             Quaternion orient = Quaternion.AngleAxis(heading, Vector3.up);
             orient = m_TargetTracker.GetReferenceOrientation(this, m_BindingMode, worldUp) * orient;
@@ -541,7 +543,7 @@ namespace Cinemachine
         // Make sure this is calld only once per frame
         private float GetTargetHeading(float currentHeading, Quaternion targetOrientation)
         {
-            if (m_BindingMode == BindingMode.SimpleFollowWithWorldUp)
+            if (m_BindingMode == BindingMode.LazyFollow)
                 return 0;
             if (FollowTarget == null)
                 return currentHeading;
@@ -603,6 +605,12 @@ namespace Cinemachine
             c.HorizontalAxis.Wrap = m_XAxis.m_Wrap;
             c.HorizontalAxis.Center = c.HorizontalAxis.ClampValue(0);
             c.HorizontalAxis.Value = c.HorizontalAxis.ClampValue(m_XAxis.Value);
+            c.HorizontalAxis.Recentering = new () 
+            { 
+                Enabled = m_RecenterToTargetHeading.m_enabled, 
+                Time = m_RecenterToTargetHeading.m_RecenteringTime, 
+                Wait = m_RecenterToTargetHeading.m_WaitTime 
+            };
 
             c.VerticalAxis.Center = c.VerticalAxis.Value = m_FollowOffset.y;
             c.VerticalAxis.Range = new Vector2(c.VerticalAxis.Center, c.VerticalAxis.Center);

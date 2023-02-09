@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Cinemachine.Utility;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -29,6 +30,7 @@ namespace Cinemachine.Editor
 
         // This gets set to help with more informative warning messages about objects
         string m_CurrentSceneOrPrefab;
+        const string k_ProgressBarTitle = "Upgrade Progress";
 
         /// <summary>
         /// GML Temporary helper method for testing.
@@ -67,17 +69,22 @@ namespace Cinemachine.Editor
                 + "Upgrade scene?",
                 "Upgrade", "Cancel"))
             {
-                var manager = new CinemachineUpgradeManager();
+                Thread.Sleep(1); // this is needed so the Display Dialog closes, and lets the progress bar open
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Initializing...", 0);
+                var manager = new CinemachineUpgradeManager(false);
                 var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
                 var rootObjects = scene.GetRootGameObjects();
                 var upgradable = manager.GetUpgradables(
                     rootObjects, manager.m_ObjectUpgrader.RootUpgradeComponentTypes, true);
                 var upgradedObjects = new HashSet<GameObject>();
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Upgrading Scene...", 0.5f);
                 manager.UpgradeNonPrefabs(upgradable, upgradedObjects, null);
-                manager.UpgradeObjectReferences(rootObjects);
+                UpgradeObjectReferences(rootObjects);
 
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Cleaning up...", 1f);
                 foreach (var go in upgradedObjects)
                     manager.m_ObjectUpgrader.DeleteObsoleteComponents(go);
+                EditorUtility.ClearProgressBar();
             }
         }
 
@@ -102,14 +109,21 @@ namespace Cinemachine.Editor
                 + "Upgrade project?",
                 "I made a backup, go ahead", "Cancel"))
             {
-                var manager = new CinemachineUpgradeManager();
-
+                Thread.Sleep(1); // this is needed so the Display Dialog closes, and lets the progress bar open
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Initializing...", 0);
+                var manager = new CinemachineUpgradeManager(true);
                 manager.PrepareUpgrades(out var conversionLinksPerScene, out var timelineRenames);
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Upgrading Prefabs...", 0.1f);
                 manager.UpgradePrefabAssets(true);
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Upgrading Prefabs...", 0.3f);
                 manager.UpgradeReferencablePrefabInstances(conversionLinksPerScene);
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Upgrading Prefabs...", 0.6f);
                 manager.UpgradePrefabAssets(false);
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Upgrading Scenes...", 0.8f);
                 manager.UpgradeRemaining(conversionLinksPerScene, timelineRenames);
+                EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Cleaning up...", 1);
                 manager.CleanupPrefabAssets();
+                EditorUtility.ClearProgressBar();
             }
         }
 
@@ -138,7 +152,7 @@ namespace Cinemachine.Editor
         /// <returns></returns>
         public static bool CurrentSceneUsesPrefabs()
         {
-            var manager = new CinemachineUpgradeManager();
+            var manager = new CinemachineUpgradeManager(false);
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             var rootObjects = scene.GetRootGameObjects();
             var upgradable = manager.GetUpgradables(
@@ -379,6 +393,8 @@ namespace Cinemachine.Editor
                 
                 foreach (var c in components)
                 {
+                    if (c == null)
+                        continue; // ignore
                     if (c.GetComponentInParent<CinemachineDoNotUpgrade>(true) != null)
                         continue; // is a backup copy
 
@@ -396,9 +412,8 @@ namespace Cinemachine.Editor
             m_CurrentSceneOrPrefab = string.Empty;
         }
 
-        void UpgradeObjectReferences(GameObject[] rootObjects)
+        static void UpgradeObjectReferences(GameObject[] rootObjects)
         {
-            var map = m_ObjectUpgrader.ClassUpgradeMap;
             foreach (var go in rootObjects) 
             {
                 if (go == null)
@@ -406,13 +421,9 @@ namespace Cinemachine.Editor
                 
                 ReflectionHelpers.RecursiveUpdateBehaviourReferences(go, (expectedType, oldValue) =>
                 {
-                    var oldType = oldValue.GetType();
-                    if (map.ContainsKey(oldType))
-                    {
-                        var newType = map[oldType];
-                        if (expectedType.IsAssignableFrom(newType))
-                            return oldValue.GetComponent(newType) as MonoBehaviour;
-                    }
+                    var newType = UpgradeObjectToCm3.GetBehaviorReferenceUpgradeType(oldValue);
+                    if (expectedType.IsAssignableFrom(newType))
+                        return oldValue.GetComponent(newType) as MonoBehaviour;
                     return oldValue;
                 });
             }
@@ -477,7 +488,7 @@ namespace Cinemachine.Editor
                 SynchronizeComponents(prefabInstance, convertedCopy, m_ObjectUpgrader.ObsoleteComponentTypesToDelete);
 #if CINEMACHINE_TIMELINE
                 if (timelineManager != null)
-                    timelineManager.UpdateTimelineReference(prefabInstance.GetComponent<CmCamera>(), conversionLink);
+                    timelineManager.UpdateTimelineReference(prefabInstance.GetComponent<CinemachineCamera>(), conversionLink);
 #endif
 
                 // Restore original scene state (prefab instance name, delete converted copies)
@@ -584,11 +595,12 @@ namespace Cinemachine.Editor
 #endif
         }
 
-        CinemachineUpgradeManager()
+        CinemachineUpgradeManager(bool initPrefabManager)
         {
             m_ObjectUpgrader = new UpgradeObjectToCm3();
             m_SceneManager = new SceneManager();
-            m_PrefabManager = new PrefabManager(m_ObjectUpgrader.RootUpgradeComponentTypes);
+            if (initPrefabManager) 
+                m_PrefabManager = new PrefabManager(m_ObjectUpgrader.RootUpgradeComponentTypes);
         }
 
         Scene OpenScene(int sceneIndex)
@@ -628,7 +640,7 @@ namespace Cinemachine.Editor
             // Patch the timeline shots
             if (timelineManager != null && oldComponent != null)
             {
-                var newComponent = go.GetComponent<CmCamera>();
+                var newComponent = go.GetComponent<CinemachineCamera>();
                 if (oldComponent != newComponent)
                     timelineManager.UpdateTimelineReference(oldComponent, newComponent);
             }

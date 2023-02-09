@@ -53,25 +53,22 @@ namespace Cinemachine
         /// and represents a rotation about the up vector</summary>
         [Tooltip("Axis representing the current horizontal rotation.  Value is in degrees "
             + "and represents a rotation about the up vector.")]
-        [SerializeReference]
         public InputAxis HorizontalAxis = DefaultHorizontal;
 
         /// <summary>Axis representing the current vertical rotation.  Value is in degrees
         /// and represents a rotation about the right vector</summary>
         [Tooltip("Axis representing the current vertical rotation.  Value is in degrees "
             + "and represents a rotation about the right vector.")]
-        [SerializeReference]
         public InputAxis VerticalAxis = DefaultVertical;
 
         /// <summary>Axis controlling the scale of the current distance.  Value is a scalar
         /// multiplier and is applied to the specified camera distance</summary>
         [Tooltip("Axis controlling the scale of the current distance.  Value is a scalar "
             + "multiplier and is applied to the specified camera distance.")]
-        [SerializeReference]
         public InputAxis RadialAxis = DefaultRadial;
 
         // State information
-        Vector3 m_PreviousWorldOffset;
+        Vector3 m_PreviousOffset;
 
         // Helper object to track the Follow target
         Tracker m_TargetTracker;
@@ -104,9 +101,9 @@ namespace Cinemachine
             RadialAxis = DefaultRadial;
         }
         
-        static InputAxis DefaultHorizontal => new () { Value = 0, Range = new Vector2(-180, 180), Wrap = true, Center = 0 };
-        static InputAxis DefaultVertical => new () { Value = 17.5f, Range = new Vector2(-10, 45), Wrap = false, Center = 17.5f };
-        static InputAxis DefaultRadial => new () { Value = 1, Range = new Vector2(1, 5), Wrap = false, Center = 1 };
+        static InputAxis DefaultHorizontal => new () { Value = 0, Range = new Vector2(-180, 180), Wrap = true, Center = 0, Recentering = InputAxis.RecenteringSettings.Default };
+        static InputAxis DefaultVertical => new () { Value = 17.5f, Range = new Vector2(-10, 45), Wrap = false, Center = 17.5f, Recentering = InputAxis.RecenteringSettings.Default };
+        static InputAxis DefaultRadial => new () { Value = 1, Range = new Vector2(1, 1), Wrap = false, Center = 1, Recentering = InputAxis.RecenteringSettings.Default };
 
         /// <summary>True if component is enabled and has a valid Follow target</summary>
         public override bool IsValid => enabled && FollowTarget != null;
@@ -125,9 +122,9 @@ namespace Cinemachine
         /// <param name="axes">Output list to which the axes will be added</param>
         void IInputAxisSource.GetInputAxes(List<IInputAxisSource.AxisDescriptor> axes)
         {
-            axes.Add(new IInputAxisSource.AxisDescriptor { Axis = HorizontalAxis, Name = "Look Orbit X", AxisIndex = 0 });
-            axes.Add(new IInputAxisSource.AxisDescriptor { Axis = VerticalAxis, Name = "Look Orbit Y", AxisIndex = 1 });
-            axes.Add(new IInputAxisSource.AxisDescriptor { Axis = RadialAxis, Name = "Orbit Scale", AxisIndex = 2 });
+            axes.Add(new () { DrivenAxis = () => ref HorizontalAxis, Name = "Look Orbit X", Hint = IInputAxisSource.AxisDescriptor.Hints.X });
+            axes.Add(new () { DrivenAxis = () => ref VerticalAxis, Name = "Look Orbit Y", Hint = IInputAxisSource.AxisDescriptor.Hints.Y });
+            axes.Add(new () { DrivenAxis = () => ref RadialAxis, Name = "Orbit Scale" });
         }
 
         /// <summary>Register a handler that will be called when input needs to be reset</summary>
@@ -182,7 +179,7 @@ namespace Cinemachine
                 pos = rot * new Vector3(0, 0, -Radius * RadialAxis.Value);
                 t = VerticalAxis.GetNormalizedValue() * 2 - 1;
             }
-            if (TrackerSettings.BindingMode == BindingMode.SimpleFollowWithWorldUp)
+            if (TrackerSettings.BindingMode == BindingMode.LazyFollow)
                 pos.z = -Mathf.Abs(pos.z);
 
             return new Vector4(pos.x, pos.y, pos.z, t);
@@ -199,6 +196,7 @@ namespace Cinemachine
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
             ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
         {
+            m_ResetHandler?.Invoke(); // cancel re-centering
             if (fromCam != null
                 && transitionParams.InheritPosition
                 && !CinemachineCore.Instance.IsLiveInBlend(VirtualCamera))
@@ -217,9 +215,8 @@ namespace Cinemachine
         /// <param name="rot">World-space orientation to take</param>
         public override void ForceCameraPosition(Vector3 pos, Quaternion rot)
         {
-            base.ForceCameraPosition(pos, rot);
             m_TargetTracker.ForceCameraPosition(this, TrackerSettings.BindingMode, pos, rot, GetCameraPoint());
-            m_ResetHandler?.Invoke();
+            m_ResetHandler?.Invoke(); // cancel re-centering
             if (FollowTarget != null)
             {
                 var dir = pos - FollowTargetPosition;
@@ -241,7 +238,7 @@ namespace Cinemachine
             var orient = m_TargetTracker.GetReferenceOrientation(this, TrackerSettings.BindingMode, up);
             var localDir = Quaternion.Inverse(orient) * dir;
             var r = UnityVectorExtensions.SafeFromToRotation(Vector3.back, localDir, up).eulerAngles;
-            VerticalAxis.Value = VerticalAxis.ClampValue(TrackerSettings.BindingMode == BindingMode.SimpleFollowWithWorldUp ? 0 : r.x);
+            VerticalAxis.Value = VerticalAxis.ClampValue(TrackerSettings.BindingMode == BindingMode.LazyFollow ? 0 : r.x);
             HorizontalAxis.Value = HorizontalAxis.ClampValue(r.y);
             RadialAxis.Value = RadialAxis.ClampValue(distance / Radius);
         }
@@ -363,7 +360,7 @@ namespace Cinemachine
                 m_ResetHandler?.Invoke();
 
             Vector3 offset = GetCameraPoint();
-            if (TrackerSettings.BindingMode != BindingMode.SimpleFollowWithWorldUp)
+            if (TrackerSettings.BindingMode != BindingMode.LazyFollow)
                 HorizontalAxis.Restrictions 
                     &= ~(InputAxis.RestrictionFlags.NoRecentering | InputAxis.RestrictionFlags.RangeIsDriven);
             else
@@ -387,18 +384,18 @@ namespace Cinemachine
                 curState.ReferenceUp, targetPosition);
             curState.RawPosition = pos + offset;
 
-            if (deltaTime >= 0 && VirtualCamera.PreviousStateIsValid)
+            if (deltaTime >= 0 && VirtualCamera.PreviousStateIsValid
+                && m_PreviousOffset.sqrMagnitude > Epsilon && offset.sqrMagnitude > Epsilon)
             {
-                var lookAt = targetPosition;
-                if (LookAtTarget != null)
-                    lookAt = LookAtTargetPosition;
-                var dir0 = m_TargetTracker.PreviousTargetPosition + m_PreviousWorldOffset - lookAt;
-                var dir1 = curState.RawPosition - lookAt;
-                if (dir0.sqrMagnitude > 0.01f && dir1.sqrMagnitude > 0.01f)
-                    curState.PositionDampingBypass = UnityVectorExtensions.SafeFromToRotation(
-                        dir0, dir1, curState.ReferenceUp).eulerAngles;
+                curState.RotationDampingBypass = UnityVectorExtensions.SafeFromToRotation(
+                    m_PreviousOffset, offset, curState.ReferenceUp);
             }
-            m_PreviousWorldOffset = offset;
+            m_PreviousOffset = offset;
+
+            var gotInput = HorizontalAxis.TrackValueChange() | HorizontalAxis.TrackValueChange() | RadialAxis.TrackValueChange();
+            HorizontalAxis.DoRecentering(deltaTime, gotInput);
+            VerticalAxis.DoRecentering(deltaTime, gotInput);
+            RadialAxis.DoRecentering(deltaTime, gotInput);
         }
 
         /// For the inspector

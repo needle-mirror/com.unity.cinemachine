@@ -9,7 +9,7 @@ using System.Reflection;
 namespace Cinemachine.Editor
 {
     /// <summary>
-    /// Helpers for drawing CmCamera inspectors.
+    /// Helpers for drawing CinemachineCamera inspectors.
     /// </summary>
     class CmCameraInspectorUtility
     {
@@ -129,7 +129,7 @@ namespace Cinemachine.Editor
         
         public void AddPipelineDropdowns(VisualElement ux)
         {
-            var cmCam = Target as CmCamera;
+            var cmCam = Target as CinemachineCamera;
             if (cmCam == null)
                 return;
 
@@ -161,7 +161,7 @@ namespace Cinemachine.Editor
                     var newType = PipelineStageMenu.s_StageData[stage].Types[GetTypeIndexFromSelection(evt.newValue, stage)];
                     for (int i = 0; i < targets.Length; i++)
                     {
-                        var t = targets[i] as CmCamera;
+                        var t = targets[i] as CinemachineCamera;
                         if (t == null)
                             continue;
                         var oldComponent = t.GetCinemachineComponent((CinemachineCore.Stage)stage);
@@ -219,7 +219,7 @@ namespace Cinemachine.Editor
 
         void RefreshPipelinDropdowns()
         {
-            var cmCam = Target as CmCamera;
+            var cmCam = Target as CinemachineCamera;
             if (cmCam == null)
                 return;
             for (int i = 0; i < m_PipelineItems.Count; ++i)
@@ -331,7 +331,8 @@ namespace Cinemachine.Editor
                 s_ExtentionNames.Add("(select)");
                 var allExtensions
                     = ReflectionHelpers.GetTypesInAllDependentAssemblies(
-                            (Type t) => typeof(CinemachineExtension).IsAssignableFrom(t) && !t.IsAbstract);
+                            (Type t) => typeof(CinemachineExtension).IsAssignableFrom(t) 
+                                && !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
                 foreach (Type t in allExtensions)
                 {
                     s_ExtentionTypes.Add(t);
@@ -345,45 +346,34 @@ namespace Cinemachine.Editor
         /// </summary>
         public void AddGlobalControls(VisualElement ux)
         {
-            var row = ux.AddChild(new InspectorUtility.LeftRightContainer());
-
-            var helpBox = ux.AddChild(new HelpBox("CmCamera settings changes made during Play Mode will be "
+            var helpBox = ux.AddChild(new HelpBox("CinemachineCamera settings changes made during Play Mode will be "
                     + "propagated back to the scene when Play Mode is exited.", 
                 HelpBoxMessageType.Info));
-            helpBox.SetVisible(SaveDuringPlay.SaveDuringPlay.Enabled && Application.isPlaying);
+            helpBox.SetVisible(SaveDuringPlay.Enabled && Application.isPlaying);
 
-            row.Left.Add(new Label(CinemachineCorePrefs.s_SaveDuringPlayLabel.text) 
+            var toggle = ux.AddChild(new Toggle(CinemachineCorePrefs.s_SaveDuringPlayLabel.text) 
             { 
                 tooltip = CinemachineCorePrefs.s_SaveDuringPlayLabel.tooltip,
-                style = { alignSelf = Align.Center, flexGrow = 1, height = InspectorUtility.SingleLineHeight }
+                value = SaveDuringPlay.Enabled
             });
-            var toggle = row.Right.AddChild(new Toggle("") 
-            { 
-                tooltip = CinemachineCorePrefs.s_SaveDuringPlayLabel.tooltip,
-                style = { alignSelf = Align.Center },
-                value = SaveDuringPlay.SaveDuringPlay.Enabled
-            });
+            toggle.AddToClassList(InspectorUtility.kAlignFieldClass);
             toggle.RegisterValueChangedCallback((evt) => 
             {
-                SaveDuringPlay.SaveDuringPlay.Enabled = evt.newValue;
+                SaveDuringPlay.Enabled = evt.newValue;
                 helpBox.SetVisible(evt.newValue && Application.isPlaying);
             });
 
-            row.Right.Add(new Label("Game Guides:") 
-            { 
-                tooltip = CinemachineCorePrefs.s_ShowInGameGuidesLabel.tooltip,
-                style = { marginLeft = 8, alignSelf = Align.Center, flexGrow = 0, height = InspectorUtility.SingleLineHeight }
-            });
             var choices = new List<string>() { "Disabled", "Passive", "Interactive" };
             int index = CinemachineCorePrefs.ShowInGameGuides.Value 
                 ? (CinemachineCorePrefs.DraggableComposerGuides.Value ? 2 : 1) : 0;
-            var dropdown = row.Right.AddChild(new DropdownField
+            var dropdown = ux.AddChild(new DropdownField("Game View Guides")
             {
                 tooltip = CinemachineCorePrefs.s_ShowInGameGuidesLabel.tooltip,
                 choices = choices,
                 index = index,
                 style = { flexGrow = 1 }
             });
+            dropdown.AddToClassList(InspectorUtility.kAlignFieldClass);
             dropdown.RegisterValueChangedCallback((evt) => 
             {
                 CinemachineCorePrefs.ShowInGameGuides.Value = evt.newValue != choices[0];
@@ -398,7 +388,7 @@ namespace Cinemachine.Editor
         /// <summary>
         /// This is only for aesthetics, sort order does not affect camera logic.
         /// Behaviours should be sorted like this:
-        /// CmCamera, Body, Aim, Noise, Finalize, Extensions, everything else.
+        /// CinemachineCamera, Body, Aim, Noise, Finalize, Extensions, everything else.
         /// </summary>
         public void SortComponents()
         {

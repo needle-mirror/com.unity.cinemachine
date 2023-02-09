@@ -7,7 +7,7 @@ using UnityEditor.UIElements;
 
 #if CINEMACHINE_HDRP
     using UnityEngine.Rendering.HighDefinition;
-#elif CINEMACHINE_LWRP_7_3_1
+#elif CINEMACHINE_URP
     using UnityEngine.Rendering.Universal;
 #endif
 
@@ -33,8 +33,9 @@ namespace Cinemachine.Editor
         static Vector2 SensorSize(SerializedProperty property) => AccessProperty<Vector2>(
             typeof(LensSettings), SerializedPropertyHelper.GetPropertyValue(property), "SensorSize");
 
-        static bool UseHorizontalFOV(SerializedProperty property) => AccessProperty<bool>(
-            typeof(LensSettings), SerializedPropertyHelper.GetPropertyValue(property), "UseHorizontalFOV");
+        static bool UseHorizontalFOV(SerializedProperty property) => 
+            InspectorUtility.GetUseHorizontalFOV(AccessProperty<Camera>(
+                typeof(LensSettings), SerializedPropertyHelper.GetPropertyValue(property), "SourceCamera"));
 
         static T AccessProperty<T>(Type type, object obj, string memberName)
         {
@@ -93,17 +94,19 @@ namespace Cinemachine.Editor
             var foldout = new Foldout { text = property.displayName, tooltip = property.tooltip, value = property.isExpanded };
             foldout.RegisterValueChangedCallback((evt) => 
             {
-                property.isExpanded = evt.newValue;
-                property.serializedObject.ApplyModifiedProperties();
-                evt.StopPropagation();
+                if (evt.target == foldout)
+                {
+                    property.isExpanded = evt.newValue;
+                    property.serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                }
             });
 
-            var fovControl = new FovPropertyControl(property, true) { style = { flexGrow = 1 }};
+            var outerFovControl = new FovPropertyControl(property, true) { style = { flexGrow = 1 }};
             ux.Add(new InspectorUtility.FoldoutWithOverlay(
-                foldout, fovControl, fovControl.ShortLabel) { style = { flexGrow = 1 }});
+                foldout, outerFovControl, outerFovControl.ShortLabel) { style = { flexGrow = 1 }});
 
             // Populate the foldout
-            var fovControl2 = foldout.AddChild(new FovPropertyControl(property, false) { style = { flexGrow = 1 }});
+            var innerFovControl = foldout.AddChild(new FovPropertyControl(property, false) { style = { flexGrow = 1 }});
 
             var nearClip = property.FindPropertyRelative(() => m_LensSettingsDef.NearClipPlane);
             foldout.AddChild(new PropertyField(nearClip)).RegisterValueChangeCallback((evt) =>
@@ -113,7 +116,6 @@ namespace Cinemachine.Editor
                     nearClip.floatValue = 0.01f;
                     property.serializedObject.ApplyModifiedPropertiesWithoutUndo();
                 }
-                evt.StopPropagation();
             });
             foldout.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.FarClipPlane)));
             foldout.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.Dutch)));
@@ -121,13 +123,13 @@ namespace Cinemachine.Editor
             var physical = foldout.AddChild(new Foldout() { text = "Physical Properties", value = s_PhysicalExapnded });
             physical.RegisterValueChangedCallback((evt) => 
             {
-                s_PhysicalExapnded = evt.newValue;
-                evt.StopPropagation();
+                if (evt.target == physical)
+                    s_PhysicalExapnded = evt.newValue;
             });
 
             physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.GateFit)));
 
-            var ssProp = property.FindPropertyRelative("m_SensorSize");
+            var ssProp = property.FindPropertyRelative(() => m_LensSettingsDef.m_SensorSize);
             var sensorSizeField = physical.AddChild(new PropertyField(ssProp));
             sensorSizeField.RegisterValueChangeCallback((evt) =>
             {
@@ -136,7 +138,6 @@ namespace Cinemachine.Editor
                 v.y = Mathf.Max(v.y, 0.1f);
                 ssProp.vector2Value = v;
                 property.serializedObject.ApplyModifiedPropertiesWithoutUndo();
-                evt.StopPropagation();
             });
 
 #if CINEMACHINE_HDRP
@@ -144,9 +145,9 @@ namespace Cinemachine.Editor
             physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.ShutterSpeed)));
 #endif
             physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.LensShift)));
+            physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.FocusDistance)));
 #if CINEMACHINE_HDRP
             physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.Aperture)));
-            physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.FocusDistance)));
             physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.BladeCount)));
             physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.Curvature)));
             physical.Add(new PropertyField(property.FindPropertyRelative(() => m_LensSettingsDef.BarrelClipping)));
@@ -157,7 +158,7 @@ namespace Cinemachine.Editor
             VisualElement modeHelp = null;
             if (!HideModeOverride)
             {
-                modeOverrideProperty = property.FindPropertyRelative("ModeOverride");
+                modeOverrideProperty = property.FindPropertyRelative(() => m_LensSettingsDef.ModeOverride);
                 modeHelp = foldout.AddChild(
                     new HelpBox("Lens Mode Override must be enabled in the CM Brain for Mode Override to take effect", 
                         HelpBoxMessageType.Warning));
@@ -173,8 +174,8 @@ namespace Cinemachine.Editor
                     return; // target deleted
                 bool isPhysical = IsPhysical(property);
                 physical.SetVisible(isPhysical);
-                fovControl.Update(true);
-                fovControl2.Update(false);
+                outerFovControl.Update(true);
+                innerFovControl.Update(false);
 
                 if (!HideModeOverride)
                 {
@@ -323,7 +324,7 @@ namespace Cinemachine.Editor
                 {
                     // Convert and clamp
                     var sensorHeight = SensorSize(property).y;
-                    var vfov =Camera.FocalLengthToFieldOfView(evt.newValue, sensorHeight);
+                    var vfov = Camera.FocalLengthToFieldOfView(Mathf.Max(0.01f, evt.newValue), sensorHeight);
                     if (vfov < 1 || vfov > 179)
                     {
                         vfov = Mathf.Clamp(vfov, 1, 179);
@@ -361,7 +362,7 @@ namespace Cinemachine.Editor
                         if (index >= 0)
                         {
                             var v = CinemachineLensPresets.Instance.m_PhysicalPresets[index];
-                            focalProperty.floatValue = Camera.FocalLengthToFieldOfView(v.m_FocalLength, SensorSize(property).y);
+                            focalProperty.floatValue = Camera.FocalLengthToFieldOfView(Mathf.Max(0.01f, v.m_FocalLength), SensorSize(property).y);
 #if CINEMACHINE_HDRP
                             property.FindPropertyRelative(() => m_LensSettingsDef.Aperture).floatValue = v.Aperture;
                             property.FindPropertyRelative(() => m_LensSettingsDef.Iso).intValue = v.Iso;
@@ -441,16 +442,13 @@ namespace Cinemachine.Editor
                     OrthoControl.SetVisible(true);
                     FovControl.SetVisible(false);
                     FocalLengthControl.SetVisible(false);
-                    if (shortLabel && ShortLabel.text != "Ortho")
+                    if (shortLabel && ShortLabel.text != "Ortho" && OrthoControl.Q<FloatField>() != null)
                     {
                         ShortLabel.text = "Ortho";
-                        if (m_DraggerOrtho == null)
-                            m_DraggerOrtho = new FieldMouseDragger<float>(OrthoControl.Q<FloatField>());
+                        m_DraggerOrtho ??= new (OrthoControl.Q<FloatField>());
                         m_DraggerOrtho.SetDragZone(ShortLabel);
-                        if (m_DraggerFov != null)
-                            m_DraggerFov.SetDragZone(null);
-                        if (m_DraggerFocal != null)
-                            m_DraggerFocal.SetDragZone(null);
+                        m_DraggerFov?.SetDragZone(null);
+                        m_DraggerFocal?.SetDragZone(null);
                     }
                 }
                 else if (IsPhysical(m_Property))
@@ -465,15 +463,12 @@ namespace Cinemachine.Editor
                         if (e != null)
                             e.text = text;
                     }
-                    else if (ShortLabel.text != text)
+                    else if (ShortLabel.text != text && FocalLengthControl.Q<FloatField>() != null)
                     {
                         ShortLabel.text = text;
-                        if (m_DraggerOrtho != null)
-                            m_DraggerOrtho.SetDragZone(null);
-                        if (m_DraggerFov != null)
-                            m_DraggerFov.SetDragZone(null);
-                        if (m_DraggerFocal == null)
-                            m_DraggerFocal = new FieldMouseDragger<float>(FocalLengthControl.Q<FloatField>());
+                        m_DraggerOrtho?.SetDragZone(null);
+                        m_DraggerFov?.SetDragZone(null);
+                        m_DraggerFocal ??= new (FocalLengthControl.Q<FloatField>());
                         m_DraggerFocal.SetDragZone(ShortLabel);
                     }
                 }
@@ -489,23 +484,20 @@ namespace Cinemachine.Editor
                         if (e != null)
                             e.text = text;
                     }
-                    else if (ShortLabel.text != text)
+                    else if (ShortLabel.text != text && FovControl.Q<FloatField>() != null)
                     {
                         ShortLabel.text = text;
-                        if (m_DraggerOrtho != null)
-                            m_DraggerOrtho.SetDragZone(null);
-                        if (m_DraggerFov == null)
-                            m_DraggerFov = new FieldMouseDragger<float>(FovControl.Q<FloatField>());
+                        m_DraggerOrtho?.SetDragZone(null);
+                        m_DraggerFov ??= new (FovControl.Q<FloatField>());
                         m_DraggerFov.SetDragZone(ShortLabel);
-                        if (m_DraggerFocal != null)
-                            m_DraggerFocal.SetDragZone(null);
+                        m_DraggerFocal?.SetDragZone(null);
                     }
                 }
             }
         }
 
         ///===========================================================================
-        /// IMGUI IMPLEMENTAION (to be removed) 
+        /// IMGUI IMPLEMENTATION (to be removed) 
         ///===========================================================================
 
         static readonly GUIContent EditPresetsLabel = new GUIContent("Edit Presets...");
@@ -625,7 +617,7 @@ namespace Cinemachine.Editor
             float f = Camera.FieldOfViewToFocalLength(FOVProperty.floatValue, m_Snapshot.SensorSize.y);
             EditorGUI.BeginProperty(rect, label, FOVProperty);
             f = EditorGUI.FloatField(rect, label, f);
-            f = Camera.FocalLengthToFieldOfView(Mathf.Max(f, 0.0001f), m_Snapshot.SensorSize.y);
+            f = Camera.FocalLengthToFieldOfView(Mathf.Max(0.01f, f), m_Snapshot.SensorSize.y);
             if (!Mathf.Approximately(FOVProperty.floatValue, f))
                 FOVProperty.floatValue = Mathf.Clamp(f, 1, 179);
             EditorGUI.EndProperty();
@@ -661,7 +653,7 @@ namespace Cinemachine.Editor
             else if (selection >= 0 && selection < m_Snapshot.m_PhysicalPresetOptions.Length-1)
             {
                 var v = presets.m_PhysicalPresets[selection];
-                FOVProperty.floatValue = Camera.FocalLengthToFieldOfView(v.m_FocalLength, m_Snapshot.SensorSize.y);
+                FOVProperty.floatValue = Camera.FocalLengthToFieldOfView(Mathf.Max(0.01f, v.m_FocalLength), m_Snapshot.SensorSize.y);
                 property.FindPropertyRelative(() => m_LensSettingsDef.Aperture).floatValue = v.Aperture;
                 property.FindPropertyRelative(() => m_LensSettingsDef.Iso).intValue = v.Iso;
                 property.FindPropertyRelative(() => m_LensSettingsDef.ShutterSpeed).floatValue = v.ShutterSpeed;
@@ -685,7 +677,7 @@ namespace Cinemachine.Editor
             else if (selection >= 0 && selection < m_Snapshot.m_PhysicalPresetOptions.Length-1)
             {
                 FOVProperty.floatValue = Camera.FocalLengthToFieldOfView(
-                    presets.m_PhysicalPresets[selection].m_FocalLength, m_Snapshot.SensorSize.y);
+                    Mathf.Max(0.01f, presets.m_PhysicalPresets[selection].m_FocalLength), m_Snapshot.SensorSize.y);
                 property.serializedObject.ApplyModifiedProperties();
             }
 #endif
@@ -750,7 +742,7 @@ namespace Cinemachine.Editor
                         EditorGUI.PropertyField(rect, property.FindPropertyRelative(() => m_LensSettingsDef.GateFit));
 
                         rect.y += rect.height + vSpace;
-                        var ssProp = property.FindPropertyRelative("m_SensorSize");
+                        var ssProp = property.FindPropertyRelative(() => m_LensSettingsDef.m_SensorSize);
                         EditorGUI.BeginProperty(rect, SensorSizeLabel, ssProp);
                         var v = EditorGUI.Vector2Field(rect, SensorSizeLabel, ssProp.vector2Value);
                         v.x = Mathf.Max(v.x, 0.1f);

@@ -50,6 +50,7 @@ namespace Cinemachine
         /// </summary>
         [SerializeField, HideInInspector, NoSaveDuringPlay] internal List<CinemachineVirtualCameraBase> m_ChildCameras;
 
+        /// <summary>Reset the component to default values.</summary>
         protected virtual void Reset()
         {
             DefaultTarget = default;
@@ -171,8 +172,8 @@ namespace Cinemachine
         /// <summary>
         /// Force the virtual camera to assume a given position and orientation
         /// </summary>
-        /// <param name="pos">Worldspace position to take</param>
-        /// <param name="rot">Worldspace orientation to take</param>
+        /// <param name="pos">World-space position to take</param>
+        /// <param name="rot">World-space orientation to take</param>
         public override void ForceCameraPosition(Vector3 pos, Quaternion rot)
         {
             UpdateCameraCache();
@@ -193,7 +194,7 @@ namespace Cinemachine
         }
 
         /// <summary>Force a rebuild of the child camera cache.  
-        /// Call this if CmCamera children are added or removed dynamically</summary>
+        /// Call this if CinemachineCamera children are added or removed dynamically</summary>
         public void InvalidateCameraCache() 
         {
             m_ChildCameras = null;

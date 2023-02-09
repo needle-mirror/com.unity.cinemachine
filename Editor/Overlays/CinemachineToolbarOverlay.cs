@@ -74,6 +74,8 @@ namespace Cinemachine.Editor
         {
         }
 
+        /// <summary>Get the path to the tool's icon asset.</summary>
+        /// <returns>The path to the icon asset.</returns>
         private protected string GetIconPath()
         {
             m_State.refreshIcon = m_State.isProSkin != EditorGUIUtility.isProSkin;
@@ -153,7 +155,7 @@ namespace Cinemachine.Editor
         /// Override this method to return your visual element content.
         /// By default, this draws the same visual element as the HorizontalToolbar
         /// </summary>
-        /// <returns>VisualElement for the Panel conent.</returns>
+        /// <returns>VisualElement for the Panel content.</returns>
         public override VisualElement CreatePanelContent() => CreateContent(Layout.HorizontalToolbar);
         
         /// <summary>Set this with your custom tools' IDs.</summary>

@@ -17,7 +17,12 @@ namespace Cinemachine.Editor
             typeof(CinemachinePath),
             typeof(CinemachineSmoothPath),
             typeof(CinemachineDollyCart),
-
+#if CINEMACHINE_PHYSICS
+            typeof(CinemachineCollider),
+#endif
+#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
+            typeof(CinemachineConfiner),
+#endif
             // FreeLook before vcam because we want to delete the vcam child rigs and not convert them
             typeof(CinemachineFreeLook),
             typeof(CinemachineVirtualCamera),
@@ -61,18 +66,25 @@ namespace Cinemachine.Editor
             typeof(CinemachineSmoothPath),
             typeof(CinemachineDollyCart),
             typeof(CinemachinePipeline),
+            typeof(Cinemachine3rdPersonFollow),
 #if CINEMACHINE_UNITY_INPUTSYSTEM
             typeof(CinemachineInputProvider),
+#endif
+#if CINEMACHINE_PHYSICS
+            typeof(CinemachineCollider),
+#endif
+#if CINEMACHINE_PHYSICS || CINEMACHINE_PHYSICS_2D
+            typeof(CinemachineConfiner),
 #endif
         };
         
         /// <summary>
         /// Maps class upgrades.
         /// </summary>
-        public readonly Dictionary<Type, Type> ClassUpgradeMap = new()
+        public static readonly Dictionary<Type, Type> ClassUpgradeMap = new()
         {
-            { typeof(CinemachineVirtualCamera), typeof(CmCamera) },
-            { typeof(CinemachineFreeLook), typeof(CmCamera) },
+            { typeof(CinemachineVirtualCamera), typeof(CinemachineCamera) },
+            { typeof(CinemachineFreeLook), typeof(CinemachineCamera) },
             { typeof(CinemachineComposer), typeof(CinemachineRotationComposer) },
             { typeof(CinemachineGroupComposer), typeof(CinemachineRotationComposer) },
             { typeof(CinemachineTransposer), typeof(CinemachineFollow) },
@@ -83,6 +95,10 @@ namespace Cinemachine.Editor
             { typeof(CinemachinePath), typeof(SplineContainer) },
             { typeof(CinemachineSmoothPath), typeof(SplineContainer) },
             { typeof(CinemachineDollyCart), typeof(CinemachineSplineCart) },
+            { typeof(Cinemachine3rdPersonFollow), typeof(CinemachineThirdPersonFollow) },
+#if CINEMACHINE_PHYSICS
+            { typeof(CinemachineCollider), typeof(CinemachineDeoccluder) },
+#endif
         };
         
         /// <summary>
@@ -132,9 +148,9 @@ namespace Cinemachine.Editor
                     { "BindingMode", new("TrackerSettings.BindingMode", typeof(CinemachineOrbitalFollow)) },
                     { "AngularDampingMode", new("TrackerSettings.AngularDampingMode", typeof(CinemachineOrbitalFollow)) },
                     { "AngularDamping", new("TrackerSettings.QuaternionDamping", typeof(CinemachineOrbitalFollow)) },
-                    { "XAxis.Value", new("managedReferences[HorizontalAxis].Value", typeof(CinemachineOrbitalFollow)) },
-                    { "YAxis.Value", new("managedReferences[VerticalAxis].Value", typeof(CinemachineOrbitalFollow)) },
-                    { "ZAxis.Value", new("managedReferences[RadialAxis].Value", typeof(CinemachineOrbitalFollow)) }
+                    { "XAxis.Value", new("HorizontalAxis.Value", typeof(CinemachineOrbitalFollow)) },
+                    { "YAxis.Value", new("VerticalAxis.Value", typeof(CinemachineOrbitalFollow)) },
+                    { "ZAxis.Value", new("RadialAxis.Value", typeof(CinemachineOrbitalFollow)) }
                 }
             },
             {
@@ -209,17 +225,44 @@ namespace Cinemachine.Editor
             {
                 typeof(CinemachinePOV), new Dictionary<string, Tuple<string, Type>>
                 {
-                    { "HorizontalAxis.Value", new("managedReferences[PanAxis].Value", typeof(CinemachinePanTilt)) },
-                    { "VerticalAxis.Value", new("managedReferences[TiltAxis].Value", typeof(CinemachinePanTilt)) }
+                    { "HorizontalAxis.Value", new("PanAxis.Value", typeof(CinemachinePanTilt)) },
+                    { "VerticalAxis.Value", new("TiltAxis.Value", typeof(CinemachinePanTilt)) }
                 }
             },
             {
                 typeof(CinemachineFreeLook), new Dictionary<string, Tuple<string, Type>>
                 {
-                    { "XAxis.Value", new("managedReferences[HorizontalAxis].Value", typeof(CinemachineOrbitalFollow)) },
-                    { "YAxis.Value", new("managedReferences[VerticalAxis].Value", typeof(CinemachineOrbitalFollow)) },
+                    { "XAxis.Value", new("HorizontalAxis.Value", typeof(CinemachineOrbitalFollow)) },
+                    { "YAxis.Value", new("VerticalAxis.Value", typeof(CinemachineOrbitalFollow)) },
                 }
-            }
+            },
+            {
+                typeof(Cinemachine3rdPersonFollow), new Dictionary<string, Tuple<string, Type>>
+                {
+                    { "CameraCollisionFilter", new("AvoidObstacles.CollisionFilter", typeof(CinemachineThirdPersonFollow)) },
+                    { "IgnoreTag", new("AvoidObstacles.IgnoreTag", typeof(CinemachineThirdPersonFollow)) },
+                    { "CameraRadius", new("AvoidObstacles.CameraRadius", typeof(CinemachineThirdPersonFollow)) },
+                    { "DampingIntoCollision", new("AvoidObstacles.DampingIntoCollision", typeof(CinemachineThirdPersonFollow)) },
+                    { "DampingFromCollision", new("AvoidObstacles.DampingFromCollision", typeof(CinemachineThirdPersonFollow)) }
+                }
+            },
+#if CINEMACHINE_PHYSICS
+            {
+                typeof(CinemachineCollider), new Dictionary<string, Tuple<string, Type>>
+                {
+                    { "AvoidObstacles", new("AvoidObstacles.Enabled", typeof(CinemachineDeoccluder)) },
+                    { "DistanceLimit", new("AvoidObstacles.DistanceLimit", typeof(CinemachineDeoccluder)) },
+                    { "MinimumOcclusionTime", new("AvoidObstacles.MinimumOcclusionTime", typeof(CinemachineDeoccluder)) },
+                    { "CameraRadius", new("AvoidObstacles.CameraRadius", typeof(CinemachineDeoccluder)) },
+                    { "Strategy", new("AvoidObstacles.Strategy", typeof(CinemachineDeoccluder)) },
+                    { "MaximumEffort", new("AvoidObstacles.MaximumEffort", typeof(CinemachineDeoccluder)) },
+                    { "SmoothingTime", new("AvoidObstacles.SmoothingTime", typeof(CinemachineDeoccluder)) },
+                    { "Damping", new("AvoidObstacles.Damping", typeof(CinemachineDeoccluder)) },
+                    { "DampingWhenOccluded", new("AvoidObstacles.DampingWhenOccluded", typeof(CinemachineDeoccluder)) },
+                    { "OptimalTargetDistance", new("ShotQualityEvaluation.OptimalDistance", typeof(CinemachineDeoccluder)) },
+                }
+            },
+#endif
         };
     }
 }

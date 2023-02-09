@@ -15,8 +15,8 @@ namespace Cinemachine
     }
 
     /// <summary>A singleton that manages complete lists of CinemachineBrain and,
-    /// Cinemachine Virtual Cameras, and the priority queue.  Provides
-    /// services to keeping track of whether Cinemachine Virtual Cameras have
+    /// CinemachineCamera, and the priority queue.  Provides
+    /// services to keeping track of whether CinemachineCameras have
     /// been updated each frame.</summary>
     public sealed class CinemachineCore
     {
@@ -81,7 +81,7 @@ namespace Cinemachine
         public static float DeltaTime => UniformDeltaTimeOverride >= 0 ? UniformDeltaTimeOverride : Time.deltaTime;
 
         /// <summary>
-        /// If non-negative, cinemachine willuse this value whenever it wants current game time.
+        /// If non-negative, cinemachine will use this value whenever it wants current game time.
         /// Usage is for master timelines in manual update mode, for deterministic behaviour.
         /// </summary>
         public static float CurrentTimeOverride = -1;
@@ -140,8 +140,8 @@ namespace Cinemachine
         /// <summary>Access the array of active CinemachineBrains in the scene</summary>
         public int BrainCount => m_ActiveBrains.Count;
 
-        /// <summary>Enables frame delta compensation for not updated frames. False is useful for deterministic test results. </summary>
-        internal static bool FrameDeltaCompensationEnabled = true;
+        /// <summary>Special mode for deterministic unit tests.</summary>
+        internal static bool UnitTestMode = false;
 
         /// <summary>Access the array of active CinemachineBrains in the scene
         /// without generating garbage</summary>
@@ -169,7 +169,7 @@ namespace Cinemachine
         int m_ActivationSequence;
         
         /// <summary>
-        /// List of all active Cinemachine Virtual Cameras for all brains.
+        /// List of all active CinemachineCameras for all brains.
         /// This list is kept sorted by priority.
         /// </summary>
         public int VirtualCameraCount => m_ActiveCameras.Count;
@@ -183,13 +183,13 @@ namespace Cinemachine
             if (!m_ActiveCamerasAreSorted && m_ActiveCameras.Count > 1)
             {
                 m_ActiveCameras.Sort((x, y) => 
-                    x.Priority == y.Priority ? y.ActivationId - x.ActivationId : y.Priority - x.Priority);
+                    x.Priority == y.Priority ? y.ActivationId.CompareTo(x.ActivationId) : y.Priority.CompareTo(x.Priority));
                 m_ActiveCamerasAreSorted = true;
             }
             return m_ActiveCameras[index];
         }
 
-        /// <summary>Called when a Cinemachine Virtual Camera is enabled.</summary>
+        /// <summary>Called when a CinemachineCamera is enabled.</summary>
         internal void AddActiveCamera(CinemachineVirtualCameraBase vcam)
         {
             Assert.IsFalse(m_ActiveCameras.Contains(vcam));
@@ -198,14 +198,14 @@ namespace Cinemachine
             m_ActiveCamerasAreSorted = false;
         }
 
-        /// <summary>Called when a Cinemachine Virtual Camera is disabled.</summary>
+        /// <summary>Called when a CinemachineCamera is disabled.</summary>
         internal void RemoveActiveCamera(CinemachineVirtualCameraBase vcam)
         {
             if (m_ActiveCameras.Contains(vcam))
                 m_ActiveCameras.Remove(vcam);
         }
 
-        /// <summary>Called when a Cinemachine Virtual Camera is destroyed.</summary>
+        /// <summary>Called when a CinemachineCamera is destroyed.</summary>
         internal void CameraDestroyed(CinemachineVirtualCameraBase vcam)
         {
             if (m_ActiveCameras.Contains(vcam))
@@ -304,7 +304,7 @@ namespace Cinemachine
         }
 
         /// <summary>
-        /// Update a single Cinemachine Virtual Camera if and only if it
+        /// Update a single CinemachineCamera if and only if it
         /// hasn't already been updated this frame.  Always update vcams via this method.
         /// Calling this more than once per frame for the same camera will have no effect.
         /// </summary>
@@ -353,7 +353,7 @@ namespace Cinemachine
                 if (frameDelta == 0 && status.lastUpdateMode == updateClock
                         && status.lastUpdateDeltaTime == deltaTime)
                     return; // already updated
-                if (FrameDeltaCompensationEnabled && frameDelta > 0)
+                if (!UnitTestMode && frameDelta > 0)
                     deltaTime *= frameDelta; // try to catch up if multiple frames
             }
 
@@ -413,7 +413,7 @@ namespace Cinemachine
         /// <summary>
         /// Is this virtual camera currently actively controlling any Camera?
         /// </summary>
-        /// <param name="vcam">The virtual camea in question</param>
+        /// <param name="vcam">The virtual camera in question</param>
         /// <returns>True if the vcam is currently driving a Brain</returns>
         public bool IsLive(ICinemachineCamera vcam)
         {
@@ -494,8 +494,8 @@ namespace Cinemachine
 
         /// <summary>
         /// Try to find a CinemachineBrain to associate with a
-        /// Cinemachine Virtual Camera.  The first CinemachineBrain
-        /// in which this Cinemachine Virtual Camera is live will be used.
+        /// CinemachineCamera.  The first CinemachineBrain
+        /// in which this CinemachineCamera is live will be used.
         /// If none, then the first active CinemachineBrain with the correct
         /// layer filter will be used.
         /// Brains with OutputCamera == null will not be returned.
@@ -526,7 +526,7 @@ namespace Cinemachine
             return null;
         }
 
-        /// <summary>Call this to notify all virtual camewras that may be tracking a target
+        /// <summary>Call this to notify all virtual cameras that may be tracking a target
         /// that the target's position has suddenly warped to somewhere else, so that
         /// the virtual cameras can update their internal state to make the camera
         /// warp seamlessly along with the target.

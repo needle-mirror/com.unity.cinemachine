@@ -113,7 +113,7 @@ namespace Cinemachine.Editor
         // Call this from inspector's OnEnable()
         public void OnEnable() => m_EventCatcher.OnEnable();
 
-        // Call this from inspector's OnDisble()
+        // Call this from inspector's OnDisable()
         public void OnDisable() => m_EventCatcher.OnDisable();
 
         Rect GetCameraRect(Camera outputCamera, LensSettings lens)
@@ -169,8 +169,9 @@ namespace Cinemachine.Editor
             cameraRect.yMin = cameraRect.yMax - h;
 
             // Shift the guides along with the lens
-            cameraRect.position += new Vector2(
-                -screenWidth * lens.LensShift.x, screenHeight * lens.LensShift.y);
+            if (lens.IsPhysicalCamera)
+                cameraRect.position += new Vector2(
+                    -screenWidth * lens.LensShift.x, screenHeight * lens.LensShift.y);
 
             return cameraRect;
         }

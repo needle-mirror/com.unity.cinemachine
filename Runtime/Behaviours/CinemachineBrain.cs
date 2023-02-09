@@ -11,7 +11,7 @@ using UnityEngine.Serialization;
 
 #if CINEMACHINE_HDRP
     using UnityEngine.Rendering.HighDefinition;
-#elif CINEMACHINE_LWRP_7_3_1
+#elif CINEMACHINE_URP
     using UnityEngine.Rendering.Universal;
 #endif
 
@@ -28,18 +28,18 @@ namespace Cinemachine
         /// This is the main API for the timeline.
         /// </summary>
         /// <param name="overrideId">Id to represent a specific client.  An internal
-        /// stack is maintained, with the most recent non-empty override taking precenence.
+        /// stack is maintained, with the most recent non-empty override taking precedence.
         /// This id must be > 0.  If you pass -1, a new id will be created, and returned.
         /// Use that id for subsequent calls.  Don't forget to
         /// call ReleaseCameraOverride after all overriding is finished, to
-        /// free the OverideStack resources.</param>
+        /// free the OverrideStack resources.</param>
         /// <param name="camA">The camera to set, corresponding to weight=0.</param>
         /// <param name="camB">The camera to set, corresponding to weight=1.</param>
         /// <param name="weightB">The blend weight.  0=camA, 1=camB.</param>
         /// <param name="deltaTime">Override for deltaTime.  Should be Time.FixedDelta for
         /// time-based calculations to be included, -1 otherwise.</param>
         /// <returns>The override ID.  Don't forget to call ReleaseCameraOverride
-        /// after all overriding is finished, to free the OverideStack resources.</returns>
+        /// after all overriding is finished, to free the OverrideStack resources.</returns>
         int SetCameraOverride(
             int overrideId,
             ICinemachineCamera camA, ICinemachineCamera camB,
@@ -108,21 +108,21 @@ namespace Cinemachine
         public bool IgnoreTimeScale = false;
 
         /// <summary>
-        /// If set, this object's Y axis will define the worldspace Up vector for all the
-        /// virtual cameras.  This is useful in top-down game environments.  If not set, Up is worldspace Y.
+        /// If set, this object's Y axis will define the world-space Up vector for all the
+        /// virtual cameras.  This is useful in top-down game environments.  If not set, Up is world-space Y.
         /// </summary>
-        [Tooltip("If set, this object's Y axis will define the worldspace Up vector for all the "
+        [Tooltip("If set, this object's Y axis will define the world-space Up vector for all the "
             + "virtual cameras.  This is useful for instance in top-down game environments.  "
-            + "If not set, Up is worldspace Y.  Setting this appropriately is important, "
+            + "If not set, Up is world-space Y.  Setting this appropriately is important, "
             + "because Virtual Cameras don't like looking straight up or straight down.")]
         [FormerlySerializedAs("m_WorldUpOverride")]
         public Transform WorldUpOverride;
 
-        /// <summary>The CinemachineBrain will find the highest-priority CmCamera that outputs to any of the channels selected. 
-        /// CmCameras that do not output to one of these channels will be ignored.  Use this in situations where multiple
+        /// <summary>The CinemachineBrain will find the highest-priority CinemachineCamera that outputs to any of the channels selected. 
+        /// CinemachineCameras that do not output to one of these channels will be ignored.  Use this in situations where multiple
         /// CinemachineBrains are needed (for example, Split-screen).</summary>
-        [Tooltip("The CinemachineBrain will find the highest-priority CmCamera that outputs to any of the channels selected. "
-            + "CmCameras that do not output to one of these channels will be ignored.  Use this in situations "
+        [Tooltip("The CinemachineBrain will find the highest-priority CinemachineCamera that outputs to any of the channels selected. "
+            + "CinemachineCameras that do not output to one of these channels will be ignored.  Use this in situations "
             + "where multiple CinemachineBrains are needed (for example, Split-screen).")]
         [EnumMaskProperty]
         public OutputChannel.Channels ChannelMask = OutputChannel.Channels.Default;
@@ -608,8 +608,7 @@ namespace Cinemachine
             {
                 if (!vcam.IsValid)
                     return null;    // deleted!
-                var bs = vcam as BlendSourceVirtualCamera;
-                if (bs == null)
+                if (vcam is not BlendSourceVirtualCamera bs)
                     break;
                 vcam = bs.Blend.CamB;
             }
@@ -627,8 +626,7 @@ namespace Cinemachine
             // Ignore m_CurrentLiveCameras.CamB
             if (vcam == m_CurrentLiveCameras.CamA)
                 return true;
-            var b = m_CurrentLiveCameras.CamA as BlendSourceVirtualCamera;
-            if (b != null && b.Blend.Uses(vcam))
+            if (m_CurrentLiveCameras.CamA is BlendSourceVirtualCamera b && b.Blend.Uses(vcam))
                 return true;
             ICinemachineCamera parent = vcam.ParentCamera;
             if (parent != null && parent.IsLiveChild(vcam, false))
@@ -684,18 +682,18 @@ namespace Cinemachine
         /// This is the main API for the timeline.
         /// </summary>
         /// <param name="overrideId">Id to represent a specific client.  An internal
-        /// stack is maintained, with the most recent non-empty override taking precenence.
+        /// stack is maintained, with the most recent non-empty override taking precedence.
         /// This id must be > 0.  If you pass -1, a new id will be created, and returned.
         /// Use that id for subsequent calls.  Don't forget to
         /// call ReleaseCameraOverride after all overriding is finished, to
-        /// free the OverideStack resources.</param>
+        /// free the OverrideStack resources.</param>
         /// <param name="camA"> The camera to set, corresponding to weight=0</param>
         /// <param name="camB"> The camera to set, corresponding to weight=1</param>
         /// <param name="weightB">The blend weight.  0=camA, 1=camB</param>
         /// <param name="deltaTime">override for deltaTime.  Should be Time.FixedDelta for
         /// time-based calculations to be included, -1 otherwise</param>
-        /// <returns>The oiverride ID.  Don't forget to call ReleaseCameraOverride
-        /// after all overriding is finished, to free the OverideStack resources.</returns>
+        /// <returns>The override ID.  Don't forget to call ReleaseCameraOverride
+        /// after all overriding is finished, to free the OverrideStack resources.</returns>
         public int SetCameraOverride(
             int overrideId,
             ICinemachineCamera camA, ICinemachineCamera camB,
@@ -752,7 +750,7 @@ namespace Cinemachine
             }
             else if (activeCamera == null)
             {
-                // No active virtal camera.  We create a state representing its position
+                // No active virtual camera.  We create a state representing its position
                 // and call the callback, but we don't actively set the transform or lens
                 var state = CameraState.Default;
                 var target = ControlledObject.transform;
@@ -870,12 +868,12 @@ namespace Cinemachine
         }
 
         /// <summary>
-        /// Used internally to compute the currrent blend, taking into account
+        /// Used internally to compute the current blend, taking into account
         /// the in-game camera and all the active overrides.  Caller may optionally
         /// exclude n topmost overrides.
         /// </summary>
         /// <param name="outputBlend">Receives the nested blend</param>
-        /// <param name="numTopLayersToExclude">Optionaly exclude the last number 
+        /// <param name="numTopLayersToExclude">Optionally exclude the last number 
         /// of overrides from the blend</param>
         public void ComputeCurrentBlend(
             ref CinemachineBlend outputBlend, int numTopLayersToExclude)
@@ -1048,15 +1046,16 @@ namespace Cinemachine
                             cam.orthographic = LensModeOverride.DefaultMode == LensSettings.OverrideModes.Orthographic;
                         }
                         cam.usePhysicalProperties = isPhysical;
-                        cam.lensShift = state.Lens.LensShift;
                     }
 
                     if (isPhysical)
                     {
                         cam.sensorSize = state.Lens.SensorSize;
                         cam.gateFit = state.Lens.GateFit;
-#if CINEMACHINE_HDRP
+                        cam.focalLength = Camera.FieldOfViewToFocalLength(state.Lens.FieldOfView, state.Lens.SensorSize.y);
+                        cam.lensShift = state.Lens.LensShift;
                         cam.focusDistance = state.Lens.FocusDistance;
+#if CINEMACHINE_HDRP
                         cam.iso = state.Lens.Iso;
                         cam.shutterSpeed = state.Lens.ShutterSpeed;
                         cam.aperture = state.Lens.Aperture;

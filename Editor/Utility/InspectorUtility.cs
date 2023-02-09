@@ -349,7 +349,8 @@ namespace Cinemachine.Editor
             {
                 var allSources = ReflectionHelpers.GetTypesInAllDependentAssemblies(
                     (Type t) => inputType.IsAssignableFrom(t) && !t.IsAbstract 
-                        && typeof(MonoBehaviour).IsAssignableFrom(t));
+                        && typeof(MonoBehaviour).IsAssignableFrom(t)
+                        && t.GetCustomAttribute<ObsoleteAttribute>() == null);
                 var s = string.Empty;
                 foreach (var t in allSources)
                 {
@@ -363,6 +364,15 @@ namespace Cinemachine.Editor
             return s_AssignableTypes[inputType];
         }
 
+        public static bool GetUseHorizontalFOV(Camera camera)
+        {
+            if (camera == null)
+                return false;
+
+            // This should really be a global setting, but for now there is no better way than this!
+            var p = new SerializedObject(camera).FindProperty("m_FOVAxisMode");
+            return (p != null && p.intValue == (int)Camera.FieldOfViewAxis.Horizontal);
+        }
 
         ///==============================================================================================
         ///==============================================================================================
@@ -501,28 +511,35 @@ namespace Cinemachine.Editor
 
                 // Swap the open and closed foldouts when the foldout is opened or closed
                 closedContainer.SetVisible(!foldout.value);
+                foldout.SetVisible(foldout.value);
+
                 closedFoldout.RegisterValueChangedCallback((evt) =>
                 {
-                    if (evt.newValue)
+                    if (evt.target == closedFoldout)
                     {
-                        closedContainer.SetVisible(false);
-                        foldout.SetVisible(true);
-                        foldout.value = true;
-                        closedFoldout.SetValueWithoutNotify(false);
-                        foldout.Focus(); // GML why doesn't this work?
+                        if (evt.newValue && evt.target == closedFoldout)
+                        {
+                            closedContainer.SetVisible(false);
+                            foldout.SetVisible(true);
+                            foldout.value = true;
+                            closedFoldout.SetValueWithoutNotify(false);
+                            //foldout.Focus(); // GML why doesn't this work?
+                        }
                         evt.StopPropagation();
                     }
                 });
-                foldout.SetVisible(foldout.value);
                 foldout.RegisterValueChangedCallback((evt) =>
                 {
-                    if (!evt.newValue)
+                    if (evt.target == foldout)
                     {
-                        closedContainer.SetVisible(true);
-                        foldout.SetVisible(false);
-                        closedFoldout.SetValueWithoutNotify(false);
-                        foldout.value = false;
-                        closedFoldout.Focus(); // GML why doesn't this work?
+                        if (!evt.newValue)
+                        {
+                            closedContainer.SetVisible(true);
+                            foldout.SetVisible(false);
+                            closedFoldout.SetValueWithoutNotify(false);
+                            foldout.value = false;
+                            //closedFoldout.Focus(); // GML why doesn't this work?
+                        }
                         evt.StopPropagation();
                     }
                 });

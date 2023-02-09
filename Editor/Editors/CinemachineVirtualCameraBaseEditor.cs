@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cinemachine.Utility;
+using System.Reflection;
 
 #if CINEMACHINE_UNITY_INPUTSYSTEM
 using UnityEngine.InputSystem;
@@ -11,7 +12,7 @@ using UnityEngine.InputSystem;
 
 #if CINEMACHINE_HDRP
     using UnityEngine.Rendering.HighDefinition;
-#elif CINEMACHINE_LWRP_7_3_1
+#elif CINEMACHINE_URP
     using UnityEngine.Rendering.Universal;
 #endif
 
@@ -24,16 +25,8 @@ namespace Cinemachine.Editor
     /// <typeparam name="T">The type of CinemachineVirtualCameraBase being edited</typeparam>
     class CinemachineVirtualCameraBaseEditor<T> : BaseEditor<T> where T : CinemachineVirtualCameraBase
     {    
-        /// <summary>A collection of GUIContent for use in the inspector</summary>
-        public static class Styles
-        {
-            /// <summary>GUIContent for Add Extension</summary>
-            public static GUIContent addExtensionLabel = new GUIContent("Add Extension");
-            /// <summary>GUIContent for no-multi-select message</summary>
-            public static GUIContent virtualCameraChildrenInfoMsg 
-                = new GUIContent("The Virtual Camera Children field is not available when multiple objects are selected.");
-        }
-        
+        static GUIContent s_AddExtensionLabel = new ("Add Extension", "Add a Cinemachine Extension behaviour");
+
         static Type[] sExtensionTypes;  // First entry is null
         static string[] sExtensionNames;
         bool IsPrefabBase { get; set; }
@@ -66,7 +59,8 @@ namespace Cinemachine.Editor
                 names.Add("(select)");
                 var allExtensions
                     = ReflectionHelpers.GetTypesInAllDependentAssemblies(
-                            (Type t) => typeof(CinemachineExtension).IsAssignableFrom(t) && !t.IsAbstract);
+                            (Type t) => typeof(CinemachineExtension).IsAssignableFrom(t)
+                            && !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
                 foreach (Type t in allExtensions)
                 {
                     exts.Add(t);
@@ -96,7 +90,7 @@ namespace Cinemachine.Editor
         public override void OnInspectorGUI()
         {
             BeginInspector();
-            UpgradeManagerInspectorHelpers.DrawUpgradeControls(this, "CmCamera");
+            UpgradeManagerInspectorHelpers.DrawUpgradeControls(this, "CinemachineCamera");
             DrawCameraStatusInInspector();
             DrawGlobalControlsInInspector();
             DrawInputProviderButtonInInspector();
@@ -198,7 +192,7 @@ namespace Cinemachine.Editor
                 EditorGUILayout.Space();
                 EditorGUILayout.LabelField("Extensions", EditorStyles.boldLabel);
                 Rect rect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight);
-                rect = EditorGUI.PrefixLabel(rect, Styles.addExtensionLabel);
+                rect = EditorGUI.PrefixLabel(rect, s_AddExtensionLabel);
 
                 int selection = EditorGUI.Popup(rect, 0, sExtensionNames);
                 if (selection > 0)
@@ -290,31 +284,24 @@ namespace Cinemachine.Editor
         protected void DrawGlobalControlsInInspector()
         {
             if (m_GuidesLabel == null)
-                m_GuidesLabel = new ("Game Guides:", CinemachineCorePrefs.s_ShowInGameGuidesLabel.tooltip);
+                m_GuidesLabel = new ("Game View Guides", CinemachineCorePrefs.s_ShowInGameGuidesLabel.tooltip);
 
-            var labelWidth = EditorGUIUtility.labelWidth;
-            var rect = EditorGUILayout.GetControlRect();
-            var w1 = labelWidth + InspectorUtility.SingleLineHeight + 5;
-            var w2 = rect.width - w1;
-            rect.width = w1;
-            SaveDuringPlay.SaveDuringPlay.Enabled = EditorGUI.Toggle(
-                rect, CinemachineCorePrefs.s_SaveDuringPlayLabel, SaveDuringPlay.SaveDuringPlay.Enabled);
-            rect.x += w1; rect.width = w2;
-            EditorGUIUtility.labelWidth = GUI.skin.label.CalcSize(m_GuidesLabel).x;
+            SaveDuringPlay.Enabled = EditorGUILayout.Toggle(
+                CinemachineCorePrefs.s_SaveDuringPlayLabel, SaveDuringPlay.Enabled);
+
             int index = CinemachineCorePrefs.ShowInGameGuides.Value 
                 ? (CinemachineCorePrefs.DraggableComposerGuides.Value ? 2 : 1) : 0;
-            var newIndex = EditorGUI.Popup(rect, m_GuidesLabel, index, s_GuidesChoices);
+            var newIndex = EditorGUILayout.Popup(m_GuidesLabel, index, s_GuidesChoices);
             if (index != newIndex)
             {
                 CinemachineCorePrefs.ShowInGameGuides.Value = newIndex != 0;
                 CinemachineCorePrefs.DraggableComposerGuides.Value = newIndex == 2;
                 InspectorUtility.RepaintGameView();
             }
-            EditorGUIUtility.labelWidth = labelWidth;
 
-            if (Application.isPlaying && SaveDuringPlay.SaveDuringPlay.Enabled)
+            if (Application.isPlaying && SaveDuringPlay.Enabled)
                 EditorGUILayout.HelpBox(
-                    "CmCamera settings changes made during Play Mode will be "
+                    "CinemachineCamera settings changes made during Play Mode will be "
                         + "propagated back to the scene when Play Mode is exited.",
                     MessageType.Info);
         }

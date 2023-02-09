@@ -79,7 +79,7 @@ namespace Cinemachine
         [MinMaxRangeSlider(1, 179)]
         public Vector2 FovRange = new Vector2(1, 100);
 
-        /// <summary>Allowable range for the camera to move.  0 is the undollied position.  
+        /// <summary>Allowable range for the camera to move. 0 is the undollied position.  
         /// Negative values move the camera closer to the target.</summary>
         [Tooltip("Allowable range for the camera to move.  0 is the undollied position.  "
             + "Negative values move the camera closer to the target.")]
@@ -123,7 +123,7 @@ namespace Cinemachine
         /// <summary>For editor visualization of the calculated bounding box of the group</summary>
         internal Matrix4x4 GroupBoundsMatrix;
 
-        class VcamExtraState
+        class VcamExtraState : VcamExtraStateBase
         {
             public Vector3 PosAdjustment;
             public Vector2 RotAdjustment;
@@ -159,7 +159,8 @@ namespace Cinemachine
             if (stage != CinemachineCore.Stage.Noise)
                 return;
             
-            var group = vcam.FollowTargetAsGroup;
+            var group = vcam.LookAtTargetAsGroup;
+            group ??= vcam.FollowTargetAsGroup;
             if (group == null)
                 return;
 

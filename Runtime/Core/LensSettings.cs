@@ -3,7 +3,7 @@ using System;
 
 #if CINEMACHINE_HDRP
     using UnityEngine.Rendering.HighDefinition;
-#elif CINEMACHINE_LWRP_7_3_1
+#elif CINEMACHINE_URP
     using UnityEngine.Rendering.Universal;
 #endif
 
@@ -60,7 +60,7 @@ namespace Cinemachine
         public float Dutch;
 
         /// <summary>
-        /// This enum controls how the Camera seetings are driven.  Some settings
+        /// This enum controls how the Camera settings are driven.  Some settings
         /// can be pulled from the main camera, or pushed to it, depending on these values.
         /// </summary>
         public enum OverrideModes
@@ -125,14 +125,14 @@ namespace Cinemachine
         { 
             get { return ModeOverride == OverrideModes.Physical 
                 || ModeOverride == OverrideModes.None && m_PhysicalFromCamera; } 
-
-            /// Obsolete: do not use
+            
+            [Obsolete("No longer supported")]
             set { m_PhysicalFromCamera = value; ModeOverride = value 
                 ? OverrideModes.Physical : OverrideModes.Perspective; } 
         }
 
 #if UNITY_EDITOR
-        internal bool UseHorizontalFOV { get; private set; }
+        internal Camera SourceCamera { get; private set; }
 #endif
 
         /// <summary>For physical cameras only: position of the gate relative to 
@@ -143,7 +143,11 @@ namespace Cinemachine
         /// if the aspect ratios differ</summary>
         public Camera.GateFitMode GateFit;
 
-        [SerializeField] Vector2 m_SensorSize;
+        // internal for inspector only
+        [SerializeField] internal Vector2 m_SensorSize;
+
+        /// <summary>Distance from the camera lens at which focus is sharpest.</summary>
+        public float FocusDistance;
 
         bool m_OrthoFromCamera;
         bool m_PhysicalFromCamera;
@@ -154,7 +158,6 @@ namespace Cinemachine
         public float ShutterSpeed;
         [RangeSlider(Camera.kMinAperture, Camera.kMaxAperture)]
         public float Aperture;
-        public float FocusDistance;
         [RangeSlider(Camera.kMinBladeCount, Camera.kMaxBladeCount)]
         public int BladeCount;
         [MinMaxRangeSlider(Camera.kMinAperture, Camera.kMaxAperture)]
@@ -177,17 +180,21 @@ namespace Cinemachine
             LensSettings lens = Default;
             if (fromCamera != null)
             {
+                lens.PullInheritedPropertiesFromCamera(fromCamera);
+
                 lens.FieldOfView = fromCamera.fieldOfView;
                 lens.OrthographicSize = fromCamera.orthographicSize;
                 lens.NearClipPlane = fromCamera.nearClipPlane;
                 lens.FarClipPlane = fromCamera.farClipPlane;
-                lens.LensShift = fromCamera.lensShift;
-                lens.GateFit = fromCamera.gateFit;
-                lens.SnapshotCameraReadOnlyProperties(fromCamera);
 
-#if CINEMACHINE_HDRP
                 if (lens.IsPhysicalCamera)
                 {
+                    lens.FieldOfView = Camera.FocalLengthToFieldOfView(Mathf.Max(0.01f, fromCamera.focalLength), fromCamera.sensorSize.y);
+                    lens.SensorSize = fromCamera.sensorSize;
+                    lens.LensShift = fromCamera.lensShift;
+                    lens.GateFit = fromCamera.gateFit;
+                    lens.FocusDistance = fromCamera.focusDistance;
+#if CINEMACHINE_HDRP
                     lens.Iso = fromCamera.iso;
                     lens.ShutterSpeed = fromCamera.shutterSpeed;
                     lens.Aperture = fromCamera.aperture;
@@ -195,66 +202,54 @@ namespace Cinemachine
                     lens.Curvature = fromCamera.curvature;
                     lens.BarrelClipping = fromCamera.barrelClipping;
                     lens.Anamorphism = fromCamera.anamorphism;
-                }
 #endif
+                }
             }
             return lens;
         }
 
         /// <summary>
-        /// Snapshot the properties that are read-only in the Camera
+        /// In the event that there is no camera mode override, camera mode is driven
+        /// by the Camera's state.
         /// </summary>
         /// <param name="camera">The Camera from which we will take the info</param>
-        public void SnapshotCameraReadOnlyProperties(Camera camera)
+        public void PullInheritedPropertiesFromCamera(Camera camera)
         {
-            m_OrthoFromCamera = false;
-            m_PhysicalFromCamera = false;
-#if UNITY_EDITOR
-            UseHorizontalFOV = false;
-#endif
-            if (camera != null && ModeOverride == OverrideModes.None)
+            if (ModeOverride == OverrideModes.None)
             {
                 m_OrthoFromCamera = camera.orthographic;
                 m_PhysicalFromCamera = camera.usePhysicalProperties;
-                m_SensorSize = camera.sensorSize;
-                GateFit = camera.gateFit;
             }
-            if (IsPhysicalCamera)
+            if (!IsPhysicalCamera)
             {
-                // If uninitialized, do an initial pull from the camera
-                if (camera != null && m_SensorSize == Vector2.zero)
-                {
-                    m_SensorSize = camera.sensorSize;
-                    GateFit = camera.gateFit;
-                }
-            }
-            else
-            {
-                if (camera != null)
-                    m_SensorSize = new Vector2(camera.aspect, 1f);
+                // For nonphysical cameras, aspect is encoded in the sensor size
+                m_SensorSize = new Vector2(camera.aspect, 1f);
                 LensShift = Vector2.zero;
             }
+
 #if UNITY_EDITOR
-            // This should really be a global setting, but for now there is no better way than this!
-            var p = new UnityEditor.SerializedObject(camera).FindProperty("m_FOVAxisMode");
-            UseHorizontalFOV = (p != null && p.intValue == (int)Camera.FieldOfViewAxis.Horizontal);
+            SourceCamera = camera; // hack because of missing Unity API to get horizontal or vertical fov mode
 #endif
         }
 
         /// <summary>
-        /// Snapshot the properties that are read-only in the Camera
+        /// Copy the properties controlled by camera mode.  If ModeOverride is None, then
+        /// some internal state information must be transferred.
         /// </summary>
-        /// <param name="lens">The LensSettings from which we will take the info</param>
-        public void SnapshotCameraReadOnlyProperties(ref LensSettings lens)
+        /// <param name="fromLens">The LensSettings from which we will take the info</param>
+        public void CopyCameraMode(ref LensSettings fromLens)
         {
+            ModeOverride = fromLens.ModeOverride;
             if (ModeOverride == OverrideModes.None)
             {
-                m_OrthoFromCamera = lens.Orthographic;
-                m_SensorSize = lens.m_SensorSize;
-                m_PhysicalFromCamera = lens.IsPhysicalCamera;
+                m_OrthoFromCamera = fromLens.Orthographic;
+                m_PhysicalFromCamera = fromLens.IsPhysicalCamera;
             }
             if (!IsPhysicalCamera)
+            {
                 LensShift = Vector2.zero;
+                m_SensorSize = fromLens.m_SensorSize;
+            }
         }
 
         /// <summary>
@@ -277,6 +272,7 @@ namespace Cinemachine
             Dutch = dutch;
             m_SensorSize = Vector2.one;
             GateFit = Camera.GateFitMode.Horizontal;
+            FocusDistance = 10;
 
 #if CINEMACHINE_HDRP
             Iso = 200;
@@ -309,15 +305,15 @@ namespace Cinemachine
             else
             {
                 var blendedLens = lensB; 
-                blendedLens.Lerp(lensA, t);
+                blendedLens.Lerp(lensA, 1 - t);
                 return blendedLens;
             }
         }
 
         /// <summary>
-        /// Lerp the lerpable values.  Nonlerpable values remain intact.
+        /// Lerp the interpolatable values. Values that can't be interpolated remain intact.
         /// </summary>
-        /// <param name="lensB">The lens containing the values to compine with this one</param>
+        /// <param name="lensB">The lens containing the values to combine with this one</param>
         /// <param name="t">The weight of LensB's values.</param>
         public void Lerp(in LensSettings lensB, float t)
         {
@@ -328,6 +324,7 @@ namespace Cinemachine
             Dutch = Mathf.Lerp(Dutch, lensB.Dutch, t);
             m_SensorSize = Vector2.Lerp(m_SensorSize, lensB.m_SensorSize, t);
             LensShift = Vector2.Lerp(LensShift, lensB.LensShift, t);
+            FocusDistance = Mathf.Lerp(FocusDistance, lensB.FocusDistance, t);
 
 #if CINEMACHINE_HDRP
             Iso = Mathf.RoundToInt(Mathf.Lerp((float)Iso, (float)lensB.Iso, t));
@@ -347,6 +344,7 @@ namespace Cinemachine
             FieldOfView = Mathf.Clamp(FieldOfView, 0.01f, 179f);
             m_SensorSize.x = Mathf.Max(m_SensorSize.x, 0.1f);
             m_SensorSize.y = Mathf.Max(m_SensorSize.y, 0.1f);
+            FocusDistance = Mathf.Max(FocusDistance, 0.01f);
 #if CINEMACHINE_HDRP
             ShutterSpeed = Mathf.Max(0, ShutterSpeed);
             Aperture = Mathf.Clamp(Aperture, Camera.kMinAperture, Camera.kMaxAperture);
@@ -362,7 +360,7 @@ namespace Cinemachine
         /// Compare two lens settings objects for approximate equality
         /// </summary>
         /// <param name="a">First LensSettings</param>
-        /// <param name="b">Second Lens Settigs</param>
+        /// <param name="b">Second Lens Settings</param>
         /// <returns>True if the two lenses are approximately equal</returns>
         public static bool AreEqual(ref LensSettings a, ref LensSettings b)
         {
@@ -377,6 +375,7 @@ namespace Cinemachine
                 && Mathf.Approximately(a.SensorSize.x, b.SensorSize.x)
                 && Mathf.Approximately(a.SensorSize.y, b.SensorSize.y)
                 && a.GateFit == b.GateFit
+                && Mathf.Approximately(a.FocusDistance, b.FocusDistance)
 #if CINEMACHINE_HDRP
                 && Mathf.Approximately(a.Iso, b.Iso)
                 && Mathf.Approximately(a.ShutterSpeed, b.ShutterSpeed)
