@@ -1,10 +1,9 @@
 using UnityEngine;
-using Cinemachine.Utility;
 using System.Collections.Generic;
 using System;
-using Cinemachine.TargetTracking;
+using Unity.Cinemachine.TargetTracking;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This is a CinemachineComponent in the the Body section of the component pipeline.
@@ -17,7 +16,7 @@ namespace Cinemachine
     [CameraPipeline(CinemachineCore.Stage.Body)]
     [HelpURL(Documentation.BaseURL + "manual/CinemachineOrbitalFollow.html")]
     public class CinemachineOrbitalFollow 
-        : CinemachineComponentBase, IInputAxisSource, IInputAxisResetSource
+        : CinemachineComponentBase, IInputAxisOwner, IInputAxisResetSource
         , CinemachineFreeLookModifier.IModifierValueSource
         , CinemachineFreeLookModifier.IModifiablePositionDamping
         , CinemachineFreeLookModifier.IModifiableDistance
@@ -79,7 +78,7 @@ namespace Cinemachine
         /// <summary>
         /// Input axis controller registers here a delegate to call when the camera is reset
         /// </summary>
-        IInputAxisResetSource.ResetHandler m_ResetHandler;
+        Action m_ResetHandler;
         
         void OnValidate()
         {
@@ -120,23 +119,23 @@ namespace Cinemachine
 
         /// <summary>Report the available input axes</summary>
         /// <param name="axes">Output list to which the axes will be added</param>
-        void IInputAxisSource.GetInputAxes(List<IInputAxisSource.AxisDescriptor> axes)
+        void IInputAxisOwner.GetInputAxes(List<IInputAxisOwner.AxisDescriptor> axes)
         {
-            axes.Add(new () { DrivenAxis = () => ref HorizontalAxis, Name = "Look Orbit X", Hint = IInputAxisSource.AxisDescriptor.Hints.X });
-            axes.Add(new () { DrivenAxis = () => ref VerticalAxis, Name = "Look Orbit Y", Hint = IInputAxisSource.AxisDescriptor.Hints.Y });
+            axes.Add(new () { DrivenAxis = () => ref HorizontalAxis, Name = "Look Orbit X", Hint = IInputAxisOwner.AxisDescriptor.Hints.X });
+            axes.Add(new () { DrivenAxis = () => ref VerticalAxis, Name = "Look Orbit Y", Hint = IInputAxisOwner.AxisDescriptor.Hints.Y });
             axes.Add(new () { DrivenAxis = () => ref RadialAxis, Name = "Orbit Scale" });
         }
 
         /// <summary>Register a handler that will be called when input needs to be reset</summary>
         /// <param name="handler">The handler to register</param>
-        void IInputAxisResetSource.RegisterResetHandler(IInputAxisResetSource.ResetHandler handler) => m_ResetHandler += handler;
+        void IInputAxisResetSource.RegisterResetHandler(Action handler) => m_ResetHandler += handler;
 
         /// <summary>Unregister a handler that will be called when input needs to be reset</summary>
         /// <param name="handler">The handler to unregister</param>
-        void IInputAxisResetSource.UnregisterResetHandler(IInputAxisResetSource.ResetHandler handler) => m_ResetHandler -= handler;
+        void IInputAxisResetSource.UnregisterResetHandler(Action handler) => m_ResetHandler -= handler;
 
         /// <summary>Inspector checks this and displays warning if no handler</summary>
-        internal bool HasInputHandler => m_ResetHandler != null;
+        bool IInputAxisResetSource.HasResetHandler => m_ResetHandler != null;
 
         float CinemachineFreeLookModifier.IModifierValueSource.NormalizedModifierValue => GetCameraPoint().w;
 
@@ -190,16 +189,14 @@ namespace Cinemachine
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
         /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
-        /// <param name="transitionParams">Transition settings for this vcam</param>
         /// <returns>True if the vcam should do an internal update as a result of this call</returns>
         public override bool OnTransitionFromCamera(
-            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
-            ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
             m_ResetHandler?.Invoke(); // cancel re-centering
             if (fromCam != null
-                && transitionParams.InheritPosition
-                && !CinemachineCore.Instance.IsLiveInBlend(VirtualCamera))
+                && (VirtualCamera.State.BlendHint & CameraState.BlendHints.InheritPosition) != 0
+                && !CinemachineCore.IsLiveInBlend(VirtualCamera))
             {
                 var state = fromCam.State;
                 ForceCameraPosition(state.RawPosition, state.RawOrientation);
@@ -356,7 +353,7 @@ namespace Cinemachine
             if (!IsValid)
                 return;
 
-            if (deltaTime < 0 || !VirtualCamera.PreviousStateIsValid || !CinemachineCore.Instance.IsLive(VirtualCamera))
+            if (deltaTime < 0 || !VirtualCamera.PreviousStateIsValid || !CinemachineCore.IsLive(VirtualCamera))
                 m_ResetHandler?.Invoke();
 
             Vector3 offset = GetCameraPoint();

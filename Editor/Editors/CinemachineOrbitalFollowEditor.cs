@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineOrbitalFollow))]
     [CanEditMultipleObjects]
@@ -11,21 +11,14 @@ namespace Cinemachine.Editor
     {
         CinemachineOrbitalFollow Target => target as CinemachineOrbitalFollow;
 
-        CmPipelineComponentInspectorUtility m_PipelineUtility;
-        VisualElement m_NoControllerHelp;
-
         void OnEnable()
         {
-            m_PipelineUtility = new (this);
-            EditorApplication.update += UpdateHelpBoxes;
             CinemachineSceneToolUtility.RegisterTool(typeof(FollowOffsetTool));
             CinemachineSceneToolUtility.RegisterTool(typeof(OrbitalFollowOrbitSelection));
         }
         
         void OnDisable()
         {
-            m_PipelineUtility.OnDisable();
-            EditorApplication.update -= UpdateHelpBoxes;
             CinemachineSceneToolUtility.UnregisterTool(typeof(FollowOffsetTool));
             CinemachineSceneToolUtility.UnregisterTool(typeof(OrbitalFollowOrbitSelection));
         }
@@ -33,8 +26,7 @@ namespace Cinemachine.Editor
         public override VisualElement CreateInspectorGUI()
         {
             var ux = new VisualElement();
-
-            m_PipelineUtility.AddMissingCmCameraHelpBox(ux, CmPipelineComponentInspectorUtility.RequiredTargets.Follow);
+            this.AddMissingCmCameraHelpBox(ux, CmPipelineComponentInspectorUtility.RequiredTargets.Tracking);
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.TrackerSettings)));
             ux.AddSpace();
 
@@ -44,59 +36,20 @@ namespace Cinemachine.Editor
             var m_Orbits = ux.AddChild(new PropertyField(serializedObject.FindProperty(() => Target.Orbits)));
 
             ux.AddSpace();
-            m_NoControllerHelp = ux.AddChild(InspectorUtility.CreateHelpBoxWithButton(
-                "Orbital Follow has no input axis controller behaviour.", HelpBoxMessageType.Info,
-                "Add Input Controller", () =>
-            {
-                Undo.SetCurrentGroupName("Add Input Axis Controller");
-                for (int i = 0; i < targets.Length; ++i)
-                {
-                    var t = (CinemachineOrbitalFollow)targets[i];
-                    if (!t.HasInputHandler)
-                    {
-                        if (!t.VirtualCamera.TryGetComponent<InputAxisController>(out var controller))
-                            Undo.AddComponent<InputAxisController>(t.VirtualCamera.gameObject);
-                        else if (!controller.enabled)
-                        {
-                            Undo.RecordObject(controller, "enable controller");
-                            controller.enabled = true;
-                        }
-                    }
-                }
-            }));
+            this.AddInputControllerHelp(ux, "Orbital Follow has no input axis controller behaviour.");
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.HorizontalAxis)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.VerticalAxis)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.RadialAxis)));
 
-            TrackOrbitMode(orbitModeProp);
-            ux.TrackPropertyValue(orbitModeProp, TrackOrbitMode);
-
-            void TrackOrbitMode(SerializedProperty modeProp)
+            ux.TrackPropertyWithInitialCallback(orbitModeProp, (p) =>
             {
-                var mode = (CinemachineOrbitalFollow.OrbitStyles)modeProp.intValue;
+                var mode = (CinemachineOrbitalFollow.OrbitStyles)p.intValue;
                 m_Radius.SetVisible(mode == CinemachineOrbitalFollow.OrbitStyles.Sphere);
                 m_Orbits.SetVisible(mode == CinemachineOrbitalFollow.OrbitStyles.ThreeRing);
-            }
-
-            m_PipelineUtility.UpdateState();
-            UpdateHelpBoxes();
+            });
             return ux;
         }
 
-        void UpdateHelpBoxes()
-        {
-            if (target == null || m_NoControllerHelp == null)
-                return;  // target was deleted
-            bool noHandler = false;
-            for (int i = 0; i < targets.Length; ++i)
-            {
-                var t = (CinemachineOrbitalFollow)targets[i];
-                noHandler |= !t.HasInputHandler;
-            }
-            if (m_NoControllerHelp != null)
-                m_NoControllerHelp.SetVisible(noHandler);
-        }
-  
         static GUIContent[] s_OrbitNames = 
         {
             new GUIContent("Top"), 
@@ -196,7 +149,7 @@ namespace Cinemachine.Editor
             var vcam = orbital.VirtualCamera;
             if (vcam != null && vcam.Follow != null)
             {
-                var color = CinemachineCore.Instance.IsLive(vcam)
+                var color = CinemachineCore.IsLive(vcam)
                     ? CinemachineCorePrefs.BoundaryObjectGizmoColour.Value
                     : CinemachineCorePrefs.InactiveGizmoColour.Value;
                 var targetPos = orbital.FollowTargetPosition;

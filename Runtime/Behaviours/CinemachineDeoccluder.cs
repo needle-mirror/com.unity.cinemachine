@@ -2,10 +2,9 @@
 
 using UnityEngine;
 using System.Collections.Generic;
-using Cinemachine.Utility;
 using System;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// An add-on module for CinemachineCamera that post-processes
@@ -39,7 +38,7 @@ namespace Cinemachine
 
         /// <summary>Obstacles closer to the target than this will be ignored</summary>
         [Tooltip("Obstacles closer to the target than this will be ignored")]
-        public float MinimumDistanceFromTarget = 0.1f;
+        public float MinimumDistanceFromTarget = 0.2f;
 
         /// <summary>Settings for deoccluding the camera when obstacles are present</summary>
         [Serializable]
@@ -132,7 +131,7 @@ namespace Cinemachine
                 DistanceLimit = 0,
                 MinimumOcclusionTime = 0,
                 CameraRadius = 0.1f,
-                Strategy = ResolutionStrategy.PreserveCameraHeight,
+                Strategy = ResolutionStrategy.PullCameraForward,
                 MaximumEffort = 4,
                 SmoothingTime = 0,
                 Damping = 0.2f,
@@ -221,7 +220,7 @@ namespace Cinemachine
             CollideAgainst = 1;
             IgnoreTag = string.Empty;
             TransparentLayers = 0;
-            MinimumDistanceFromTarget = 0.1f;
+            MinimumDistanceFromTarget = 0.2f;
             AvoidObstacles = ObstacleAvoidance.Default;
             ShotQualityEvaluation = QualityEvaluation.Default;
         }
@@ -296,13 +295,15 @@ namespace Cinemachine
         {
             get
             {
-                List<List<Vector3>> list = new List<List<Vector3>>();
-
+                List<List<Vector3>> list = new ();
                 m_extraStateCache ??= new();
                 GetAllExtraStates(m_extraStateCache);
-                foreach (var e in m_extraStateCache)
+                for (int i = 0; i < m_extraStateCache.Count; ++i)
+                {
+                    var e = m_extraStateCache[i];
                     if (e.DebugResolutionPath != null && e.DebugResolutionPath.Count > 0)
                         list.Add(e.DebugResolutionPath);
+                }
                 return list;
             }
         }
@@ -362,7 +363,7 @@ namespace Cinemachine
 
                     // Apply distance smoothing - this can artificially hold the camera closer
                     // to the target for a while, to reduce popping in and out on bumpy objects
-                    if (AvoidObstacles.SmoothingTime > Epsilon)
+                    if (AvoidObstacles.SmoothingTime > Epsilon && state.HasLookAt())
                     {
                         var pos = initialCamPos + displacement;
                         var dir = pos - state.ReferenceLookAt;
@@ -382,12 +383,14 @@ namespace Cinemachine
 
                     // Apply additional correction due to camera radius
                     var cameraPos = initialCamPos + displacement;
+                    var referenceLookAt = state.HasLookAt() ? state.ReferenceLookAt : cameraPos;
                     if (AvoidObstacles.Strategy != ObstacleAvoidance.ResolutionStrategy.PullCameraForward)
-                        displacement += RespectCameraRadius(cameraPos, state.HasLookAt() ? state.ReferenceLookAt : cameraPos);
+                        displacement += RespectCameraRadius(cameraPos, referenceLookAt);
 
                     // Apply damping
                     float dampTime = AvoidObstacles.DampingWhenOccluded;
-                    if (deltaTime >= 0 && vcam.PreviousStateIsValid && AvoidObstacles.DampingWhenOccluded + AvoidObstacles.Damping > Epsilon)
+                    if (deltaTime >= 0 && vcam.PreviousStateIsValid 
+                        && AvoidObstacles.DampingWhenOccluded + AvoidObstacles.Damping > Epsilon)
                     {
                         // To ease the transition between damped and undamped regions, we damp the damp time
                         var dispSqrMag = displacement.sqrMagnitude;
@@ -395,7 +398,7 @@ namespace Cinemachine
                         if (dispSqrMag < Epsilon)
                             dampTime = extra.PreviousDampTime - Damper.Damp(extra.PreviousDampTime, dampTime, deltaTime);
 
-                        var prevDisplacement = state.ReferenceLookAt + dampingBypass * extra.PreviousCameraOffset - initialCamPos;
+                        var prevDisplacement = referenceLookAt + dampingBypass * extra.PreviousCameraOffset - initialCamPos;
                         displacement = prevDisplacement + Damper.Damp(displacement - prevDisplacement, dampTime, deltaTime);
                     }
                     
@@ -403,9 +406,9 @@ namespace Cinemachine
                     cameraPos = state.GetCorrectedPosition();
 
                     // Adjust the damping bypass to account for the displacement
-                    if (state.HasLookAt() && vcam.PreviousStateIsValid)
+                    if (vcam.PreviousStateIsValid)
                     {
-                        var dir0 = extra.PreviousCameraPosition - state.ReferenceLookAt;
+                        var dir0 = extra.PreviousCameraPosition - referenceLookAt;
                         var dir1 = cameraPos - state.ReferenceLookAt;
                         if (dir0.sqrMagnitude > Epsilon && dir1.sqrMagnitude > Epsilon)
                             state.RotationDampingBypass = UnityVectorExtensions.SafeFromToRotation(
@@ -413,7 +416,7 @@ namespace Cinemachine
                     }
 
                     extra.PreviousDisplacement = displacement;
-                    extra.PreviousCameraOffset = cameraPos - state.ReferenceLookAt;
+                    extra.PreviousCameraOffset = cameraPos - referenceLookAt;
                     extra.PreviousCameraPosition = cameraPos;
                     extra.PreviousDampTime = dampTime;
                 }
@@ -681,8 +684,7 @@ namespace Cinemachine
 
             // If we are close to parallel to the plane, we have to take special action
             var angle = Mathf.Abs(UnityVectorExtensions.Angle(startPlane.normal, ray.direction) - 90);
-            if (angle < k_AngleThreshold)
-                distance = Mathf.Lerp(0, distance, angle / k_AngleThreshold);
+            distance = Mathf.Lerp(0, distance, angle / k_AngleThreshold);
             return distance;
         }
 

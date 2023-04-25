@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     /// <summary>
     /// This is a generic Tool class for Cinemachine tools.
@@ -205,7 +205,7 @@ namespace Cinemachine.Editor
             EditorApplication.update -= DisplayAndUpdateOrbitIfRequired;
         }
         
-        Type m_OrbitalFollowSelectionType = typeof(OrbitalFollowOrbitSelection);
+        readonly Type m_OrbitalFollowSelectionType = typeof(OrbitalFollowOrbitSelection);
         void DisplayAndUpdateOrbitIfRequired()
         {
             var active = Selection.activeObject as GameObject;

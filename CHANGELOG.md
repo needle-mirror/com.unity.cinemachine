@@ -4,6 +4,40 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.0.0-pre.5] - 2023-04-25
+
+### Fixed
+- Bugfix: MixingCamera calls OnTransitionFromCamera correctly for all its children.
+
+### Added
+- New BlendHint: IgnoreTarget will blend rotations without considering the tracking target.
+- New BlendHint: FreezeWhenBlendingOut will blend out from a snapshot of the camera state.
+- InputAxisController has the option to suppress input while the attached camera is blending.
+- Added CinemachineCameraEvents and CinemachineBrainEvents behaviours for event processing.
+- Added BlendFinished and CameraDeactivated events.
+- Add split screen sample for the input system.
+- Samples UI works with both built-in Input System.
+- Timeline: Added Track Priority field in CinemachineTrack to control track precedence when tracks are contained in nested timelines.
+- New 2D platformer sample showing custom camera manager.
+
+### Changed
+- Minimum Unity version is now 2022.2.15, for best inspector experience.
+- All namespaces changed from "Cinemachine" to "Unity.Cinemachine".
+- "Cinemachine.Utility" namespace folded into to "Unity.Cinemachine".
+- CinemachineBlendListCamera has been renamed to CinemachineSequencerCamera.
+- Renamed .asmdef files to follow the convention: Unity.[PackageName].
+- TrackedObjectOffset renamed to TargetOffset.
+- Improved layout of PositionComposer and RotationComposer inspectors.
+- LensSettings was refactored to improve handling of SensorSize and other physical properties.
+- Full physical camera support for builtin pipeline.
+- LensPresets and PhysicalLensPresets are now separate assets.
+- CinemachineInputAxisController refactored to be more easily customized.
+- Samples are compatible with Built-in, Universal, and High Definition Render Pipelines.
+- CinemachineUpgradeManager re-opens original scene after upgrade is complete.
+- Events system refactored.
+- Refactored CinemachineCameraManagerBase to be more useful for customizing.
+- CinemchineCore refactored to remove singleton.
+
 
 ## [3.0.0-pre.4] - 2023-02-09
 

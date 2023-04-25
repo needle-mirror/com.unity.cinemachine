@@ -1,29 +1,21 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Cinemachine.Utility;
 using System;
+using UnityEngine.Events;
 
-namespace Cinemachine.Examples
+namespace Unity.Cinemachine.Samples
 {
-    public class SimplePlayerController : MonoBehaviour, IInputAxisSource
+    public abstract class SimplePlayerControllerBase : MonoBehaviour, IInputAxisOwner
     {
         public float Speed = 1f;
         public float SprintSpeed = 4;
         public float JumpSpeed = 4;
         public float SprintJumpSpeed = 6;
     
-        public float Damping = 0.5f;
-
-        public enum ForwardModes { Camera, Player, World };
-        public ForwardModes InputForward = ForwardModes.Camera;
-        public enum UpModes { Player, World };
-        public UpModes UpMode = UpModes.World;
-
-        public bool Strafe = false;
         public bool LockCursor = false;
 
         public Action PreUpdate;
-        public Action PostUpdate;
+        public Action<Vector3, float> PostUpdate;
         public Action StartJump;
         public Action EndJump;
 
@@ -40,6 +32,38 @@ namespace Cinemachine.Examples
         [Tooltip("Sprint movement.  Value is 0 or 1. If 1, then is sprinting")]
         public InputAxis Sprint = InputAxis.DefaultMomentary;
 
+        [Header("Events")]
+        [Tooltip("This event is sent when the player lands after a jump.")]
+        public UnityEvent Landed = new ();
+        
+        public void EnableLockCursor(bool enable) => LockCursor = enable;
+
+        /// Report the available input axes to the input axis controller.
+        /// We use the Input Axis Controller because it works with both the Input package
+        /// and the Legacy input system.  This is sample code and we
+        /// want it to work everywhere.
+        void IInputAxisOwner.GetInputAxes(List<IInputAxisOwner.AxisDescriptor> axes)
+        {
+            axes.Add(new () { DrivenAxis = () => ref MoveX, Name = "Move X", Hint = IInputAxisOwner.AxisDescriptor.Hints.X });
+            axes.Add(new () { DrivenAxis = () => ref MoveZ, Name = "Move Z", Hint = IInputAxisOwner.AxisDescriptor.Hints.Y });
+            axes.Add(new () { DrivenAxis = () => ref Jump, Name = "Jump" });
+            axes.Add(new () { DrivenAxis = () => ref Sprint, Name = "Sprint" });
+        }
+    }
+
+    public class SimplePlayerController : SimplePlayerControllerBase
+    {
+        public float Damping = 0.5f;
+        public bool Strafe = false;
+
+        public enum ForwardModes { Camera, Player, World };
+        public ForwardModes InputForward = ForwardModes.Camera;
+        public enum UpModes { Player, World };
+        public UpModes UpMode = UpModes.World;
+
+        [Tooltip("Override the main camera. Useful for split screen games.")]
+        public Camera CameraOverride;
+        
         Vector3 m_CurrentVelocityXZ;
         Vector3 m_LastInput;
         float m_CurrentVelocityY;
@@ -47,36 +71,11 @@ namespace Cinemachine.Examples
         bool m_IsJumping;
         CharacterController m_Controller; // optional
 
-        // Get velocity relative to player transform
-        public Vector3 GetPlayerVelocity()
-        {
-            var vel = Quaternion.Inverse(transform.rotation) * m_CurrentVelocityXZ;
-            vel.y = m_CurrentVelocityY;
-            return vel;
-        }
-
         public bool IsSprinting => m_IsSprinting;
         public bool IsJumping => m_IsJumping;
         public bool IsMoving => m_LastInput.sqrMagnitude > 0.01f;
 
-        public void EnableLockCursor(bool enable) => LockCursor = enable;
-
-        /// Report the available input axes to the input axis controller.
-        /// We use the Input Axis Controller because it works with both the Input package
-        /// and the Legacy input system.  This is sample code and we
-        /// want it to work everywhere.
-        void IInputAxisSource.GetInputAxes(List<IInputAxisSource.AxisDescriptor> axes)
-        {
-            axes.Add(new () { DrivenAxis = () => ref MoveX, Name = "Move X", Hint = IInputAxisSource.AxisDescriptor.Hints.X });
-            axes.Add(new () { DrivenAxis = () => ref MoveZ, Name = "Move Z", Hint = IInputAxisSource.AxisDescriptor.Hints.Y });
-            axes.Add(new () { DrivenAxis = () => ref Jump, Name = "Jump" });
-            axes.Add(new () { DrivenAxis = () => ref Sprint, Name = "Sprint" });
-        }
-
-        void Start()
-        {
-            TryGetComponent(out m_Controller);
-        }
+        void Start() => TryGetComponent(out m_Controller);
 
         private void OnEnable()
         {
@@ -133,7 +132,13 @@ namespace Cinemachine.Examples
                 transform.rotation = Quaternion.Slerp(qA, qB, Damper.Damp(1, damping, Time.deltaTime));
             }
 
-            PostUpdate?.Invoke();
+            if (PostUpdate != null)
+            {
+                // Get local-space velocity
+                var vel = Quaternion.Inverse(transform.rotation) * m_CurrentVelocityXZ;
+                vel.y = m_CurrentVelocityY;
+                PostUpdate(vel, m_IsSprinting ? JumpSpeed / SprintJumpSpeed : 1);
+            }
         }
 
         Vector3 UpDirection => UpMode == UpModes.World ? Vector3.up : transform.up;
@@ -144,7 +149,7 @@ namespace Cinemachine.Examples
             var up = UpDirection;
             var fwd = InputForward switch
             {
-                ForwardModes.Camera => Camera.main.transform.forward,
+                ForwardModes.Camera => CameraOverride == null? Camera.main.transform.forward : CameraOverride.transform.forward,
                 ForwardModes.Player => transform.forward,
                 _ => Vector3.forward,
             };
@@ -160,14 +165,13 @@ namespace Cinemachine.Examples
 
         bool ProcessJump()
         {
-            const float kGravity = -9.8f;
+            const float kGravity = -10;
             bool justLanded = false;
             m_CurrentVelocityY += kGravity * Time.deltaTime;
             if (!m_IsJumping && Jump.Value > 0.01f)
             {
                 m_IsJumping = true;
-                if (StartJump != null)
-                    StartJump();
+                StartJump?.Invoke();
                 m_CurrentVelocityY = m_IsSprinting ? SprintJumpSpeed : JumpSpeed;
             }
             if (IsGrounded() && m_CurrentVelocityY < 0)
@@ -175,10 +179,10 @@ namespace Cinemachine.Examples
                 m_CurrentVelocityY = 0;
                 if (m_IsJumping)
                 {
-                    if (EndJump != null)
-                        EndJump();
+                    EndJump?.Invoke();
                     m_IsJumping = false;
                     justLanded = true;
+                    Landed.Invoke();
                 }
             }
             return justLanded;
@@ -224,9 +228,9 @@ namespace Cinemachine.Examples
 
         float GetDistanceFromGround(Vector3 pos, Vector3 up, float max)
         {
-            float hExtraHeight = 2;
-            if (Physics.Raycast(pos + up * hExtraHeight, -up, out var hit, max + hExtraHeight, LayerMask.GetMask("Default")))
-                return hit.distance - hExtraHeight; 
+            float kExtraHeight = 2;
+            if (Physics.Raycast(pos + up * kExtraHeight, -up, out var hit, max + kExtraHeight, LayerMask.GetMask("Default")))
+                return hit.distance - kExtraHeight; 
             return max + 1;
         }
     }

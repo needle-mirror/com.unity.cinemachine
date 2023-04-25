@@ -2,7 +2,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineSplineDolly))]
     [CanEditMultipleObjects]
@@ -10,24 +10,19 @@ namespace Cinemachine.Editor
     {
         CinemachineSplineDolly Target => target as CinemachineSplineDolly;
 
-        CmPipelineComponentInspectorUtility m_PipelineUtility;
-
-        void OnEnable() => m_PipelineUtility = new (this);
-        void OnDisable() => m_PipelineUtility.OnDisable();
-
         public override VisualElement CreateInspectorGUI()
         {
             var ux = new VisualElement();
 
-            m_PipelineUtility.AddMissingCmCameraHelpBox(ux);
+            this.AddMissingCmCameraHelpBox(ux);
             var noSplineHelp = ux.AddChild(new HelpBox("A Spline is required.", HelpBoxMessageType.Warning));
 
             var splineProp = serializedObject.FindProperty(() => Target.Spline);
             ux.Add(new PropertyField(splineProp));
 
-            var row = ux.AddChild(InspectorUtility.CreatePropertyRow(
+            var row = ux.AddChild(InspectorUtility.PropertyRow(
                 serializedObject.FindProperty(() => Target.CameraPosition), out _));
-            row.Right.Add(new PropertyField(serializedObject.FindProperty(() => Target.PositionUnits), "") 
+            row.Contents.Add(new PropertyField(serializedObject.FindProperty(() => Target.PositionUnits), "") 
                 { style = { flexGrow = 2, flexBasis = 0 }});
 
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.SplineOffset)));
@@ -44,7 +39,7 @@ namespace Cinemachine.Editor
                     noSpline = targets[i] != null && ((CinemachineSplineDolly)targets[i]).Spline == null;
                 noSplineHelp.SetVisible(noSpline);
             }
-            m_PipelineUtility.UpdateState();
+
             return ux;
         }
     }

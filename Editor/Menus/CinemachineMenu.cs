@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.Splines;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     static class CinemachineMenu
     {
@@ -82,7 +82,7 @@ namespace Cinemachine.Editor
                 vcam.Follow = targetObject.transform;
             Undo.AddComponent<CinemachineOrbitalFollow>(vcam.gameObject).OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.ThreeRing;
             Undo.AddComponent<CinemachineRotationComposer>(vcam.gameObject);
-            Undo.AddComponent<InputAxisController>(vcam.gameObject);
+            Undo.AddComponent<CinemachineInputAxisController>(vcam.gameObject);
             Undo.AddComponent<CinemachineFreeLookModifier>(vcam.gameObject).enabled = false;
         }
         
@@ -126,25 +126,24 @@ namespace Cinemachine.Editor
             targetGroup.AddMember(targetObject == null ? null : targetObject.transform, 1, 0.5f);
         }
         
-        [MenuItem(m_CinemachineGameObjectRootMenu + "Blend List Camera", false, m_GameObjectMenuPriority)]
+        [MenuItem(m_CinemachineGameObjectRootMenu + "Sequencer Camera", false, m_GameObjectMenuPriority)]
         static void CreateBlendListCamera(MenuCommand command)
         {
             CinemachineEditorAnalytics.SendCreateEvent("Blend List Camera");
-            var blendListCamera = CreateCinemachineObject<CinemachineBlendListCamera>(
-                "Blend List Camera", command.context as GameObject, true);
+            var sequencer = CreateCinemachineObject<CinemachineSequencerCamera>(
+                "Sequencer Camera", command.context as GameObject, true);
 
             // We give the camera a couple of children as an example of setup
-            var childVcam1 = CreatePassiveCmCamera(parentObject: blendListCamera.gameObject);
-            var childVcam2 = CreatePassiveCmCamera(parentObject: blendListCamera.gameObject);
+            var childVcam1 = CreatePassiveCmCamera(parentObject: sequencer.gameObject);
+            var childVcam2 = CreatePassiveCmCamera(parentObject: sequencer.gameObject);
             childVcam2.Lens.FieldOfView = 10;
 
             // Set up initial instruction set
-            blendListCamera.Instructions = new CinemachineBlendListCamera.Instruction[2];
-            blendListCamera.Instructions[0].Camera = childVcam1;
-            blendListCamera.Instructions[0].Hold = 1f;
-            blendListCamera.Instructions[1].Camera = childVcam2;
-            blendListCamera.Instructions[1].Blend.m_Style = CinemachineBlendDefinition.Style.EaseInOut;
-            blendListCamera.Instructions[1].Blend.m_Time = 2f;
+            sequencer.Instructions = new ()
+            {
+                new () { Camera = childVcam1, Hold = 1 },
+                new () { Camera = childVcam2, Blend = new () { Style = CinemachineBlendDefinition.Styles.EaseInOut, Time = 2f }}
+            };
         }
 
 #if CINEMACHINE_UNITY_ANIMATION
@@ -275,6 +274,8 @@ namespace Cinemachine.Editor
         /// <returns>The instance of the component that is added to the new <see cref="GameObject"/>.</returns>
         static T CreateCinemachineObject<T>(string name, GameObject parentObject, bool select) where T : Component
         {
+            var selected = Selection.activeGameObject;
+
             // We always enforce the existence of the CM brain
             GetOrCreateBrain();
 
@@ -289,8 +290,7 @@ namespace Cinemachine.Editor
             // Place vcam as set by the unity editor preferences
             ObjectFactory.PlaceGameObject(go, parentObject);
 
-            if (select)
-                Selection.activeGameObject = go;
+            Selection.activeGameObject = select ? go : selected;
 
             return component;
         }
@@ -301,8 +301,8 @@ namespace Cinemachine.Editor
         /// </summary>
         static CinemachineBrain GetOrCreateBrain()
         {
-            if (CinemachineCore.Instance.BrainCount > 0)
-                return CinemachineCore.Instance.GetActiveBrain(0);
+            if (CinemachineBrain.ActiveBrainCount > 0)
+                return CinemachineBrain.GetActiveBrain(0);
 
             // Create a CinemachineBrain on the main camera
             var cam = Camera.main;

@@ -1,9 +1,8 @@
 using UnityEngine;
 using UnityEditor;
-using Cinemachine.Utility;
 using System.Collections.Generic;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [System.Obsolete]
     [CustomEditor(typeof(CinemachineFramingTransposer))]
@@ -42,7 +41,7 @@ namespace Cinemachine.Editor
             }
             else
             {
-                CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(Target.VirtualCamera);
+                CinemachineBrain brain = CinemachineCore.FindPotentialTargetBrain(Target.VirtualCamera);
                 bool ortho = brain != null ? brain.OutputCamera.orthographic : false;
                 if (ortho)
                 {
@@ -130,7 +129,7 @@ namespace Cinemachine.Editor
             if (!VcamStageEditor.ActiveEditorRegistry.IsActiveEditor(this))
                 return;
 
-            if (brain == null || (brain.OutputCamera.activeTexture != null && CinemachineCore.Instance.BrainCount > 1))
+            if (brain == null || (brain.OutputCamera.activeTexture != null && CinemachineBrain.ActiveBrainCount > 1))
                 return;
 
             var vcam = Target.VirtualCamera;
@@ -138,7 +137,7 @@ namespace Cinemachine.Editor
                 return;
 
             // Screen guides
-            bool isLive = targets.Length <= 1 && brain.IsLive(vcam, true);
+            bool isLive = targets.Length <= 1 && brain.IsLiveChild(vcam, true);
             m_GameViewGuides.OnGUI_DrawGuides(isLive, brain.OutputCamera, vcam.State.Lens);
             
             // Draw an on-screen gizmo for the target

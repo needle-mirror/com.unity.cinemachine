@@ -1,9 +1,8 @@
 using System;
 using System.Linq.Expressions;
-using Cinemachine.Utility;
 using UnityEditor;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     /// <summary>
     /// Helpers for the editor relating to SerializedProperties
@@ -71,7 +70,7 @@ namespace Cinemachine.Editor
             if (paths.Length > 1)
             {
                 var fieldOwner = ReflectionHelpers.GetParentObject(property.propertyPath, targetObject);
-                field = fieldOwner.GetType().GetField(paths[paths.Length-1]);
+                field = fieldOwner?.GetType().GetField(paths[paths.Length-1]);
                 if (field != null)
                     return field.GetValue(fieldOwner);
             }

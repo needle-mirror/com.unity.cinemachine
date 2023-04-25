@@ -5,7 +5,7 @@ using UnityEngine.Serialization;
 using System.Collections.Generic;
 using UnityEngine.Rendering.PostProcessing;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This behaviour is a liaison between Cinemachine and the Post-Processing v2 module.  You must
@@ -93,14 +93,11 @@ namespace Cinemachine
             public void CreateProfileCopy(PostProcessProfile source)
             {
                 DestroyProfileCopy();
-                PostProcessProfile profile = ScriptableObject.CreateInstance<PostProcessProfile>();
-                if (source != null)
+                var profile = ScriptableObject.CreateInstance<PostProcessProfile>();
+                for (int i = 0; source != null && i < source.settings.Count; ++i)
                 {
-                    foreach (var item in source.settings)
-                    {
-                        var itemCopy = Instantiate(item);
-                        profile.settings.Add(itemCopy);
-                    }
+                    var itemCopy = Instantiate(source.settings[i]);
+                    profile.settings.Add(itemCopy);
                 }
                 ProfileCopy = profile;
             }
@@ -197,7 +194,7 @@ namespace Cinemachine
                                 if (focusTarget != null)
                                     focusDistance += (state.GetFinalPosition() - focusTarget.position).magnitude;
                             }
-                            CalculatedFocusDistance = state.Lens.FocusDistance 
+                            CalculatedFocusDistance = state.Lens.PhysicalProperties.FocusDistance 
                                 = dof.focusDistance.value = Mathf.Max(0.01f, focusDistance);
                         }
                     }
@@ -208,8 +205,13 @@ namespace Cinemachine
             }
         }
 
-        static void OnCameraCut(CinemachineBrain brain)
+        static void OnCameraCut(ICinemachineCamera.ActivationEventParams evt)
         {
+            if (!evt.IsCut)
+                return;
+            var brain = evt.Origin as CinemachineBrain;
+            if (brain == null)
+                return;
             // Debug.Log("Camera cut event");
             PostProcessLayer postFX = GetPPLayer(brain);
             if (postFX != null)
@@ -222,7 +224,7 @@ namespace Cinemachine
             if (ppLayer == null || !ppLayer.enabled  || ppLayer.volumeLayer == 0)
                 return;
 
-            CameraState state = brain.CurrentCameraState;
+            CameraState state = brain.State;
             int numBlendables = state.GetNumCustomBlendables();
             List<PostProcessVolume> volumes = GetDynamicBrainVolumes(brain, ppLayer, numBlendables);
             for (int i = 0; i < volumes.Count; ++i)
@@ -297,51 +299,35 @@ namespace Cinemachine
                     }
                 }
                 while (sVolumes.Count < minVolumes)
-                    sVolumes.Add(volumeOwner.gameObject.AddComponent<PostProcessVolume>());
+                    sVolumes.Add(volumeOwner.AddComponent<PostProcessVolume>());
             }
             return sVolumes;
         }
 
-        static Dictionary<CinemachineBrain, PostProcessLayer> mBrainToLayer
-            = new Dictionary<CinemachineBrain, PostProcessLayer>();
+        static Dictionary<CinemachineBrain, PostProcessLayer> s_BrainToLayer = new ();
 
         static PostProcessLayer GetPPLayer(CinemachineBrain brain)
         {
-            bool found = mBrainToLayer.TryGetValue(brain, out PostProcessLayer layer);
+            bool found = s_BrainToLayer.TryGetValue(brain, out PostProcessLayer layer);
             if (layer != null)
                 return layer;   // layer is valid and in our lookup
 
             // If the layer in the lookup table is a deleted object, we must remove
             // the brain's callback for it
-            if (found && !ReferenceEquals(layer, null))
-            {
-                // layer is a deleted object
-                brain.CameraCutEvent.RemoveListener(OnCameraCut);
-                mBrainToLayer.Remove(brain);
-                layer = null;
-                found = false;
-            }
+            if (found && layer is not null)
+                s_BrainToLayer.Remove(brain); // layer is a deleted object
 
-            // Brain is not in our lookup - add it.
+            // If brain is not in our lookup - add it.
             brain.TryGetComponent(out layer);
             if (layer != null)
-            {
-                brain.CameraCutEvent.AddListener(OnCameraCut); // valid layer
-                mBrainToLayer[brain] = layer;
-            }
+                s_BrainToLayer[brain] = layer;
+
             return layer;
         }
 
         static void CleanupLookupTable()
         {
-            var iter = mBrainToLayer.GetEnumerator();
-            while (iter.MoveNext())
-            {
-                var brain = iter.Current.Key;
-                if (brain != null)
-                    brain.CameraCutEvent.RemoveListener(OnCameraCut);
-            }
-            mBrainToLayer.Clear();
+            s_BrainToLayer.Clear();
         }
 
 #if UNITY_EDITOR
@@ -362,7 +348,10 @@ namespace Cinemachine
             CinemachineCore.CameraUpdatedEvent.RemoveListener(ApplyPostFX);
             CinemachineCore.CameraUpdatedEvent.AddListener(ApplyPostFX);
 
-            // Clean up our resources
+            CinemachineCore.CameraActivatedEvent.RemoveListener(OnCameraCut);
+            CinemachineCore.CameraActivatedEvent.AddListener(OnCameraCut);
+
+// Clean up our resources
             SceneManager.sceneUnloaded += (scene) => CleanupLookupTable();
         }
     }

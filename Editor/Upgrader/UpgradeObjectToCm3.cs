@@ -3,14 +3,13 @@
 
 using System;
 using System.Linq;
-using Cinemachine.Utility;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Splines;
 
 using Object = UnityEngine.Object;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     partial class UpgradeObjectToCm3
     {
@@ -311,8 +310,13 @@ namespace Cinemachine.Editor
             cmCamera.Follow = vcam.m_Follow;
             cmCamera.LookAt = vcam.m_LookAt;
             cmCamera.Target.CustomLookAtTarget = vcam.m_Follow != vcam.m_LookAt;
-            cmCamera.Lens = vcam.m_Lens;
-            cmCamera.Transitions = vcam.Transitions;
+            cmCamera.Lens = vcam.Lens;
+            cmCamera.BlendHint = vcam.BlendHint;
+            if (vcam.m_OnCameraLiveEvent.GetPersistentEventCount() > 0)
+            {
+                var evts = Undo.AddComponent<CinemachineLegacyCameraEvents>(go);
+                evts.OnCameraLive = vcam.m_OnCameraLiveEvent;
+            }
                 
             // Transfer the component pipeline
             var pipeline = vcam.GetComponentPipeline();
@@ -340,8 +344,8 @@ namespace Cinemachine.Editor
 
         static void ConvertInputAxis(GameObject go, string name, ref AxisState axis)
         {
-            if (!go.TryGetComponent<InputAxisController>(out var iac))
-                iac = Undo.AddComponent<InputAxisController>(go);
+            if (!go.TryGetComponent<CinemachineInputAxisController>(out var iac))
+                iac = Undo.AddComponent<CinemachineInputAxisController>(go);
 
             // Force creation of missing input controllers
             iac.SynchronizeControllers();
@@ -360,18 +364,18 @@ namespace Cinemachine.Editor
                 if (c.Name == name)
                 {
 #if ENABLE_LEGACY_INPUT_MANAGER
-                    c.LegacyInput = axis.m_InputAxisName;
-                    c.LegacyGain = axis.m_MaxSpeed;
+                    c.Input.LegacyInput = axis.m_InputAxisName;
+                    c.Input.LegacyGain = axis.m_MaxSpeed;
 #endif
 #if CINEMACHINE_UNITY_INPUTSYSTEM
                     if (provider != null)
-                        c.InputAction = provider.XYAxis;
-                    c.Gain = axis.m_MaxSpeed;
+                        c.Input.InputAction = provider.XYAxis;
+                    c.Input.Gain = axis.m_MaxSpeed;
                     if (axis.m_SpeedMode == AxisState.SpeedMode.MaxSpeed)
-                        c.Gain /= 100; // very approx
+                        c.Input.Gain /= 100; // very approx
 #endif
-                    c.Control.AccelTime = axis.m_AccelTime;
-                    c.Control.DecelTime = axis.m_DecelTime;
+                    c.Driver.AccelTime = axis.m_AccelTime;
+                    c.Driver.DecelTime = axis.m_DecelTime;
                     break;
                 }
             }
@@ -401,7 +405,12 @@ namespace Cinemachine.Editor
             cmCamera.Follow = freelook.m_Follow;
             cmCamera.LookAt = freelook.m_LookAt;
             cmCamera.Target.CustomLookAtTarget = freelook.m_Follow != freelook.m_LookAt;
-            cmCamera.Transitions = freelook.Transitions;
+            cmCamera.BlendHint = freelook.BlendHint;
+            if (freelook.m_OnCameraLiveEvent.GetPersistentEventCount() > 0)
+            {
+                var evts = Undo.AddComponent<CinemachineLegacyCameraEvents>(go);
+                evts.OnCameraLive = freelook.m_OnCameraLiveEvent;
+            }
                     
             var freeLookModifier = Undo.AddComponent<CinemachineFreeLookModifier>(go);
             ConvertFreelookLens(freelook, cmCamera, freeLookModifier);
@@ -502,17 +511,17 @@ namespace Cinemachine.Editor
             CinemachineCamera cmCamera, CinemachineFreeLookModifier freeLookModifier)
         {
             if (freelook.m_CommonLens)
-                cmCamera.Lens = freelook.m_Lens;
+                cmCamera.Lens = freelook.Lens;
             else
             {
-                cmCamera.Lens = freelook.GetRig(1).m_Lens;
-                if (!LensSettings.AreEqual(ref freelook.GetRig(1).m_Lens, ref freelook.GetRig(0).m_Lens)
-                    || !LensSettings.AreEqual(ref freelook.GetRig(1).m_Lens, ref freelook.GetRig(2).m_Lens))
+                cmCamera.Lens = freelook.GetRig(1).Lens;
+                if (!LensSettings.AreEqual(ref freelook.GetRig(1).Lens, ref freelook.GetRig(0).Lens)
+                    || !LensSettings.AreEqual(ref freelook.GetRig(1).Lens, ref freelook.GetRig(2).Lens))
                 {
                     freeLookModifier.Modifiers.Add(new CinemachineFreeLookModifier.LensModifier
                     {
-                        Top = freelook.GetRig(0).m_Lens,
-                        Bottom = freelook.GetRig(2).m_Lens
+                        Top = freelook.GetRig(0).Lens,
+                        Bottom = freelook.GetRig(2).Lens
                     });
                 }
             }

@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Cinemachine.Examples
+namespace Unity.Cinemachine.Samples
 {
     public class MoveAimTarget : MonoBehaviour
     {
@@ -72,7 +72,7 @@ namespace Cinemachine.Examples
         private void PlaceTarget()
         {
             var rot = Quaternion.Euler(VerticalAxis.Value, HorizontalAxis.Value, 0);
-            var camPos = Brain.CurrentCameraState.RawPosition;
+            var camPos = Brain.State.RawPosition;
             transform.position = GetProjectedAimTarget(camPos + rot * Vector3.forward, camPos);
         }
 
@@ -128,7 +128,7 @@ namespace Cinemachine.Examples
             if (brain == null || brain != Brain || ReticleImage == null || brain.OutputCamera == null)
                 return;
             PlaceTarget(); // To eliminate judder
-            CameraState state = brain.CurrentCameraState;
+            CameraState state = brain.State;
             var cam = brain.OutputCamera;
             var r = cam.WorldToScreenPoint(transform.position);
             var r2 = new Vector2(r.x - cam.pixelWidth * 0.5f, r.y - cam.pixelHeight * 0.5f);

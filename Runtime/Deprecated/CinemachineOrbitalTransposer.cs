@@ -1,10 +1,9 @@
 using System;
 using UnityEngine;
-using Cinemachine.Utility;
 using UnityEngine.Serialization;
-using Cinemachine.TargetTracking;
+using Unity.Cinemachine.TargetTracking;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>Tracks an object's velocity with a filter to determine a reasonably
     /// steady direction for the object's current trajectory.</summary>
@@ -264,8 +263,9 @@ namespace Cinemachine
         /// Drive the x-axis setting programmatically.
         /// Automatic heading updating will be disabled.
         /// </summary>
+        [FormerlySerializedAs("m_HeadingIsSlave")]
         [HideInInspector, NoSaveDuringPlay]
-        public bool m_HeadingIsSlave = false;
+        public bool m_HeadingIsDriven = false;
 
         /// <summary>
         /// Delegate that allows the the m_XAxis object to be replaced with another one.
@@ -284,7 +284,7 @@ namespace Cinemachine
                     return orbital.UpdateHeading(
                         deltaTime, up, ref orbital.m_XAxis,
                         ref orbital.m_RecenterToTargetHeading,
-                        CinemachineCore.Instance.IsLive(orbital.VirtualCamera));
+                        CinemachineCore.IsLive(orbital.VirtualCamera));
                 };
 
         /// <summary>
@@ -366,7 +366,7 @@ namespace Cinemachine
         internal void UpdateInputAxisProvider()
         {
             m_XAxis.SetInputAxisProvider(0, null);
-            if (!m_HeadingIsSlave && VirtualCamera != null)
+            if (!m_HeadingIsDriven && VirtualCamera != null)
             {
                 var provider = VirtualCamera.GetComponent<AxisState.IInputAxisProvider>();
                 if (provider != null)
@@ -414,18 +414,16 @@ namespace Cinemachine
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
         /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
-        /// <param name="transitionParams">Transition settings for this vcam</param>
         /// <returns>True if the vcam should do an internal update as a result of this call</returns>
         public override bool OnTransitionFromCamera(
-            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
-            ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
             m_RecenterToTargetHeading.DoRecentering(ref m_XAxis, -1, 0);
             m_RecenterToTargetHeading.CancelRecentering();
             if (fromCam != null //&& fromCam.Follow == FollowTarget
                 && m_BindingMode != BindingMode.LazyFollow
-                && transitionParams.InheritPosition
-                && !CinemachineCore.Instance.IsLiveInBlend(VirtualCamera))
+                && (VirtualCamera.State.BlendHint & CameraState.BlendHints.InheritPosition) != 0 
+                && !CinemachineCore.IsLiveInBlend(VirtualCamera))
             {
                 m_XAxis.Value = GetAxisClosestValue(fromCam.State.RawPosition, worldUp);
                 return true;

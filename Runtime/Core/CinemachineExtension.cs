@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// Base class for a CinemachineCamera extension module.
@@ -24,7 +24,7 @@ namespace Cinemachine
         Dictionary<CinemachineVirtualCameraBase, VcamExtraStateBase> m_ExtraState;
 
         /// <summary>Useful constant for very small floats</summary>
-        protected const float Epsilon = Utility.UnityVectorExtensions.Epsilon;
+        protected const float Epsilon = UnityVectorExtensions.Epsilon;
 
         /// <summary>Get the CinemachineVirtualCamera to which this extension is attached.
         /// This is distinct from the CinemachineCameras that the extension will modify,
@@ -59,8 +59,8 @@ namespace Cinemachine
             System.Array.Sort(extensions, (x, y) => 
                 UnityEditor.MonoImporter.GetExecutionOrder(UnityEditor.MonoScript.FromMonoBehaviour(y)) 
                     - UnityEditor.MonoImporter.GetExecutionOrder(UnityEditor.MonoScript.FromMonoBehaviour(x)));
-            foreach (var e in extensions)
-                e.ConnectToVcam(true);
+            for (int i = 0; i < extensions.Length; ++i)
+                extensions[i].ConnectToVcam(true);
         }
 #endif
         internal void EnsureStarted() => ConnectToVcam(true);
@@ -169,8 +169,11 @@ namespace Cinemachine
         {
             list.Clear();
             if (m_ExtraState != null)
-                foreach (var v in m_ExtraState)
-                    list.Add(v.Value as T);
+            {
+                var iter = m_ExtraState.GetEnumerator();
+                while (iter.MoveNext())
+                    list.Add(iter.Current.Value as T);
+            }
         }
     }
 }

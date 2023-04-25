@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using Cinemachine.Utility;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -15,7 +14,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Timeline;
 #endif
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     /// <summary>
     /// Upgrades cm2 to cm3
@@ -33,7 +32,6 @@ namespace Cinemachine.Editor
         const string k_ProgressBarTitle = "Upgrade Progress";
 
         /// <summary>
-        /// GML Temporary helper method for testing.
         /// Upgrades the input gameObject.  Referenced objects (e.g. paths) may also get upgraded.
         /// Obsolete components are deleted.  Timeline references are not patched.
         /// Undo is supported.
@@ -54,8 +52,7 @@ namespace Cinemachine.Editor
         }
 
         /// <summary>
-        /// GML Temporary helper method for testing.
-        /// Upgrades the input gameObject.  Referenced objects (e.g. paths) may also get upgraded.
+        /// Upgrades all the gameObjects in the current scene.  
         /// Obsolete components are deleted.  Timeline references are not patched.
         /// Undo is supported.
         /// </summary>
@@ -110,6 +107,7 @@ namespace Cinemachine.Editor
                 "I made a backup, go ahead", "Cancel"))
             {
                 Thread.Sleep(1); // this is needed so the Display Dialog closes, and lets the progress bar open
+                var originalScenePath = EditorSceneManager.GetActiveScene().path;
                 EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Initializing...", 0);
                 var manager = new CinemachineUpgradeManager(true);
                 manager.PrepareUpgrades(out var conversionLinksPerScene, out var timelineRenames);
@@ -124,6 +122,7 @@ namespace Cinemachine.Editor
                 EditorUtility.DisplayProgressBar(k_ProgressBarTitle, "Cleaning up...", 1);
                 manager.CleanupPrefabAssets();
                 EditorUtility.ClearProgressBar();
+                EditorSceneManager.OpenScene(originalScenePath); // re-open scene where the user was before upgrading
             }
         }
 
@@ -692,7 +691,7 @@ namespace Cinemachine.Editor
         // Hack: ignore nested rigs of a freeLook (GML todo: how to remove this?)
         static bool IsHiddenFreeLookRig(Component c)
         {
-            return !(c is CinemachineFreeLook) && c.GetComponentInParent<CinemachineFreeLook>(true) != null;
+            return c is not CinemachineFreeLook && c.GetComponentInParent<CinemachineFreeLook>(true) != null;
         }
         
         class SceneManager

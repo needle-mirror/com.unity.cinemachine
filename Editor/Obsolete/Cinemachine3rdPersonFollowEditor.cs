@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [System.Obsolete]
     [CustomEditor(typeof(Cinemachine3rdPersonFollow))]
@@ -16,7 +16,7 @@ namespace Cinemachine.Editor
             
             if (target.IsValid)
             {
-                var isLive = CinemachineCore.Instance.IsLive(target.VirtualCamera);
+                var isLive = CinemachineCore.IsLive(target.VirtualCamera);
                 Color originalGizmoColour = Gizmos.color;
                 Gizmos.color = isLive
                     ? CinemachineCorePrefs.ActiveGizmoColour.Value
@@ -53,7 +53,7 @@ namespace Cinemachine.Editor
         public override void OnInspectorGUI()
         {
             BeginInspector();
-            CmPipelineComponentInspectorUtility.IMGUI_DrawMissingCmCameraHelpBox(this, CmPipelineComponentInspectorUtility.RequiredTargets.Follow);
+            this.IMGUI_DrawMissingCmCameraHelpBox(CmPipelineComponentInspectorUtility.RequiredTargets.Tracking);
             DrawRemainingPropertiesInInspector();
         }
 

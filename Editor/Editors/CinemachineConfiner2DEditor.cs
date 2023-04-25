@@ -6,29 +6,28 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineConfiner2D))]
     [CanEditMultipleObjects]
     class CinemachineConfiner2DEditor : UnityEditor.Editor
     {
         CinemachineConfiner2D Target => target as CinemachineConfiner2D;
-        CmPipelineComponentInspectorUtility m_PipelineUtility;
-
-        void OnEnable() => m_PipelineUtility = new (this);
-        void OnDisable() => m_PipelineUtility.OnDisable();
 
         public override VisualElement CreateInspectorGUI()
         {
             var ux = new VisualElement();
 
-            m_PipelineUtility.AddMissingCmCameraHelpBox(ux);
+            this.AddMissingCmCameraHelpBox(ux);
 
             var boundsHelp = ux.AddChild(new HelpBox(
                 "Bounding Shape must be a PolygonCollider2D, BoxCollider2D, or CompositeCollider2D.", 
                 HelpBoxMessageType.Warning));
             var polygonsHelp = ux.AddChild(new HelpBox(
                 "CompositeCollider2D geometry type must be Polygons.", 
+                HelpBoxMessageType.Warning));
+            var invalidCollider2D = ux.AddChild(new HelpBox(
+                "The input Collider2D is not valid; it has no points.", 
                 HelpBoxMessageType.Warning));
 
             var volumeProp = serializedObject.FindProperty(() => Target.BoundingShape2D);
@@ -38,10 +37,9 @@ namespace Cinemachine.Editor
             void TrackVolume(SerializedProperty p)
             {
                 var c = p.objectReferenceValue;
-                boundsHelp.SetVisible(!(c is PolygonCollider2D || c is BoxCollider2D || c is CompositeCollider2D));
-
-                var cc = c as CompositeCollider2D;
-                polygonsHelp.SetVisible(cc != null && cc.geometryType != CompositeCollider2D.GeometryType.Polygons);
+                boundsHelp.SetVisible(c != null && c is not (PolygonCollider2D or BoxCollider2D or CompositeCollider2D));
+                polygonsHelp.SetVisible(c is CompositeCollider2D cc && cc.geometryType != CompositeCollider2D.GeometryType.Polygons);
+                invalidCollider2D.SetVisible(c != null && Target.IsConfinerOvenNull());
             }
             
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Damping)));
@@ -59,14 +57,14 @@ namespace Cinemachine.Editor
                 + "\n\nTo fix this, reduce the number of points in the confining shape, "
                 + "or set the MaxWindowSize parameter to limit skeleton computation.",
                 HelpBoxMessageType.Warning));
-
+            
             UpdateBakingProgress();
             ux.schedule.Execute(UpdateBakingProgress).Every(250); // GML todo: is there a better way to do this?
             void UpdateBakingProgress() 
             {
                 if (Target == null)
                     return; // target deleted
-                
+
                 oversizedCameraHelp.SetVisible(!Target.OversizeWindow.Enabled && Target.IsCameraLensOversized());
                 if (!Target.OversizeWindow.Enabled)
                 {
@@ -94,8 +92,6 @@ namespace Cinemachine.Editor
                     + "(non-uniform scale, rotation, or points are moved, added or deleted)."
             });
 
-            m_PipelineUtility.UpdateState();
-
             return ux;
         }
 
@@ -114,16 +110,18 @@ namespace Cinemachine.Editor
 
             // Draw input confiner
             Gizmos.color = color;
-            foreach (var path in originalPath )
+            for (int i = 0; i < originalPath.Count; ++i)
             {
+                var path = originalPath[i];
                 for (var index = 0; index < path.Count; index++)
                     Gizmos.DrawLine(path[index], path[(index + 1) % path.Count]);
             }
 
             // Draw confiner for current camera size
             Gizmos.color = colorDimmed;
-            foreach (var path in s_CurrentPathCache)
+            for (int i = 0; i < s_CurrentPathCache.Count; ++i)
             {
+                var path = s_CurrentPathCache[i];
                 for (var index = 0; index < path.Count; index++)
                     Gizmos.DrawLine(path[index], path[(index + 1) % path.Count]);
             }

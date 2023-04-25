@@ -2,7 +2,7 @@
 
 #if CINEMACHINE_URP || CINEMACHINE_PIXEL_PERFECT_2_0_3
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// An add-on module for CinemachineCamera that tweaks the orthographic size
@@ -31,8 +31,8 @@ namespace Cinemachine
             if (stage != CinemachineCore.Stage.Body)
                 return;
 
-            var brain = CinemachineCore.Instance.FindPotentialTargetBrain(vcam);
-            if (brain == null || !brain.IsLive(vcam))
+            var brain = CinemachineCore.FindPotentialTargetBrain(vcam);
+            if (brain == null || !brain.IsLiveChild(vcam))
                 return;
 
 #if CINEMACHINE_URP
@@ -58,7 +58,7 @@ namespace Cinemachine
 #else
 
 // We need this dummy MonoBehaviour for Unity to properly recognize this script asset.
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// An add-on module for CinemachineCamera Camera that tweaks the orthographic size

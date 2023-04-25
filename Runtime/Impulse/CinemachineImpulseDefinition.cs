@@ -1,9 +1,8 @@
-using Cinemachine.Utility;
 using System;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// Definition of an impulse signal that gets propagated to listeners.
@@ -226,8 +225,9 @@ namespace Cinemachine
         static void CreateStandardShapes()
         {
             int max = 0;
-            foreach (var value in Enum.GetValues(typeof(ImpulseShapes)))
-                max = Mathf.Max(max, (int)value);
+            var iter = Enum.GetValues(typeof(ImpulseShapes)).GetEnumerator();
+            while (iter.MoveNext())
+                max = Mathf.Max(max, (int)iter.Current);
             s_StandardShapes = new AnimationCurve[max + 1];
 
             s_StandardShapes[(int)ImpulseShapes.Recoil] = new AnimationCurve(new Keyframe[] 

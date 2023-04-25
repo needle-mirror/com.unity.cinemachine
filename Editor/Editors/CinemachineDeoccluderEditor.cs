@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineDeoccluder))]
     [CanEditMultipleObjects]
@@ -14,23 +14,18 @@ namespace Cinemachine.Editor
     {
         CinemachineDeoccluder Target => target as CinemachineDeoccluder;
 
-        CmPipelineComponentInspectorUtility m_PipelineUtility;
-
-        void OnEnable() => m_PipelineUtility = new (this);
-        void OnDisable() => m_PipelineUtility.OnDisable();
-
         public override VisualElement CreateInspectorGUI()
         {
             var ux = new VisualElement();
 
-            m_PipelineUtility.AddMissingCmCameraHelpBox(ux);
+            this.AddMissingCmCameraHelpBox(ux);
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.CollideAgainst)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.IgnoreTag)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.TransparentLayers)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.MinimumDistanceFromTarget)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.AvoidObstacles)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.ShotQualityEvaluation)));
-            m_PipelineUtility.UpdateState();
+
             return ux;
         }
 
@@ -53,13 +48,14 @@ namespace Cinemachine.Editor
                     Gizmos.DrawLine(pos, pos + forwardFeelerVector * distance);
 
                     // Show the avoidance path, for debugging
-                    List<List<Vector3>> debugPaths = collider.DebugPaths;
-                    foreach (var path in debugPaths)
+                    for (int i = 0; i < collider.DebugPaths.Count; ++i)
                     {
+                        var path = collider.DebugPaths[i];
                         Gizmos.color = CinemachineDeoccluderPrefs.CameraPathColor.Value;
                         Vector3 p0 = vcam.State.ReferenceLookAt;
-                        foreach (var p in path)
+                        for (int j = 0; j < path.Count; ++j)
                         {
+                            var p = path[j];
                             Gizmos.DrawLine(p0, p);
                             p0 = p;
                         }

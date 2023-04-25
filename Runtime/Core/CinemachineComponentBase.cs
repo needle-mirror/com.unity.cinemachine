@@ -1,7 +1,6 @@
-using System;
 using UnityEngine;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// An abstract representation of a mutator acting on a CinemachineCamera
@@ -10,7 +9,7 @@ namespace Cinemachine
     public abstract class CinemachineComponentBase : MonoBehaviour
     {
         /// <summary>Useful constant for very small floats</summary>
-        protected const float Epsilon = Utility.UnityVectorExtensions.Epsilon;
+        protected const float Epsilon = UnityVectorExtensions.Epsilon;
 
         /// <summary>Get the associated CinemachineVirtualCameraBase</summary>
         public CinemachineVirtualCameraBase VirtualCamera
@@ -186,11 +185,9 @@ namespace Cinemachine
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
         /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
-        /// <param name="transitionParams">Transition settings for this vcam</param>
         /// <returns>True if the vcam should do an internal update as a result of this call</returns>
         public virtual bool OnTransitionFromCamera(
-            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
-            ref CinemachineVirtualCameraBase.TransitionParams transitionParams) => false;
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime) => false;
 
         /// <summary>This is called to notify the component that a target got warped,
         /// so that the component can update its internal state to make the camera

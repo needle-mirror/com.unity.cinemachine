@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomPropertyDrawer(typeof(InputAxis))]
     class InputAxisWithNamePropertyDrawer : PropertyDrawer
@@ -124,6 +124,8 @@ namespace Cinemachine.Editor
 
             void TrackFlags(SerializedProperty prop)
             {
+                if (prop.serializedObject == null)
+                    return; // object deleted
                 var flags = prop.intValue;
                 var rangeDisabled = (flags & (int)InputAxis.RestrictionFlags.RangeIsDriven) != 0;
                 centerField.SetEnabled(!rangeDisabled);

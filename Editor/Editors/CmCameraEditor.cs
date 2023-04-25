@@ -1,24 +1,24 @@
 ﻿using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
+using UnityEngine;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineCamera))]
     [CanEditMultipleObjects]
     class CmCameraEditor : UnityEditor.Editor 
     {
         CinemachineCamera Target => target as CinemachineCamera;
-        CmCameraInspectorUtility m_CameraUtility = new CmCameraInspectorUtility();
 
         [MenuItem("CONTEXT/CinemachineCamera/Adopt Game View Camera Settings")]
         static void AdoptGameViewCameraSettings(MenuCommand command)
         {
             var cam = command.context as CinemachineCamera;
-            var brain = CinemachineCore.Instance.FindPotentialTargetBrain(cam);
+            var brain = CinemachineCore.FindPotentialTargetBrain(cam);
             if (brain != null)
             {
-                cam.Lens = brain.CurrentCameraState.Lens;
+                cam.Lens = brain.State.Lens;
                 cam.transform.SetPositionAndRotation(brain.transform.position, brain.transform.rotation);
             }
         }
@@ -32,8 +32,6 @@ namespace Cinemachine.Editor
 
         void OnEnable()
         {
-            m_CameraUtility.OnEnable(targets);
-            EditorApplication.update += m_CameraUtility.SortComponents;
             Undo.undoRedoPerformed += ResetTarget;
 
             CinemachineSceneToolUtility.RegisterTool(typeof(FoVTool));
@@ -42,10 +40,8 @@ namespace Cinemachine.Editor
 
         void OnDisable()
         {
-            EditorApplication.update -= m_CameraUtility.SortComponents;
-            m_CameraUtility.OnDisable();
             Undo.undoRedoPerformed -= ResetTarget;
-            
+
             CinemachineSceneToolUtility.UnregisterTool(typeof(FoVTool));
             CinemachineSceneToolUtility.UnregisterTool(typeof(FarNearClipTool));
         }
@@ -54,21 +50,37 @@ namespace Cinemachine.Editor
         {
             var ux = new VisualElement();
 
-            m_CameraUtility.AddCameraStatus(ux);
-            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.StandbyUpdate)));
-            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.PriorityAndChannel)));
-            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Transitions)));
+            this.AddCameraStatus(ux);
+            this.AddTransitionsSection(ux, new () { serializedObject.FindProperty(() => Target.BlendHint) });
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Lens)));
 
             ux.AddHeader("Global Settings");
-            m_CameraUtility.AddGlobalControls(ux);
+            this.AddGlobalControls(ux);
 
-            ux.AddHeader("Procedural Motion");
+            var defaultTargetLabel = new Label() { style = { alignSelf = Align.FlexEnd, opacity = 0.5f }};
+            var row = ux.AddChild(new InspectorUtility.LabeledRow("<b>Procedural Motion</b>", "", defaultTargetLabel));
+            row.focusable = false;
+            row.style.paddingTop = InspectorUtility.SingleLineHeight / 2;
+            row.style.paddingBottom = EditorGUIUtility.standardVerticalSpacing;
+
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Target)));
-            m_CameraUtility.AddPipelineDropdowns(ux);
+            this.AddPipelineDropdowns(ux);
 
             ux.AddSpace();
-            m_CameraUtility.AddExtensionsDropdown(ux);
+            this.AddExtensionsDropdown(ux);
+
+            ux.TrackAnyUserActivity(() => 
+            {
+                if (Target == null)
+                    return; // object deleted
+                var brain = CinemachineCore.FindPotentialTargetBrain(Target);
+                Target.InternalUpdateCameraState(brain == null ? Vector3.up : brain.DefaultWorldUp, -1);
+                bool haveDefault = Target.Target.TrackingTarget != Target.Follow;
+                defaultTargetLabel.SetVisible(haveDefault);
+                if (haveDefault)
+                    defaultTargetLabel.text = "Default target: " + Target.Follow.name;
+                CmCameraInspectorUtility.SortComponents(target as CinemachineVirtualCameraBase);
+            });
 
             return ux;
         }
@@ -85,7 +97,7 @@ namespace Cinemachine.Editor
             {
                 CinemachineSceneToolHelpers.FovToolHandle(cmCam, 
                     new SerializedObject(cmCam).FindProperty(() => cmCam.Lens), 
-                    cmCam.Lens, InspectorUtility.GetUseHorizontalFOV(Target.Lens.SourceCamera));
+                    cmCam.Lens, cmCam.Lens.UseHorizontalFOV);
             }
             else if (CinemachineSceneToolUtility.IsToolActive(typeof(FarNearClipTool)))
             {

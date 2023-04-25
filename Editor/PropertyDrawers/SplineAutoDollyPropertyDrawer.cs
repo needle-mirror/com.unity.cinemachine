@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using Cinemachine.Utility;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using System.Reflection;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomPropertyDrawer(typeof(SplineAutoDolly.ISplineAutoDolly), true)]
     class SplineAutoDollyPropertyDrawer : PropertyDrawer
@@ -35,9 +34,9 @@ namespace Cinemachine.Editor
                 if (index != GetImplementationIndex(property))
                 {
                     var targets = property.serializedObject.targetObjects;
-                    foreach (var t in targets)
+                    for (int i = 0; i < targets.Length; ++i)
                     {
-                        var o = new SerializedObject(t);
+                        var o = new SerializedObject(targets[i]);
                         var p2 = o.FindProperty(property.propertyPath);
                         p2.managedReferenceValue = (index == 0) 
                             ? null : Activator.CreateInstance(AutoDollyMenuItems.s_AllItems[index]);
@@ -49,6 +48,8 @@ namespace Cinemachine.Editor
             Update();
             ux.TrackPropertyValue(property, (p) => 
             {
+                if (p.serializedObject == null)
+                    return; // object deleted
                 Update();
                 ux.Bind(p.serializedObject); // Bind is not automatic after the the initial creation
             });

@@ -1,8 +1,7 @@
 using System;
 using UnityEngine;
-using Cinemachine.Utility;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// Third-person follower, with complex pivoting: horizontal about the origin, 
@@ -184,7 +183,7 @@ namespace Cinemachine
 
         /// <summary>Get the Cinemachine Pipeline stage that this component implements.
         /// Always returns the Aim stage</summary>
-        public override CinemachineCore.Stage Stage { get { return CinemachineCore.Stage.Body; } }
+        public override CinemachineCore.Stage Stage { get => CinemachineCore.Stage.Body; }
 
         /// <summary>
         /// Report maximum damping time needed for this component.
@@ -194,7 +193,8 @@ namespace Cinemachine
         { 
             return Mathf.Max(
 #if CINEMACHINE_PHYSICS
-                AvoidObstacles.Enabled ? Mathf.Max(AvoidObstacles.DampingIntoCollision, AvoidObstacles.DampingFromCollision) : 0,
+                AvoidObstacles.Enabled ? Mathf.Max(
+                    AvoidObstacles.DampingIntoCollision, AvoidObstacles.DampingFromCollision) : 0,
 #else
                 0,
 #endif

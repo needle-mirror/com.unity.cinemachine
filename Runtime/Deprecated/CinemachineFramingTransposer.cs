@@ -1,9 +1,8 @@
 using System;
-using Cinemachine.Utility;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This is a deprecated component.  Use CinemachinePositionComposer instead.
@@ -355,14 +354,13 @@ namespace Cinemachine
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
         /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
-        /// <param name="transitionParams">Transition settings for this vcam</param>
         /// <returns>True if the vcam should do an internal update as a result of this call</returns>
         public override bool OnTransitionFromCamera(
-            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
-            ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
-            if (fromCam != null && transitionParams.InheritPosition
-                 && !CinemachineCore.Instance.IsLiveInBlend(VirtualCamera))
+            if (fromCam != null 
+                && (VirtualCamera.State.BlendHint & CameraState.BlendHints.InheritPosition) != 0 
+                && !CinemachineCore.IsLiveInBlend(VirtualCamera))
             {
                 m_PreviousCameraPosition = fromCam.State.RawPosition;
                 m_prevRotation = fromCam.State.RawOrientation;
@@ -691,7 +689,7 @@ namespace Cinemachine
         // Helper to upgrade to CM3
         internal void UpgradeToCm3(CinemachinePositionComposer c)
         {
-            c.TrackedObjectOffset = m_TrackedObjectOffset;
+            c.TargetOffset = m_TrackedObjectOffset;
             c.Lookahead = new LookaheadSettings
             {
                 Enabled = m_LookaheadTime > 0,

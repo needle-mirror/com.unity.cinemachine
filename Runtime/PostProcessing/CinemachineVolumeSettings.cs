@@ -11,7 +11,7 @@ using UnityEngine.Rendering;
     using UnityEngine.Rendering.Universal;
 #endif
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This behaviour is a liaison between Cinemachine with the Post-Processing v3 module,
@@ -100,14 +100,11 @@ namespace Cinemachine
             {
                 DestroyProfileCopy();
                 VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
-                if (source != null)
+                for (int i = 0; source != null && i < source.components.Count; ++i)
                 {
-                    foreach (var item in source.components)
-                    {
-                        var itemCopy = Instantiate(item);
-                        profile.components.Add(itemCopy);
-                        profile.isDirty = true;
-                    }
+                    var itemCopy = Instantiate(source.components[i]);
+                    profile.components.Add(itemCopy);
+                    profile.isDirty = true;
                 }
                 ProfileCopy = profile;
             }
@@ -205,7 +202,7 @@ namespace Cinemachine
                             }
                             CalculatedFocusDistance = focusDistance = Mathf.Max(0, focusDistance);
                             dof.focusDistance.value = focusDistance;
-                            state.Lens.FocusDistance = focusDistance;
+                            state.Lens.PhysicalProperties.FocusDistance = focusDistance;
                             profile.isDirty = true;
                         }
                     }
@@ -215,13 +212,14 @@ namespace Cinemachine
             }
         }
 
-        static void OnCameraCut(CinemachineBrain brain)
+        static void OnCameraCut(ICinemachineCamera.ActivationEventParams evt)
         {
-            //Debug.Log($"Camera cut to {brain.ActiveVirtualCamera.Name}");
+            var brain = evt.Origin as CinemachineBrain;
+            //Debug.Log($"Camera cut to {brain?.ActiveVirtualCamera.Name}");
 
 #if CINEMACHINE_HDRP
             // Reset temporal effects
-            var cam = brain.OutputCamera;
+            var cam = brain?.OutputCamera;
             if (cam != null)
             {
                 HDCamera hdCam = HDCamera.GetOrCreate(cam);
@@ -231,7 +229,7 @@ namespace Cinemachine
             }
 #elif CINEMACHINE_URP
             // Reset temporal effects
-            var cam = brain.OutputCamera;
+            var cam = brain?.OutputCamera;
             if (cam != null && cam.TryGetComponent<UniversalAdditionalCameraData>(out var data))
                 data.resetHistory = true;
 #endif
@@ -239,7 +237,7 @@ namespace Cinemachine
 
         static void ApplyPostFX(CinemachineBrain brain)
         {
-            CameraState state = brain.CurrentCameraState;
+            CameraState state = brain.State;
             int numBlendables = state.GetNumCustomBlendables();
             var volumes = GetDynamicBrainVolumes(brain, numBlendables);
             for (int i = 0; i < volumes.Count; ++i)
@@ -275,8 +273,8 @@ namespace Cinemachine
 //                Debug.Log($"Applied post FX for {numPPblendables} PP blendables in {brain.ActiveVirtualCamera.Name}");
         }
 
-        static string sVolumeOwnerName = "__CMVolumes";
-        static List<Volume> sVolumes = new List<Volume>();
+        const string sVolumeOwnerName = "__CMVolumes";
+        static List<Volume> sVolumes = new();
         static List<Volume> GetDynamicBrainVolumes(CinemachineBrain brain, int minVolumes)
         {
             // Locate the camera's child object that holds our dynamic volumes
@@ -340,8 +338,8 @@ namespace Cinemachine
             // After the brain pushes the state to the camera, hook in to the PostFX
             CinemachineCore.CameraUpdatedEvent.RemoveListener(ApplyPostFX);
             CinemachineCore.CameraUpdatedEvent.AddListener(ApplyPostFX);
-            CinemachineCore.CameraCutEvent.RemoveListener(OnCameraCut);
-            CinemachineCore.CameraCutEvent.AddListener(OnCameraCut);
+            CinemachineCore.CameraActivatedEvent.RemoveListener(OnCameraCut);
+            CinemachineCore.CameraActivatedEvent.AddListener(OnCameraCut);
         }
     }
 }

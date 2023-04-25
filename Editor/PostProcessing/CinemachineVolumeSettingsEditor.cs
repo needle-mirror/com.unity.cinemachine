@@ -13,7 +13,7 @@ using System.IO;
 using UnityEngine.Rendering.Universal;
 #endif
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineVolumeSettings))]
     class CinemachineVolumeSettingsEditor : UnityEditor.Editor
@@ -51,7 +51,7 @@ namespace Cinemachine.Editor
         {
             serializedObject.Update();
 
-            CmPipelineComponentInspectorUtility.IMGUI_DrawMissingCmCameraHelpBox(this);
+            this.IMGUI_DrawMissingCmCameraHelpBox();
 
             EditorGUI.BeginChangeCheck();
 
@@ -172,8 +172,7 @@ namespace Cinemachine.Editor
 
         void RefreshVolumeComponentEditor(VolumeProfile asset)
         {
-            if (m_ComponentList == null)
-                m_ComponentList = new VolumeComponentListEditor(this);
+            m_ComponentList ??= new VolumeComponentListEditor(this);
             m_ComponentList.Clear();
             if (asset != null)
                 m_ComponentList.Init(asset, new SerializedObject(asset));
@@ -196,8 +195,9 @@ namespace Cinemachine.Editor
             asset.components.Clear();
             AssetDatabase.CreateAsset(asset, path);
 
-            foreach (var item in origin.components)
+            for (int i = 0; i < origin.components.Count; ++i)
             {
+                var item = origin.components[i];
                 var itemCopy = Instantiate(item);
                 itemCopy.hideFlags = HideFlags.HideInInspector | HideFlags.HideInHierarchy;
                 itemCopy.name = item.name;

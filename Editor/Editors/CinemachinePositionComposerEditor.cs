@@ -1,23 +1,20 @@
 using UnityEngine;
 using UnityEditor;
-using Cinemachine.Utility;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachinePositionComposer))]
     [CanEditMultipleObjects]
     class CinemachinePositionComposerEditor : UnityEditor.Editor
     {
-        CmPipelineComponentInspectorUtility m_PipelineUtility;
         GameViewComposerGuides m_GameViewGuides = new();
 
         CinemachinePositionComposer Target => target as CinemachinePositionComposer;
 
         protected virtual void OnEnable()
         {
-            m_PipelineUtility = new (this);
             m_GameViewGuides.GetComposition = () => Target.Composition;
             m_GameViewGuides.SetComposition = (s) => Target.Composition = s;
             m_GameViewGuides.Target = () => serializedObject;
@@ -34,7 +31,6 @@ namespace Cinemachine.Editor
 
         protected virtual void OnDisable()
         {
-            m_PipelineUtility.OnDisable();
             m_GameViewGuides.OnDisable();
             CinemachineDebug.OnGUIHandlers -= OnGuiHandler;
             if (CinemachineCorePrefs.ShowInGameGuides.Value)
@@ -47,17 +43,17 @@ namespace Cinemachine.Editor
         public override VisualElement CreateInspectorGUI()
         {
             var ux = new VisualElement();
-
-            m_PipelineUtility.AddMissingCmCameraHelpBox(ux, CmPipelineComponentInspectorUtility.RequiredTargets.Follow);
-            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.TrackedObjectOffset)));
-            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Damping)));
+            this.AddMissingCmCameraHelpBox(ux, CmPipelineComponentInspectorUtility.RequiredTargets.Tracking);
+            ux.AddHeader("Camera Position");
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.CameraDistance)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.DeadZoneDepth)));
-            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.CenterOnActivate)));
+            ux.AddHeader("Composition");
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Composition)));
+            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.CenterOnActivate)));
+            ux.AddHeader("Target Tracking");
+            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.TargetOffset)));
+            ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Damping)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Lookahead)));
-
-            m_PipelineUtility.UpdateState();
             return ux;
         }
 
@@ -66,7 +62,8 @@ namespace Cinemachine.Editor
             if (Target == null || !CinemachineCorePrefs.ShowInGameGuides.Value || !Target.isActiveAndEnabled)
                 return;
 
-            if (brain == null || (brain.OutputCamera.activeTexture != null && CinemachineCore.Instance.BrainCount > 1))
+            if (brain == null || brain.OutputCamera == null
+                    || (brain.OutputCamera.activeTexture != null && CinemachineBrain.ActiveBrainCount > 1))
                 return;
 
             var vcam = Target.VirtualCamera;
@@ -74,7 +71,7 @@ namespace Cinemachine.Editor
                 return;
 
             // Screen guides
-            bool isLive = targets.Length <= 1 && brain.IsLive(vcam, true);
+            bool isLive = targets.Length <= 1 && brain.IsLiveChild(vcam, true);
             m_GameViewGuides.OnGUI_DrawGuides(isLive, brain.OutputCamera, vcam.State.Lens);
 
             // Draw an on-screen gizmo for the target
@@ -95,7 +92,7 @@ namespace Cinemachine.Editor
             {
                 CinemachineSceneToolHelpers.TrackedObjectOffsetTool(
                     Target.VirtualCamera, 
-                    new SerializedObject(Target).FindProperty(() => Target.TrackedObjectOffset),
+                    new SerializedObject(Target).FindProperty(() => Target.TargetOffset),
                     CinemachineCore.Stage.Body);
             }
             else if (CinemachineSceneToolUtility.IsToolActive(typeof(FollowOffsetTool)))
@@ -127,7 +124,7 @@ namespace Cinemachine.Editor
                 
                 Handles.color = isDraggedOrHovered ? 
                     Handles.selectedColor : CinemachineSceneToolHelpers.HelperLineDefaultColor;
-                Handles.DrawLine(camPos, Target.FollowTargetPosition + Target.TrackedObjectOffset);
+                Handles.DrawLine(camPos, Target.FollowTargetPosition + Target.TargetOffset);
 
                 CinemachineSceneToolHelpers.SoloOnDrag(isDragged, Target.VirtualCamera, cdHandleId);
                 

@@ -3,7 +3,7 @@ using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using UnityEngine;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [CustomEditor(typeof(CinemachineAutoFocus))]
     class CinemachineAutoFocusEditor : UnityEditor.Editor
@@ -13,15 +13,11 @@ namespace Cinemachine.Editor
 #if CINEMACHINE_HDRP
         const string k_ComputeShaderName = "CinemachineFocusDistanceCompute";
 #endif
-        CmPipelineComponentInspectorUtility m_PipelineUtility;
-
-        void OnEnable() => m_PipelineUtility = new (this);
-        void OnDisable() => m_PipelineUtility.OnDisable();
 
         public override VisualElement CreateInspectorGUI()
         {
             var ux = new VisualElement();
-            m_PipelineUtility.AddMissingCmCameraHelpBox(ux);
+            this.AddMissingCmCameraHelpBox(ux);
 #if CINEMACHINE_HDRP
             ux.AddChild(new HelpBox(
                 "Note: focus control requires an active Volume containing a Depth Of Field override "
@@ -49,7 +45,7 @@ namespace Cinemachine.Editor
             var shaderDisplay = ux.AddChild(new PropertyField(computeShaderProp));
             shaderDisplay.SetEnabled(false);
 
-            var importHelp = ux.AddChild(InspectorUtility.CreateHelpBoxWithButton(
+            var importHelp = ux.AddChild(InspectorUtility.HelpBoxWithButton(
                 $"The {k_ComputeShaderName} shader needs to be imported into "
                     + "the project. It will be imported by default into the Assets root.  "
                     + "After importing, you can move it elsewhere but don't rename it.",
@@ -77,6 +73,8 @@ namespace Cinemachine.Editor
 
             void TrackFocusTarget(SerializedProperty p)
             {
+                if (p.serializedObject == null)
+                    return; // object deleted
                 var mode = (CinemachineAutoFocus.FocusTrackingMode)p.intValue;
                 customTarget.SetVisible(mode == CinemachineAutoFocus.FocusTrackingMode.CustomTarget);
                 offset.SetVisible(mode != CinemachineAutoFocus.FocusTrackingMode.None);
@@ -103,13 +101,14 @@ namespace Cinemachine.Editor
             // Make the import box disappear after import
             ux.TrackPropertyValue(computeShaderProp, (p) =>
             {
+                if (p.serializedObject == null)
+                    return; // object deleted
                 var mode = (CinemachineAutoFocus.FocusTrackingMode)focusTargetProp.intValue;
                 importHelp.SetVisible(mode == CinemachineAutoFocus.FocusTrackingMode.ScreenCenter
                     && p.objectReferenceValue == null);
             });
 #endif
 
-            m_PipelineUtility.UpdateState();
             return ux;
         }
 

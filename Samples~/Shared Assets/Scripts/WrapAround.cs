@@ -1,7 +1,6 @@
-using Cinemachine.Utility;
 using UnityEngine;
 
-namespace Cinemachine.Examples
+namespace Unity.Cinemachine.Samples
 {
     /// <summary>
     /// Implements continuous motion by wrapping the position around a range.
@@ -39,7 +38,7 @@ namespace Cinemachine.Examples
                     rb.MovePosition(newPos);
 
                 // Notify any CinemachineCameras that are targeting this object
-                CinemachineCore.Instance.OnTargetObjectWarped(transform, delta);
+                CinemachineCore.OnTargetObjectWarped(transform, delta);
             }
         }
     }

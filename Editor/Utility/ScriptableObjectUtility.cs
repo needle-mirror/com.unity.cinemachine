@@ -3,7 +3,7 @@ using UnityEditor;
 using System.IO;
 using System;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     /// <summary>
     /// This is a collection of utilities surrounding ScriptableObjects
@@ -52,11 +52,9 @@ namespace Cinemachine.Editor
 
             if (trimName)
             {
-                string[] standardNames = new string[] { "Asset", "Attributes", "Container" };
-                foreach (string standardName in standardNames)
-                {
-                    assetName = assetName.Replace(standardName, "");
-                }
+                var standardNames = new string[] { "Asset", "Attributes", "Container" };
+                for (int i = 0; i < standardNames.Length; ++i)
+                    assetName = assetName.Replace(standardNames[i], "");
             }
 
             if (prependFolderName)
@@ -70,7 +68,7 @@ namespace Cinemachine.Editor
 
         private static ScriptableObject Create(string className, string assetName, string folder)
         {
-            ScriptableObject asset = ScriptableObject.CreateInstance(className);
+            var asset = ScriptableObject.CreateInstance(className);
             if (asset == null)
             {
                 Debug.LogError("failed to create instance of " + className);

@@ -1,14 +1,15 @@
-﻿#if CINEMACHINE_UNITY_INPUTSYSTEM
-using System;
-using System.Linq;
+﻿using System;
 using UnityEngine;
+
+#if CINEMACHINE_UNITY_INPUTSYSTEM
+using System.Linq;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Users;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
-    /// This is a deprecated component.  Use CinemachineSplineDolly instead.
+    /// This is a deprecated component.  Use InputAxisController instead.
     /// </summary>
     [Obsolete("CinemachineInputProvider has been deprecated. Use InputAxisController instead.")]
     [AddComponentMenu("")] // Don't display in add component menu
@@ -118,9 +119,7 @@ namespace Cinemachine
     }
 }
 #else
-using UnityEngine;
-
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This is an add-on to override the legacy input system and read input using the
@@ -132,3 +131,29 @@ namespace Cinemachine
     public class CinemachineInputProvider : MonoBehaviour {}
 }
 #endif
+
+namespace Unity.Cinemachine
+{
+    /// <summary>
+    /// IInputAxisProvider is deprecated.  Use InputAxis and InputAxisController instead.
+    /// </summary>
+    [Obsolete("IInputAxisProvider is deprecated.  Use InputAxis and InputAxisController instead")]
+    public static class CinemachineInputProviderExtensions
+    {
+        /// <summary>
+        /// Locate the first component that implements AxisState.IInputAxisProvider.
+        /// </summary>
+        /// <param name="vcam">The virtual camera in queston</param>
+        /// <returns>The first AxisState.IInputAxisProvider or null if none</returns>
+        public static AxisState.IInputAxisProvider GetInputAxisProvider(this CinemachineVirtualCameraBase vcam)
+        {
+            var components = vcam.GetComponentsInChildren<MonoBehaviour>();
+            for (int i = 0; i < components.Length; ++i)
+            {
+                if (components[i] is AxisState.IInputAxisProvider provider)
+                    return provider;
+            }
+            return null;
+        }
+    }
+}

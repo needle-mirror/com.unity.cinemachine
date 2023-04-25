@@ -1,13 +1,12 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Rendering;
-using Cinemachine.Utility;
 
 #if CINEMACHINE_HDRP
 using UnityEngine.Rendering.HighDefinition;
 #endif
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This behaviour will drive the Camera focusDistance property. It can be used to hold focus onto 
@@ -118,7 +117,7 @@ namespace Cinemachine
             CinemachineCore.Stage stage, ref CameraState state, float deltaTime)
         {
 #if CINEMACHINE_HDRP
-            if (FocusTarget != FocusTrackingMode.ScreenCenter || !CinemachineCore.Instance.IsLive(vcam))
+            if (FocusTarget != FocusTrackingMode.ScreenCenter || !CinemachineCore.IsLive(vcam))
                 ReleaseFocusVolume();
 #endif
             // Set the focus after the camera has been fully positioned
@@ -161,7 +160,7 @@ namespace Cinemachine
                     focusDistance = extra.CurrentFocusDistance + Damper.Damp(
                         focusDistance - extra.CurrentFocusDistance, Damping, deltaTime);
                 extra.CurrentFocusDistance = focusDistance;
-                state.Lens.FocusDistance = focusDistance;
+                state.Lens.PhysicalProperties.FocusDistance = focusDistance;
             }
         }
 
@@ -201,7 +200,7 @@ namespace Cinemachine
             }
             if (m_CustomPassVolume == null)
             {
-                var brain = CinemachineCore.Instance.FindPotentialTargetBrain(vcam);
+                var brain = CinemachineCore.FindPotentialTargetBrain(vcam);
                 var cam = brain == null ? null : brain.OutputCamera;
                 if (cam != null)
                 {

@@ -5,7 +5,7 @@ using UnityEditor;
 using System;
 using System.Collections.Generic;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [System.Obsolete]
     [CustomEditor(typeof(CinemachineConfiner))]
@@ -17,7 +17,7 @@ namespace Cinemachine.Editor
         protected override void GetExcludedPropertiesInInspector(List<string> excluded)
         {
             base.GetExcludedPropertiesInInspector(excluded);
-            CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(Target.ComponentOwner);
+            CinemachineBrain brain = CinemachineCore.FindPotentialTargetBrain(Target.ComponentOwner);
             bool ortho = brain != null ? brain.OutputCamera.orthographic : false;
             if (!ortho)
                 excluded.Add(FieldPath(x => x.m_ConfineScreenEdges));
@@ -32,7 +32,7 @@ namespace Cinemachine.Editor
         public override void OnInspectorGUI()
         {
             BeginInspector();
-            CmPipelineComponentInspectorUtility.IMGUI_DrawMissingCmCameraHelpBox(this);
+            this.IMGUI_DrawMissingCmCameraHelpBox();
 
 #if CINEMACHINE_PHYSICS && CINEMACHINE_PHYSICS_2D
             if (Target.m_ConfineMode == CinemachineConfiner.Mode.Confine2D)

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [System.Obsolete]
     [CustomEditor(typeof(CinemachineTrackedDolly))]
@@ -57,7 +57,7 @@ namespace Cinemachine.Editor
                 var path = target.m_Path;
                 if (path != null)
                 {
-                    var isActive = CinemachineCore.Instance.IsLive(target.VirtualCamera);
+                    var isActive = CinemachineCore.IsLive(target.VirtualCamera);
                     CinemachinePathEditor.DrawPathGizmo(path, path.m_Appearance.pathColor, isActive);
                     var pos = path.EvaluatePositionAtUnit(target.m_PathPosition, target.m_PositionUnits);
                     var oldColor = Gizmos.color;

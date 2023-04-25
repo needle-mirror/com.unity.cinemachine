@@ -1,14 +1,13 @@
 using UnityEngine;
 using System;
-using Cinemachine.Utility;
 using System.Collections.Generic;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// Components that hold InputAxisValue structs must implement this interface to be discoverable.
     /// </summary>
-    public interface IInputAxisSource
+    public interface IInputAxisOwner
     {
         /// <summary>
         /// Describes an axis for an axis driver
@@ -55,21 +54,32 @@ namespace Cinemachine
     public interface IInputAxisResetSource
     {
         /// <summary>
-        /// Delegate to be called when input needs to be reset and re-centering cancelled.
-        /// </summary>
-        public delegate void ResetHandler();
-
-        /// <summary>
         /// Register a handler that will be called when input needs to be reset
         /// </summary>
         /// <param name="handler">Then handler to register</param>
-        public void RegisterResetHandler(ResetHandler handler);
+        public void RegisterResetHandler(Action handler);
 
         /// <summary>
         /// Unregister a handler that will be called when input needs to be reset
         /// </summary>
         /// <param name="handler">Then handler to unregister</param>
-        public void UnregisterResetHandler(ResetHandler handler);
+        public void UnregisterResetHandler(Action handler);
+
+        /// <summary>Checks whether any reset handlers have been registered</summary>
+        /// <returns>True if at least one reset handler is registered</returns>
+        public bool HasResetHandler { get; }
+    }
+
+    /// <summary>Abstraction for reading the value of an input axis</summary>
+    public interface IInputAxisReader
+    {
+        /// <summary>Get the current value of the axis.</summary>
+        /// <param name="context">The owner GameObject, can be used for logging diagnostics</param>
+        /// <param name="hint">A hint for converting a Vector2 value to a float</param>
+        /// <returns>The axis value</returns>
+        public float GetValue(
+            UnityEngine.Object context,
+            IInputAxisOwner.AxisDescriptor.Hints hint);
     }
 
     /// <summary>
@@ -294,15 +304,15 @@ namespace Cinemachine
         }
     }
 
-
-     /// <summary>Settings for controlling how input value is processed</summary>
+    /// <summary>
+    /// This object drives an input axis.  
+    /// It reads raw input, applies it to the axis value, with acceleration and deceleration.
+    /// </summary>
     [Serializable]
-    public struct InputAxisControl
+    public struct DefaultInputAxisDriver
     {
-        /// <summary>The value of the user input for this frame.</summary>
-        [Tooltip("The value of the user input for this frame")]
-        [NoSaveDuringPlay]
-        public float InputValue;
+        /// Internal state
+        float m_CurrentSpeed;
 
         /// <summary>The amount of time in seconds it takes to accelerate to
         /// MaxSpeed with the supplied Axis at its maximum value</summary>
@@ -322,48 +332,36 @@ namespace Cinemachine
             AccelTime = Mathf.Max(0, AccelTime);
             DecelTime = Mathf.Max(0, DecelTime);
         }
-    }
-
-    /// <summary>
-    /// This object drives an input axis.  
-    /// It reads raw input, applies it to the axis value, with acceleration and deceleration, 
-    /// and manages re-centering.
-    /// </summary>
-    [Serializable]
-    public struct InputAxisDriver
-    {
-        const float k_Epsilon = UnityVectorExtensions.Epsilon;
-
-        /// Internal state
-        float m_CurrentSpeed;
+        
+        /// <summary>Default value</summary>
+        public static DefaultInputAxisDriver Default => new () { AccelTime = 0.2f, DecelTime = 0.2f };
 
         /// <summary>Apply the input value to the axis value</summary>
-        /// <param name="deltaTime">current deltaTime</param>
         /// <param name="axis">The InputAxisValue to update</param>
-        /// <param name="control">Parameter for controlling the behaviour of the axis</param>
-        public void ProcessInput(
-            float deltaTime, ref InputAxis axis, 
-            ref InputAxisControl control)
+        /// <param name="inputValue">Parameter for controlling the behaviour of the axis</param>
+        /// <param name="deltaTime">current deltaTime</param>
+        public void ProcessInput(ref InputAxis axis, float inputValue, float deltaTime)
         {
-            var input = control.InputValue;
-            var dampTime = Mathf.Abs(input) < Mathf.Abs(m_CurrentSpeed) ? control.DecelTime : control.AccelTime;
+            const float k_Epsilon = UnityVectorExtensions.Epsilon;
+
+            var dampTime = Mathf.Abs(inputValue) < Mathf.Abs(m_CurrentSpeed) ? DecelTime : AccelTime;
             if ((axis.Restrictions & InputAxis.RestrictionFlags.Momentary) == 0)
             {
                 if (deltaTime < 0)
                     m_CurrentSpeed = 0;
                 else
                 {
-                    m_CurrentSpeed += Damper.Damp(input - m_CurrentSpeed, dampTime, deltaTime);
+                    m_CurrentSpeed += Damper.Damp(inputValue - m_CurrentSpeed, dampTime, deltaTime);
 
                     // Decelerate to the end points of the range if not wrapping
                     float range = axis.Range.y - axis.Range.x;
-                    if (!axis.Wrap && control.DecelTime > k_Epsilon && range > UnityVectorExtensions.Epsilon)
+                    if (!axis.Wrap && DecelTime > k_Epsilon && range > k_Epsilon)
                     {
                         var v0 = axis.ClampValue(axis.Value);
                         var v = axis.ClampValue(v0 + m_CurrentSpeed * deltaTime);
                         var d = (m_CurrentSpeed > 0) ? axis.Range.y - v : v - axis.Range.x;
                         if (d < (0.1f * range) && Mathf.Abs(m_CurrentSpeed) > k_Epsilon)
-                            m_CurrentSpeed = Damper.Damp(v - v0, control.DecelTime, deltaTime) / deltaTime;
+                            m_CurrentSpeed = Damper.Damp(v - v0, DecelTime, deltaTime) / deltaTime;
                     }
                 }
                 axis.Value = axis.ClampValue(axis.Value + m_CurrentSpeed * deltaTime);
@@ -375,15 +373,17 @@ namespace Cinemachine
                     axis.Value = axis.Center;
                 else
                 {
-                    var desiredValue =  axis.ClampValue(input + axis.Center);
+                    var desiredValue =  axis.ClampValue(inputValue + axis.Center);
                     axis.Value += Damper.Damp(desiredValue - axis.Value, dampTime, deltaTime);
                 }
             }
         }
+
         /// <summary>Reset an axis to at-rest state</summary>
         /// <param name="axis">The axis to reset</param>
         public void Reset(ref InputAxis axis)
         {
+            m_CurrentSpeed = 0;
             axis.Reset();
         }
     }

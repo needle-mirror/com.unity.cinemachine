@@ -1,7 +1,7 @@
 using UnityEngine;
 using System;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This behaviour is intended to be attached to an empty GameObject,
@@ -50,7 +50,7 @@ namespace Cinemachine
     [ExecuteAlways]
     [AddComponentMenu("Cinemachine/Cinemachine Camera")]
     [HelpURL(Documentation.BaseURL + "manual/CinemachineCamera.html")]
-    public sealed class CinemachineCamera : CinemachineVirtualCameraBase, ISerializationCallbackReceiver
+    public sealed class CinemachineCamera : CinemachineVirtualCameraBase
     {
         /// <summary>The Tracking and LookAt targets for this camera.</summary>
         [NoSaveDuringPlay]
@@ -63,14 +63,22 @@ namespace Cinemachine
             + "Unity Camera's lens settings, and will be used to drive the Unity camera when the vcam is active.")]
         public LensSettings Lens = LensSettings.Default;
 
-        /// <summary>Parameters that influence how this CinemachineCamera transitions from other CinemachineCameras.</summary>
-        [Tooltip("Parameters that influence how this CinemachineCamera transitions from other CinemachineCameras")]
-        public TransitionParams Transitions;
+        /// <summary>Hint for transitioning to and from this CinemachineCamera.  Hints can be combined, although 
+        /// not all combinations make sense.  In the case of conflicting hints, Cinemachine will 
+        /// make an arbitrary choice.</summary>
+        [Tooltip("Hint for transitioning to and from this CinemachineCamera.  Hints can be combined, although "
+            + "not all combinations make sense.  In the case of conflicting hints, Cinemachine will "
+            + "make an arbitrary choice.")]
+        public CinemachineCore.BlendHints BlendHint;
+
+        CameraState m_State = CameraState.Default;
+        CinemachineComponentBase[] m_Pipeline;
 
         void Reset()
         {
+            Priority = new();
+            OutputChannel = OutputChannel.Default;
             Target = default;
-            PriorityAndChannel = OutputChannel.Default;
             Lens = LensSettings.Default;
         }
 
@@ -82,9 +90,6 @@ namespace Cinemachine
 
         /// <summary>The current camera state, which will applied to the Unity Camera</summary>
         public override CameraState State { get => m_State; }
-
-        /// <summary>The current camera state, which will applied to the Unity Camera</summary>
-        CameraState m_State = CameraState.Default;
 
         /// <summary>Get the current LookAt target.  Returns parent's LookAt if parent
         /// is non-null and no specific LookAt defined for this camera</summary>
@@ -101,10 +106,6 @@ namespace Cinemachine
             get { return ResolveFollow(Target.TrackingTarget); }
             set { Target.TrackingTarget = value; }
         }
-
-        /// <summary>Returns the TransitionParams settings</summary>
-        /// <returns>The TransitionParams settings</returns>
-        public override TransitionParams GetTransitionParams() => Transitions;
 
         /// <summary>This is called to notify the CinemachineCamera that a target got warped,
         /// so that the CinemachineCamera can update its internal state to make the camera
@@ -174,14 +175,15 @@ namespace Cinemachine
             bool forceUpdate = false;
 
             // Can't inherit position if already live, because there will be a pop
-            if (Transitions.InheritPosition && fromCam != null && !CinemachineCore.Instance.IsLiveInBlend(this))
+            if ((State.BlendHint & CameraState.BlendHints.InheritPosition) != 0 
+                && fromCam != null && !CinemachineCore.IsLiveInBlend(this))
             {
                 var state = fromCam.State;
                 ForceCameraPosition(state.GetFinalPosition(), state.GetFinalOrientation());
             }
             UpdatePipelineCache();
             for (int i = 0; i < m_Pipeline.Length; ++i)
-                if (m_Pipeline[i] != null && m_Pipeline[i].OnTransitionFromCamera(fromCam, worldUp, deltaTime, ref Transitions))
+                if (m_Pipeline[i] != null && m_Pipeline[i].OnTransitionFromCamera(fromCam, worldUp, deltaTime))
                     forceUpdate = true;
 
             if (!forceUpdate)
@@ -192,9 +194,6 @@ namespace Cinemachine
                 InternalUpdateCameraState(worldUp, deltaTime);
                 InternalUpdateCameraState(worldUp, deltaTime);
             }
-
-            if (Transitions.Events.OnCameraLive != null)
-                Transitions.Events.OnCameraLive.Invoke(this, fromCam);
         }
 
         /// <summary>Internal use only.  Called by CinemachineCore at designated update time
@@ -219,7 +218,7 @@ namespace Cinemachine
                 m_State.ReferenceLookAt = (LookAtTargetAsVcam != null) 
                     ? LookAtTargetAsVcam.State.GetFinalPosition() : TargetPositionCache.GetTargetPosition(lookAt);
             InvokeComponentPipeline(ref m_State, deltaTime);
-            ApplyPositionBlendMethod(ref m_State, Transitions.BlendHint);
+            m_State.BlendHint = (CameraState.BlendHints)BlendHint;
 
             // Push the raw position back to the game object's transform, so it
             // moves along with the camera.
@@ -239,18 +238,17 @@ namespace Cinemachine
 
             // Apply the component pipeline
             UpdatePipelineCache();
-            for (CinemachineCore.Stage stage = CinemachineCore.Stage.Body;
-                stage <= CinemachineCore.Stage.Finalize; ++stage)
+            for (int i = 0; i < m_Pipeline.Length; ++i)
             {
-                var c = m_Pipeline[(int)stage];
+                var c = m_Pipeline[i];
                 if (c != null && c.IsValid)
                     c.PrePipelineMutateCameraState(ref state, deltaTime);
             }
             CinemachineComponentBase postAimBody = null;
-            for (CinemachineCore.Stage stage = CinemachineCore.Stage.Body;
-                stage <= CinemachineCore.Stage.Finalize; ++stage)
+            for (int i = 0; i < m_Pipeline.Length; ++i)
             {
-                var c = m_Pipeline[(int)stage];
+                var stage = (CinemachineCore.Stage)i;
+                var c = m_Pipeline[i];
                 if (c != null && c.IsValid)
                 {
                     if (stage == CinemachineCore.Stage.Body && c.BodyAppliesAfterAim)
@@ -263,8 +261,6 @@ namespace Cinemachine
                 InvokePostPipelineStageCallback(this, stage, ref state, deltaTime);
                 if (stage == CinemachineCore.Stage.Aim)
                 {
-                    if (c == null)
-                        state.BlendHint |= CameraState.BlendHintValue.IgnoreLookAtTarget; // no aim
                     // If we have saved a Body for after Aim, do it now
                     if (postAimBody != null)
                     {
@@ -287,24 +283,20 @@ namespace Cinemachine
         internal Type PeekPipelineCacheType(CinemachineCore.Stage stage) 
             => m_Pipeline[(int)stage] == null ? null : m_Pipeline[(int)stage].GetType();
 
-        CinemachineComponentBase[] m_Pipeline;
-
         void UpdatePipelineCache()
         {
-            if (m_Pipeline == null)
+            const int pipelineLength = (int)CinemachineCore.Stage.Finalize + 1;
+            if (m_Pipeline == null || m_Pipeline.Length != pipelineLength)
             {
-                m_Pipeline = new CinemachineComponentBase[Enum.GetValues(typeof(CinemachineCore.Stage)).Length];
+                m_Pipeline = new CinemachineComponentBase[pipelineLength];
                 var components = GetComponents<CinemachineComponentBase>();
                 for (int i = 0; i < components.Length; ++i)
                 {
-                    if (components[i].enabled)
-                    {
 #if UNITY_EDITOR
-                        if (m_Pipeline[(int)components[i].Stage] != null)
-                            Debug.LogWarning("Multiple " + components[i].Stage + " components on " + name);
+                    if (m_Pipeline[(int)components[i].Stage] != null)
+                        Debug.LogWarning("Multiple " + components[i].Stage + " components on " + name);
 #endif
-                        m_Pipeline[(int)components[i].Stage] = components[i];
-                    }
+                    m_Pipeline[(int)components[i].Stage] = components[i];
                 }
             }
         }
@@ -317,13 +309,6 @@ namespace Cinemachine
             UpdatePipelineCache();
             var i = (int)stage;
             return i >= 0 && i < m_Pipeline.Length ? m_Pipeline[i] : null;
-        }
-
-        // This prevents the sensor size from dirtying the scene in the event of aspect ratio change
-        internal override void OnBeforeSerialize()
-        {
-            if (!Lens.IsPhysicalCamera) 
-                Lens.SensorSize = Vector2.one;
         }
     }
 }

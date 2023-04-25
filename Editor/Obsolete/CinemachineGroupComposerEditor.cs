@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using UnityEditor;
 using UnityEngine;
-using Cinemachine.Utility;
 
-namespace Cinemachine.Editor
+namespace Unity.Cinemachine.Editor
 {
     [Obsolete]
     [CustomEditor(typeof(CinemachineGroupComposer))]
@@ -24,7 +23,7 @@ namespace Cinemachine.Editor
         protected override void GetExcludedPropertiesInInspector(List<string> excluded)
         {
             base.GetExcludedPropertiesInInspector(excluded);
-            CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(MyTarget.VirtualCamera);
+            CinemachineBrain brain = CinemachineCore.FindPotentialTargetBrain(MyTarget.VirtualCamera);
             var ortho = brain != null && brain.OutputCamera.orthographic;
             if (ortho)
             {

@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This is an add-on for CinemachineCameras containing the OrbitalFollow component.
@@ -219,8 +219,15 @@ namespace Cinemachine
             /// <param name="vcam">the virtual camera owner</param>
             public override void Reset(CinemachineVirtualCameraBase vcam) 
             {
-                Top = Bottom = vcam == null ? LensSettings.Default : vcam.State.Lens;
-                Top.ModeOverride = Bottom.ModeOverride = LensSettings.OverrideModes.None;
+                if (vcam == null)
+                    Top = Bottom = LensSettings.Default;
+                else 
+                {
+                    var state = vcam.State;
+                    Top = Bottom = state.Lens;
+                    Top.CopyCameraMode(ref state.Lens);
+                    Bottom.CopyCameraMode(ref state.Lens);
+                }
             }
 
             /// <summary>
@@ -566,8 +573,10 @@ namespace Cinemachine
 
         /// <summary>
         /// Collection of modifiers that will be applied to the camera every frame.
+        /// These will modify settings as a function of the FreeLook's Vertical axis value.
         /// </summary>
-        [SerializeReference] [NoSaveDuringPlay] public List<Modifier> Modifiers = new List<Modifier>();
+        [Tooltip("These will modify settings as a function of the FreeLook's Vertical axis value")]
+        [SerializeReference] [NoSaveDuringPlay] public List<Modifier> Modifiers = new ();
 
         IModifierValueSource m_ValueSource;
         float m_CurrentValue;
@@ -577,7 +586,7 @@ namespace Cinemachine
         {
             var vcam = ComponentOwner;
             for (int i = 0; i < Modifiers.Count; ++i)
-                Modifiers[i].Validate(vcam);
+                Modifiers[i]?.Validate(vcam);
         }
 
         /// <summary>Called when component is enabled</summary>
@@ -599,7 +608,7 @@ namespace Cinemachine
             var vcam = ComponentOwner;
             TryGetVcamComponent(vcam, out m_ValueSource);
             for (int i = 0; i < Modifiers.Count; ++i)
-                Modifiers[i].RefreshCache(vcam);
+                Modifiers[i]?.RefreshCache(vcam);
         }
 
         // Needed by inspector
@@ -632,7 +641,7 @@ namespace Cinemachine
                 var sign = Mathf.Sign(v);
                 m_CurrentValue = sign * s_EasingCurve.Evaluate(sign * v);
                 for (int i = 0; i < Modifiers.Count; ++i)
-                    Modifiers[i].BeforePipeline(vcam, ref curState, deltaTime, m_CurrentValue);
+                    Modifiers[i]?.BeforePipeline(vcam, ref curState, deltaTime, m_CurrentValue);
             }
         }
             
@@ -650,7 +659,7 @@ namespace Cinemachine
             if (m_ValueSource != null && stage == CinemachineCore.Stage.Finalize && vcam == ComponentOwner)
             {
                 for (int i = 0; i < Modifiers.Count; ++i)
-                    Modifiers[i].AfterPipeline(vcam, ref state, deltaTime, m_CurrentValue);
+                    Modifiers[i]?.AfterPipeline(vcam, ref state, deltaTime, m_CurrentValue);
             }
         }
     }

@@ -1,7 +1,7 @@
-using Cinemachine.Utility;
 using UnityEngine;
+using UnityEngine.Serialization;
 
-namespace Cinemachine
+namespace Unity.Cinemachine
 {
     /// <summary>
     /// This is a Cinemachine Component in the Body section of the component pipeline.
@@ -37,7 +37,8 @@ namespace Cinemachine
             + "The camera will attempt to frame the point which is the target's position plus "
             + "this offset.  Use it to correct for cases when the target's origin is not the "
             + "point of interest for the camera.")]
-        public Vector3 TrackedObjectOffset;
+        [FormerlySerializedAs("TrackedObjectOffset")]
+        public Vector3 TargetOffset;
 
         /// <summary>This setting will instruct the composer to adjust its target offset based
         /// on the motion of the target.  The composer will look at a point where it estimates
@@ -86,7 +87,7 @@ namespace Cinemachine
 
         void Reset()
         {
-            TrackedObjectOffset = Vector3.zero;
+            TargetOffset = Vector3.zero;
             Lookahead = new LookaheadSettings();
             Damping = Vector3.one;
             CameraDistance = 10;
@@ -175,14 +176,13 @@ namespace Cinemachine
         /// <param name="fromCam">The camera being deactivated.  May be null.</param>
         /// <param name="worldUp">Default world Up, set by the CinemachineBrain</param>
         /// <param name="deltaTime">Delta time for time-based effects (ignore if less than or equal to 0)</param>
-        /// <param name="transitionParams">Transition settings for this vcam</param>
         /// <returns>True if the vcam should do an internal update as a result of this call</returns>
         public override bool OnTransitionFromCamera(
-            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime,
-            ref CinemachineVirtualCameraBase.TransitionParams transitionParams)
+            ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
-            if (fromCam != null && transitionParams.InheritPosition
-                 && !CinemachineCore.Instance.IsLiveInBlend(VirtualCamera))
+            if (fromCam != null 
+                && (VirtualCamera.State.BlendHint & CameraState.BlendHints.InheritPosition) != 0 
+                && !CinemachineCore.IsLiveInBlend(VirtualCamera))
             {
                 m_PreviousCameraPosition = fromCam.State.RawPosition;
                 m_prevRotation = fromCam.State.RawOrientation;
@@ -224,7 +224,7 @@ namespace Cinemachine
         public override void MutateCameraState(ref CameraState curState, float deltaTime)
         {
             var lens = curState.Lens;
-            var followTargetPosition = FollowTargetPosition + (FollowTargetRotation * TrackedObjectOffset);
+            var followTargetPosition = FollowTargetPosition + (FollowTargetRotation * TargetOffset);
             bool previousStateIsValid = deltaTime >= 0 && VirtualCamera.PreviousStateIsValid;
             if (!previousStateIsValid || VirtualCamera.FollowTargetChanged)
                 m_Predictor.Reset();
