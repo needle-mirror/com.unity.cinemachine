@@ -203,9 +203,9 @@ namespace SaveDuringPlay
                     if (doneSomething)
                         obj = list;
                 }
-                else
+                else if (!typeof(UnityEngine.Object).IsAssignableFrom(obj.GetType()))
                 {
-                    // Check if it's a complex type
+                    // Check if it's a complex type (but don't follow UnityEngine.Object references)
                     FieldInfo[] fields = obj.GetType().GetFields(kBindingFlags);
                     if (fields.Length > 0)
                     {
@@ -460,8 +460,8 @@ namespace SaveDuringPlay
     /// This class is expected to become obsolete when Unity implements this functionality
     /// in a more general way.
     ///
-    /// To use this class,
-    /// drop this script into your project, and add the [SaveDuringPlay] attribute to your class.
+    /// To use this functionality in your own scripts, add the [SaveDuringPlay] attribute 
+    /// to your class.
     ///
     /// Note: if you want some specific field in your class NOT to be saved during play,
     /// add a property attribute whose class name contains the string "NoSaveDuringPlay"
