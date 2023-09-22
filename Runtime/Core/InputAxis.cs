@@ -165,11 +165,12 @@ namespace Unity.Cinemachine
         public float ClampValue(float v)
         {
             float r = Range.y - Range.x;
+            if (!Wrap || r < UnityVectorExtensions.Epsilon)
+                return Mathf.Clamp(v, Range.x, Range.y);
+
             var v1 = (v - Range.x) % r;
             v1 += v1 < 0 ? r : 0;
-            v1 += Range.x;
-            v1 = (Wrap && r > UnityVectorExtensions.Epsilon) ? v1 : v;
-            return Mathf.Clamp(v1, Range.x, Range.y);
+            return v1 + Range.x;
         }
 
         /// <summary>Clamp and scale the value to range 0...1, taking wrap into account</summary>
@@ -222,7 +223,7 @@ namespace Unity.Cinemachine
         RecenteringState m_RecenteringState;
 
         /// <summary>
-        /// Call this before calling DoRecentering.  Will track any value changes so that the re-centering clock
+        /// Call this before calling UpdateRecentering.  Will track any value changes so that the re-centering clock
         /// is updated properly.
         /// </summary>
         /// <returns>True if value changed.  This value can be used to cancel re-centering when multiple
@@ -239,11 +240,16 @@ namespace Unity.Cinemachine
             return false;
         }
 
+        internal void SetValueAndLastValue(float value)
+        {
+            Value = m_RecenteringState.m_LastValue = value;
+        }
+
         /// <summary>Call this to manage re-centering axis value to axis center.
         /// This assumes that TrackValueChange() has been called already this frame.</summary>
         /// <param name="deltaTime">Current deltaTime, or -1 for immediate re-centering</param>
         /// <param name="forceCancel">If true, cancel any re-centering currently in progress and reset the timer.</param>
-        public void DoRecentering(float deltaTime, bool forceCancel)
+        public void UpdateRecentering(float deltaTime, bool forceCancel)
         {
             if ((Restrictions & (RestrictionFlags.NoRecentering | RestrictionFlags.Momentary)) != 0)
                 return;
@@ -292,7 +298,7 @@ namespace Unity.Cinemachine
 
         /// <summary>Trigger re-centering immediately, regardless of whether re-centering 
         /// is enabled or the wait time has elapsed.</summary>
-        public void RecenterNow() => m_RecenteringState.m_ForceRecenter = true;
+        public void TriggerRecentering() => m_RecenteringState.m_ForceRecenter = true;
 
         /// <summary>Cancel any current re-centering in progress, and reset the wait time</summary>
         public void CancelRecentering()
@@ -338,7 +344,7 @@ namespace Unity.Cinemachine
 
         /// <summary>Apply the input value to the axis value</summary>
         /// <param name="axis">The InputAxisValue to update</param>
-        /// <param name="inputValue">Parameter for controlling the behaviour of the axis</param>
+        /// <param name="inputValue">The input value to apply to the axis value.</param>
         /// <param name="deltaTime">current deltaTime</param>
         public void ProcessInput(ref InputAxis axis, float inputValue, float deltaTime)
         {
@@ -354,14 +360,13 @@ namespace Unity.Cinemachine
                     m_CurrentSpeed += Damper.Damp(inputValue - m_CurrentSpeed, dampTime, deltaTime);
 
                     // Decelerate to the end points of the range if not wrapping
-                    float range = axis.Range.y - axis.Range.x;
-                    if (!axis.Wrap && DecelTime > k_Epsilon && range > k_Epsilon)
+                    if (!axis.Wrap && DecelTime > k_Epsilon && Mathf.Abs(m_CurrentSpeed) > k_Epsilon)
                     {
                         var v0 = axis.ClampValue(axis.Value);
-                        var v = axis.ClampValue(v0 + m_CurrentSpeed * deltaTime);
-                        var d = (m_CurrentSpeed > 0) ? axis.Range.y - v : v - axis.Range.x;
-                        if (d < (0.1f * range) && Mathf.Abs(m_CurrentSpeed) > k_Epsilon)
-                            m_CurrentSpeed = Damper.Damp(v - v0, DecelTime, deltaTime) / deltaTime;
+                        var d = (m_CurrentSpeed > 0) ? axis.Range.y - v0 : v0 - axis.Range.x;
+                        var maxSpeed = 0.1f + 4 * d / DecelTime;
+                        if (Mathf.Abs(m_CurrentSpeed) > Mathf.Abs(maxSpeed))
+                            m_CurrentSpeed = maxSpeed * Mathf.Sign(m_CurrentSpeed);
                     }
                 }
                 axis.Value = axis.ClampValue(axis.Value + m_CurrentSpeed * deltaTime);
