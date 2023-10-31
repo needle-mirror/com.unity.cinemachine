@@ -1,9 +1,8 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "3.0.0-pre.8",
-  "unity": "2022.2",
-  "unityRelease": "16f1",
+  "version": "3.0.0-pre.9",
+  "unity": "2022.3",
   "description": "Smart camera tools for passionate creators. \n\nCinemachine 3.0 is a newer and better version of Cinemachine, but upgrading an existing project from 2.X will likely require some effort.  If you're considering upgrading an older project, please see our upgrade guide in the user manual.",
   "keywords": [
     "camera",
@@ -52,18 +51,18 @@
     }
   ],
   "relatedPackages": {
-    "com.unity.cinemachine.tests": "3.0.0-pre.8"
+    "com.unity.cinemachine.tests": "3.0.0-pre.9"
   },
   "_upm": {
-    "changelog": "### Fixed\n- Bugfix: Occasional precision issue when camera rotation is exactly 180 degress, causing rotational flickering.\n- Bugfix: Deceleration at the end of axis range was too aggressive.\n- Bugfix: Orbital recentering should not be forced when transitioning to a camera.\n- Bugfix: InheritPosition takes the actual camera position, so it works consistently if transitioning mid-blend.\n- Bugfix: CinemachineDeoccluder was causing a pop when OnTargetObjectWarped was called.\n- Bugfix: Spurious camera cut events were being issued, especially in HDRP.\n- Bugfix: Null reference exceptions when inspector is hidden behind another tab.\n- Bugfix: GroupFraming inspector was displaying incorrect warning when LookAt target is a group.\n- Bugfix: GroupFraming displays more accurate group size indicator in the game view.\n- Bugfix: nullrefs in log when target group was deleted but was still being referenced by vcams.\n- Regression fix: CinemachineCollider generated NaN positions if no target was set.\n\n### Added\n- New sample: ThirdPersonWithAimMode showing how to implement a FreeLook camera with Aim mode.\n- Added Recentering Target to OrbitalFollow.  Recentering is now possible with Lazy Follow.\n- Added API in Deoccluder and ThirdPersonFollow to access which collision objects are impacting the camera position.\n- Added ICinemachineTargetGroup.IsValid property to detect deleted groups.\n- Added option to disable deltaTime scaling in CinemachineInputAxisProvider.\n\n### Changed\n- Improved OrbitalFollow's ForceCameraPosition algorithm.\n- Deoccluder accommodates camera radius in all modes.\n- Renamed CinemachineSplineDolly.CameraUp to CameraRotation, which more accurately reflects what it does.\n- Renamed InputAxis.DoRecentering() to InputAxis.UpdateRecentering()\n- StateDrivenCamera: child camera enabled status and priority are now taken into account when choosing the current active camera.\n\n### Deprecated\n- Removed CinemachineToolSettings overlay."
+    "changelog": "### Fixed\n- Regresion fix: Sequencer inspector child camera popups were not being populated.\n- Regresion fix: Manager Camera's child camera warning icons were not being updated correctly.\n- Bugfix: CinemachineInputAxisController editor was missing foldout arrows on the Driven Axis items."
   },
   "upmCi": {
-    "footprint": "0fc7ee30a3ab744963f8e8381965e7adc144ef03"
+    "footprint": "67dd41595f7501252202dd8812e745b15849c10a"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@3.0/manual/index.html",
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "cbbc72dc8c9eda308b324b75fccded8524badf5a"
+    "revision": "219d6ce5c9e86adab75b9647fe7c0050a52798d5"
   }
 }
