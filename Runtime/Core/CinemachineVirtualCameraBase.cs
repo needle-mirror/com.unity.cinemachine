@@ -57,6 +57,9 @@ namespace Unity.Cinemachine
             + "to different CinemachineBrains, for instance in a multi-screen environemnt.")]
         public OutputChannels OutputChannel = OutputChannels.Default;
 
+        /// <summary>Helper for upgrading from CM2</summary>
+        internal protected virtual bool IsDprecated => false;
+
         /// <summary>A sequence number that represents object activation order of vcams.  
         /// Used for priority sorting.</summary>
         internal int ActivationId;
@@ -137,11 +140,17 @@ namespace Unity.Cinemachine
         internal protected virtual void PerformLegacyUpgrade(int streamedVersion)
         {
             if (streamedVersion < 20220601)
-                Priority.Value = m_LegacyPriority;
+            {
+                if (m_LegacyPriority != 0)
+                {
+                    Priority.Value = m_LegacyPriority;
+                    m_LegacyPriority = 0;
+                }
+            }
         }
 
         [HideInInspector, SerializeField, FormerlySerializedAs("m_Priority")]
-        int m_LegacyPriority = 10;
+        int m_LegacyPriority = 0;
 
         //============================================================================
 
@@ -446,7 +455,7 @@ namespace Unity.Cinemachine
             CameraUpdateManager.UpdateVirtualCamera(this, worldUp, deltaTime);
         }
 
-        /// <summary>Internal use only.  Do not call this method.
+        /// <summary>Internal use only.  
         /// Called by CinemachineCore at designated update time
         /// so the vcam can position itself and track its targets.
         /// Do not call this method.  Let the framework do it at the appropriate time</summary>
@@ -525,6 +534,11 @@ namespace Unity.Cinemachine
         protected virtual void Start()
         {
             m_WasStarted = true;
+
+            // Perform legacy upgrade if necessary
+            if (m_StreamingVersion < CinemachineCore.kStreamingVersion)
+                PerformLegacyUpgrade(m_StreamingVersion);
+            m_StreamingVersion = CinemachineCore.kStreamingVersion;
         }
         
         /// <summary>Base class implementation adds the virtual camera from the priority queue.</summary>
@@ -536,16 +550,19 @@ namespace Unity.Cinemachine
                 PreviousStateIsValid = false;
             CameraUpdateManager.CameraEnabled(this);
             InvalidateCachedTargets();
+
             // Sanity check - if another vcam component is enabled, shut down
             var vcamComponents = GetComponents<CinemachineVirtualCameraBase>();
             for (int i = 0; i < vcamComponents.Length; ++i)
             {
                 if (vcamComponents[i].enabled && vcamComponents[i] != this)
                 {
-                    Debug.LogWarning(Name
-                        + " has multiple CinemachineVirtualCameraBase-derived components.  Disabling "
-                        + GetType().Name + ".");
-                    enabled = false;
+                    var toDeprecate = vcamComponents[i].IsDprecated ? vcamComponents[i] : this;
+                    if (!toDeprecate.IsDprecated)
+                        Debug.LogWarning(Name
+                            + " has multiple CinemachineVirtualCameraBase-derived components.  Disabling "
+                            + toDeprecate.GetType().Name);
+                    toDeprecate.enabled = false;
                 }
             }
         }
@@ -794,6 +811,25 @@ namespace Unity.Cinemachine
                     return brain.ActiveBlend != null && brain.ActiveBlend.Uses(this);
             }
             return false;
+        }
+
+        /// <summary>
+        /// Temporarily cancel damping for this frame.  The camera will sanp to its target 
+        /// position when it is updated.
+        /// </summary>
+        /// <param name="updateNow">If true, snap the camera to its target immediately, otherwise wait 
+        /// until the end of the frame when cameras are normally updated.</param>
+        public void CancelDamping(bool updateNow = false)
+        {
+            PreviousStateIsValid = false;
+            if (updateNow)
+            {
+                var up = State.ReferenceUp;
+                var brain = CinemachineCore.FindPotentialTargetBrain(this);
+                if (brain != null)
+                    up = brain.DefaultWorldUp;
+                InternalUpdateCameraState(up, -1);
+            }
         }
     }
 }
