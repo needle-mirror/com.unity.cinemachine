@@ -367,7 +367,6 @@ namespace Cinemachine
             }
 
             InvokePostPipelineStageCallback(this, CinemachineCore.Stage.Finalize, ref m_State, deltaTime);
-            PreviousStateIsValid = true;
 
             // Set up for next frame
             bool activeCam = PreviousStateIsValid && CinemachineCore.Instance.IsLive(this);
@@ -379,6 +378,8 @@ namespace Cinemachine
             PushSettingsToRigs();
             if (m_BindingMode == CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp)
                 m_XAxis.Value = 0;
+
+            PreviousStateIsValid = true;
         }
 
         /// <summary>If we are transitioning from another FreeLook, grab the axis values from it.</summary>
@@ -448,8 +449,8 @@ namespace Cinemachine
         float SteepestDescent(Vector3 cameraOffset)
         {
             const int maxIteration = 10;
-            const float epsilon = 0.00005f;
-            var x = InitialGuess(cameraOffset);
+            const float epsilon = 0.005f;
+            var x = InitialGuess();
             for (var i = 0; i < maxIteration; ++i)
             {
                 var angle = AngleFunction(x);
@@ -473,20 +474,30 @@ namespace Cinemachine
                 var angleAfter = AngleFunction(input + epsilon);
                 return (angleAfter - angleBehind) / (2f * epsilon);
             }
-            // initial guess based on closest line (approximating spline) to point 
-            float InitialGuess(Vector3 cameraPosInRigSpace)
+            float InitialGuess()
             {
                 UpdateCachedSpline();
-                var pb = m_CachedKnots[1]; // point at the bottom of spline
-                var pm = m_CachedKnots[2]; // point in the middle of spline
-                var pt = m_CachedKnots[3]; // point at the top of spline
-                var t1 = cameraPosInRigSpace.ClosestPointOnSegment(pb, pm);
-                var d1 = Vector3.SqrMagnitude(Vector3.Lerp(pb, pm, t1) - cameraPosInRigSpace);
-                var t2 = cameraPosInRigSpace.ClosestPointOnSegment(pm, pt);
-                var d2 = Vector3.SqrMagnitude(Vector3.Lerp(pm, pt, t2) - cameraPosInRigSpace);
 
-                // [0,0.5] represent bottom to mid, and [0.5,1] represents mid to top
-                return d1 < d2 ? Mathf.Lerp(0f, 0.5f, t1) : Mathf.Lerp(0.5f, 1f, t2);
+                const float step = 1.0f / 10;
+                float best = 0.5f;
+                float bestAngle = AngleFunction(best);
+                for (int j = 0; j <= 5; ++j)
+                {
+                    var t = j * step;
+                    ChooseBestAngle(0.5f + t);
+                    ChooseBestAngle(0.5f - t);
+
+                    void ChooseBestAngle(float referenceAngle)
+                    {
+                        var a = AngleFunction(referenceAngle);
+                        if (a < bestAngle)
+                        {
+                            bestAngle = a;
+                            best = referenceAngle;
+                        }
+                    }
+                }
+                return best;
             }
         }
 

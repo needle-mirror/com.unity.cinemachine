@@ -4,6 +4,25 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
+## [2.10.0] - 2024-01-01
+- Bugfix: CinemachineFreeLook.ForceCameraPosition() sometimes did not take full effect immediately.
+- Bugfix: 3rdPersonFollow sometimes generated invalid camera position when the target when DampingWhenOccluded is nonzero.
+
+
+## [2.9.8] - 2023-11-29
+- Bugfix: Occasional precision issue when camera rotation is exactly 180 degress, causing roitational flickering.
+- Bugfix: CinemachineCollider was causing a pop when OnTargetObjectWarped was called.
+- Bugfix: In some circumstances, FramingTransposer was using the wrong FOV or Ortho size for framing.
+- Regression fix: CinemachineCollider generated NaN positions if no target was set.
+- Improved OrbitalFollow's ForceCameraPosition algorithm.
+- Removed CinemachineToolSettings overlay.
+- Documented InvalidateLensCache in confiner2D.
+- CinemachineBrain.TopCameraFromPriorityQueue() is now protected virtual.
+- Added CinemachineVirtualCameraBase.CancelDamping() convenience method to snap camera to its target position.
+- SaveDuringPlay supports multi-scene editing.
+
+
 ## [2.9.7] - 2023-05-06
 - Bugfix: AxisState was not respecting timescale == 0.
 - Bugfix: Very occasional axis drift in SimpleFollow when viewing angle is +-90 degrees.
