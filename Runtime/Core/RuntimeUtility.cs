@@ -144,14 +144,14 @@ namespace Unity.Cinemachine
                         continue; // don't know what's going on, just forget about it
                     }
                 }
-                if (closestHit < 0 || h.distance < s_HitBuffer[closestHit].distance)
+                if (h.collider != null && (closestHit < 0 || h.distance < s_HitBuffer[closestHit].distance))
                 {
                     closestHit = i;
                 }
             }
 
             // Naively combine penetrating items
-            if (numPenetrations > 1)
+            if (numPenetrations > 1 && penetrationDistanceSum > UnityVectorExtensions.Epsilon)
             {
                 hitInfo = new RaycastHit();
                 for (int i = 0; i < numPenetrations; ++i)
@@ -180,6 +180,7 @@ namespace Unity.Cinemachine
 
         static SphereCollider s_ScratchCollider;
         static GameObject s_ScratchColliderGameObject;
+        static int s_ScratchColliderRefCount;
 
         /// <summary>
         /// This is a hidden sphere collider that won't interfere with the scene and can be used 
@@ -202,6 +203,7 @@ namespace Unity.Cinemachine
                 rb.detectCollisions = false;
                 rb.isKinematic = true;
             }
+            ++s_ScratchColliderRefCount;
             return s_ScratchCollider;
         }
 
@@ -211,7 +213,7 @@ namespace Unity.Cinemachine
         /// </summary>
         public static void DestroyScratchCollider()
         {
-            if (s_ScratchColliderGameObject != null)
+            if (--s_ScratchColliderRefCount == 0)
             {
                 s_ScratchColliderGameObject.SetActive(false);
                 DestroyObject(s_ScratchColliderGameObject.GetComponent<Rigidbody>());

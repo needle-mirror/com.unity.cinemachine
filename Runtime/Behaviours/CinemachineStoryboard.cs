@@ -58,7 +58,7 @@ namespace Unity.Cinemachine
         /// </summary>
         [Tooltip("The opacity of the image.  0 is transparent, 1 is opaque")]
         [FormerlySerializedAs("m_Alpha")]
-        [RangeSlider(0, 1)]
+        [Range(0, 1)]
         public float Alpha = 1;
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace Unity.Cinemachine
         /// <summary>
         /// Wipe the image on and off horizontally
         /// </summary>
-        [RangeSlider(-1, 1)]
+        [Range(-1, 1)]
         [Tooltip("Wipe the image on and off horizontally")]
         [FormerlySerializedAs("m_SplitView")]
         public float SplitView = 0f;
@@ -205,8 +205,11 @@ namespace Unity.Cinemachine
 
         void CameraUpdatedCallback(CinemachineBrain brain)
         {
-            var showIt = enabled && ShowImage && CinemachineCore.IsLive(ComponentOwner);
-            var channel = (uint)ComponentOwner.OutputChannel;
+            var owner = ComponentOwner;
+            if (owner == null)
+                return;
+            var showIt = enabled && ShowImage && CinemachineCore.IsLive(owner);
+            var channel = (uint)owner.OutputChannel;
             if (s_StoryboardGlobalMute || ((uint)brain.ChannelMask & channel) == 0)
                 showIt = false;
             var ci = LocateMyCanvas(brain, showIt);

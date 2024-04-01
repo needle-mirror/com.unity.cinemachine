@@ -23,7 +23,7 @@ namespace Unity.Cinemachine.Editor
         static bool IsPrefab(UnityEngine.Object target)
         {
             var t = target as CinemachineVirtualCameraBase;
-            return t != null && t.gameObject.scene.name == null; // causes a small GC alloc
+            return t != null && PrefabUtility.IsPartOfPrefabAsset(t);
         }
 
         static Color s_NormalColor = Color.black;
@@ -42,6 +42,10 @@ namespace Unity.Cinemachine.Editor
                 + "<b>Best practice is to have CinemachineCamera, CinemachineBrain, and camera targets as "
                 + "separate objects, not parented to each other.</b>", 
                 HelpBoxMessageType.Error));
+
+            var noBrainMessage = ux.AddChild(InspectorUtility.HelpBoxWithButton(
+                "A CinemachineBrain is required in the scene.", 
+                HelpBoxMessageType.Warning, "Add Brain", () => CinemachineMenu.GetOrCreateBrain()));
 
             var navelGazeMessage = ux.AddChild(new HelpBox(
                 "The camera is trying to look at itself.", 
@@ -75,14 +79,22 @@ namespace Unity.Cinemachine.Editor
                 // Is the camera navel-gazing?
                 CameraState state = target.State;
                 bool isNavelGazing = target.PreviousStateIsValid && state.HasLookAt() &&
-                    (state.ReferenceLookAt - state.GetCorrectedPosition()).AlmostZero() &&
-                    target.GetCinemachineComponent(CinemachineCore.Stage.Aim) != null;
+                    (state.ReferenceLookAt - state.GetCorrectedPosition()).AlmostZero();
+                if (isNavelGazing)
+                {
+                    var aim = target.GetCinemachineComponent(CinemachineCore.Stage.Aim);
+                    if (aim == null || !aim.CameraLooksAtTarget)
+                        isNavelGazing = false;
+                }
                 navelGazeMessage.SetVisible(isNavelGazing);
 
                 // Is the camera parenting incorrect?
                 cameraParentingMessage.SetVisible(
                     target.GetComponentInParent<CinemachineBrain>() != null 
                     || (target.ParentCamera != null && target.ParentCamera is not CinemachineCameraManagerBase));
+
+                // Is there a Brain?
+                noBrainMessage.SetVisible(CinemachineBrain.ActiveBrainCount == 0 && !IsPrefab(target));
             });
 
             // Capture "normal" colors

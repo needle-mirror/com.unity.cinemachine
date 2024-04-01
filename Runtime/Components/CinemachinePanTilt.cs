@@ -132,14 +132,24 @@ namespace Unity.Cinemachine
             curState.RawOrientation = rot;
 
             if (VirtualCamera.PreviousStateIsValid)
-                curState.RotationDampingBypass = UnityVectorExtensions.SafeFromToRotation(
-                    m_PreviousCameraRotation * Vector3.forward, 
-                    rot * Vector3.forward, curState.ReferenceUp);
+                curState.RotationDampingBypass = curState.RotationDampingBypass 
+                    * UnityVectorExtensions.SafeFromToRotation(
+                        m_PreviousCameraRotation * Vector3.forward, 
+                        rot * Vector3.forward, curState.ReferenceUp);
             m_PreviousCameraRotation = rot;
             
-            var gotInput = PanAxis.TrackValueChange() | TiltAxis.TrackValueChange();
-            PanAxis.UpdateRecentering(deltaTime, gotInput);
-            TiltAxis.UpdateRecentering(deltaTime, gotInput);
+            var gotInputX = PanAxis.TrackValueChange();
+            var gotInputY = TiltAxis.TrackValueChange();
+
+            // Sync recentering if the recenter times match
+            if (PanAxis.Recentering.Time == TiltAxis.Recentering.Time)
+            {
+                gotInputX |= gotInputY;
+                gotInputY |= gotInputX;
+            }
+
+            PanAxis.UpdateRecentering(deltaTime, gotInputX);
+            TiltAxis.UpdateRecentering(deltaTime, gotInputY);
         }
 
         /// <summary>

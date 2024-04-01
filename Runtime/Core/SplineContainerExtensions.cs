@@ -88,7 +88,7 @@ namespace Unity.Cinemachine
         {
             var result = LocalEvaluateSplineWithRoll(spline, roll, defaultRotation, tNormalized, out position, out rotation);
             position = spline.transform.TransformPoint(position);
-            rotation = rotation * spline.transform.rotation;
+            rotation = spline.transform.rotation * rotation;
             return result;
         }
         
@@ -126,7 +126,7 @@ namespace Unity.Cinemachine
         /// <param name="splineLength">The length of the spline, in distance units.  
         /// Passed as parameter for efficiency because length calculation is slow.
         /// If a negative value is passed, length will be calculated.</param>
-        /// <returns></returns>
+        /// <returns>The clamped position value, respecting the specified units</returns>
         public static float StandardizePosition(
             this Spline spline, float t, PathIndexUnit unit, float splineLength = -1)
         {

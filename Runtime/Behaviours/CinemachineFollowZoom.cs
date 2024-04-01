@@ -12,6 +12,7 @@ namespace Unity.Cinemachine
     [SaveDuringPlay]
     [ExecuteAlways]
     [DisallowMultipleComponent]
+    [RequiredTarget(RequiredTargetAttribute.RequiredTargets.Tracking)]
     [HelpURL(Documentation.BaseURL + "manual/CinemachineFollowZoom.html")]
     public class CinemachineFollowZoom : CinemachineExtension
     {
@@ -24,7 +25,7 @@ namespace Unity.Cinemachine
 
         /// <summary>Increase this value to soften the aggressiveness of the follow-zoom.
         /// Small numbers are more responsive, larger numbers give a more heavy slowly responding camera. </summary>
-        [RangeSlider(0f, 20f)]
+        [Range(0f, 20f)]
         [Tooltip("Increase this value to soften the aggressiveness of the follow-zoom.  "
             + "Small numbers are more responsive, larger numbers give a more heavy slowly responding camera.")]
         [FormerlySerializedAs("m_Damping")]

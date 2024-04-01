@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
+using UnityEngine.Splines;
 
 namespace Unity.Cinemachine.Editor
 {
@@ -17,28 +18,20 @@ namespace Unity.Cinemachine.Editor
             this.AddMissingCmCameraHelpBox(ux);
             var noSplineHelp = ux.AddChild(new HelpBox("A Spline is required.", HelpBoxMessageType.Warning));
 
-            var splineProp = serializedObject.FindProperty(() => Target.Spline);
+            var splineProp = serializedObject.FindProperty(() => Target.SplineSettings);
             ux.Add(new PropertyField(splineProp));
-
-            var row = ux.AddChild(InspectorUtility.PropertyRow(
-                serializedObject.FindProperty(() => Target.CameraPosition), out _));
-            row.Contents.Add(new PropertyField(serializedObject.FindProperty(() => Target.PositionUnits), "") 
-                { style = { flexGrow = 2, flexBasis = 0 }});
-
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.SplineOffset)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.CameraRotation)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.AutomaticDolly)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Damping)));
 
-            TrackSpline(splineProp);
-            ux.TrackPropertyValue(splineProp, TrackSpline);
-            void TrackSpline(SerializedProperty p)
+            ux.TrackPropertyWithInitialCallback(splineProp, (p) =>
             {
                 bool noSpline = false;
                 for (int i = 0; !noSpline && i < targets.Length; ++i)
                     noSpline = targets[i] != null && ((CinemachineSplineDolly)targets[i]).Spline == null;
                 noSplineHelp.SetVisible(noSpline);
-            }
+            });
 
             return ux;
         }

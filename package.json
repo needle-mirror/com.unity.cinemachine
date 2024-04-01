@@ -1,9 +1,9 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "unity": "2022.3",
-  "description": "Smart camera tools for passionate creators. \n\nCinemachine 3.0 is a newer and better version of Cinemachine, but upgrading an existing project from 2.X will likely require some effort.  If you're considering upgrading an older project, please see our upgrade guide in the user manual.",
+  "description": "Smart camera tools for passionate creators. \n\nCinemachine 3 is a newer and better version of Cinemachine, but upgrading an existing project from 2.X will likely require some effort.  If you're considering upgrading an older project, please see our upgrade guide in the user manual.",
   "keywords": [
     "camera",
     "follow",
@@ -30,8 +30,7 @@
   ],
   "category": "cinematography",
   "dependencies": {
-    "com.unity.splines": "2.0.0",
-    "com.unity.test-framework": "1.1.33"
+    "com.unity.splines": "2.0.0"
   },
   "samples": [
     {
@@ -50,16 +49,19 @@
       "path": "Samples~/Input System Samples"
     }
   ],
+  "relatedPackages": {
+    "com.unity.cinemachine.tests": "3.1.0"
+  },
   "_upm": {
-    "changelog": "### Fixed\n- Bugfix: Divide-by-zero error in InputAxis.CancelDeltaTime if deltaTime is zero.\n- Regression fix: CinemachineCamera inspector Solo functionality was not updating correctly.\n- Regression fix: Legacy Lens settings had lost their ability to be animated.\n- Bugfix: Upgrader was not correctly upgrading animation bindings in some cases.\n\n### Added\n- Added CinemachineVirtualCameraBase.CancelDamping() convenience method to snap camera to its target position.\n- Added CinemachineOrbitalFollow.TargetOffset to reposition orbit center.\n- Added CinemachineGroupFraming.CenterOffset to reposition group center on the screen.\n- Added LookAtOffset to CinemachineHardLookAt behaviour.\n- Added support for the new Camera Overlay.\n\n### Changed\n- RuntimeUtility.GetScratchCollider and RuntimeUtility.DestroyScratchCollider are now public, to allow custom extensions to use them.\n- SaveDuringPlay supports multi-scene editing."
+    "changelog": "### Fixed\n- Bugfix: index out of range exception when adding a Cm Shot to a timeline track whose CinemachineBrain is inactive.\n- Bugfix: OrbitalFollow with 3-ring setup would inappropriately damp in respose to vertical input if LookAt and Follow were at different vertical positions.\n- Bugfix: StateDrivenCamera min activation time was broken.\n- Bugfix: Solo not updating when brain is in FixedUpdate.\n- Bugfix: Spline roll was being calculated incorrectly when spline was rotated.\n- Bugfix: \"Freeze When Blending Out\" didn't work when switching betwen two cameras multiple times.\n- Bugfix: Cinemachine cameras would sometimes unnecessarily dirty the scene due to floating-point imprecision when setting transform rotations.\n\n### Added\n- Added CinemachineDecollider to resolve camera intersection with colliders and terrains, without necessarily preserving line-of-sight to target.\n- CinemachineDeoccluder has the option to resolve towards the Follow target instead of the LookAt target.\n- Added CinemachineShotQualityEvaluator which is a standalone version of the evaluation code in Deoccluder.\n- Added StateDrivenCamera.CancelWait() method to cancel the current wait on a pending state change.\n- Added FlyAround sample scene showing a simple fly-around camera.\n- Added IgnoreTimeScale option to InputAxisControllerBase.\n- Added confirmation dialog when exiting play mode, if Save During Play is enabled and changes have been made to saveable properties.\n\n### Changed\n- SplineDolly and SplineCart: position on spline is preserved when units change.\n- SimplePlayerAimController sample upgraded to work on arbitrary surfaces (no longer depends on world up).\n- SimplePlayerController sample has logic to avoid input gimbal lock when player is upside-down relative to the camera.\n- PlayerOnSphere sample is now PlayerOnSurface - can walk on arbitrary surfaces.\n- Axis recentering happens independently on axes with differing recentering tmes, so that input on one axis does not impact the recentering state of the others.\n- FreeLookOnSphericalSurface sample is improved, adding a moving surface and second camera.\n- Replaced SameAsFollowTarget with RotateWithFollowTarget (SameAsFollowTarget still exists but is deprecated).\n- Deoccluder evaluates shots in the Finalize stage instead of Aim."
   },
   "upmCi": {
-    "footprint": "8dbacd4d9b0a6b48101d75d340d9aec38952a306"
+    "footprint": "32fced6c7bc65f38947a8f8733d0b7a299e8b53e"
   },
-  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@3.0/manual/index.html",
+  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/index.html",
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "89795a80001883b5db6cbda532b1669685645702"
+    "revision": "3c237e5dd7e9982ebad685471714bbd6eda41890"
   }
 }

@@ -52,21 +52,21 @@ namespace Unity.Cinemachine
             [Tooltip("The virtual camera to activate when the animation state becomes active")]
             [FormerlySerializedAs("m_VirtualCamera")]
             public CinemachineVirtualCameraBase Camera;
-            /// <summary>How long to wait (in seconds) before activating the virtual camera.
+            /// <summary>How long to wait (in seconds) before activating the camera.
             /// This filters out very short state durations</summary>
-            [Tooltip("How long to wait (in seconds) before activating the virtual camera. "
+            [Tooltip("How long to wait (in seconds) before activating the camera. "
                 + "This filters out very short state durations")]
             [FormerlySerializedAs("m_ActivateAfter")]
             public float ActivateAfter;
-            /// <summary>The minimum length of time (in seconds) to keep a virtual camera active</summary>
-            [Tooltip("The minimum length of time (in seconds) to keep a virtual camera active")]
+            /// <summary>The minimum length of time (in seconds) to keep a camera active</summary>
+            [Tooltip("The minimum length of time (in seconds) to keep a camera active")]
             [FormerlySerializedAs("m_MinDuration")]
             public float MinDuration;
         };
 
         /// <summary>The set of instructions associating virtual cameras with states.
         /// These instructions are used to choose the live child at any given moment</summary>
-        [Tooltip("The set of instructions associating virtual cameras with states.  "
+        [Tooltip("The set of instructions associating cameras with states.  "
         + "These instructions are used to choose the live child at any given moment")]
         [FormerlySerializedAs("m_Instructions")]
         public Instruction[] Instructions;
@@ -291,7 +291,7 @@ namespace Unity.Cinemachine
                 // Has it been pending long enough, and are we allowed to switch away
                 // from the active action?
                 if ((now - m_PendingActivationTime) > Instructions[m_PendingInstructionIndex].ActivateAfter
-                    && (now - m_ActivationTime) > Instructions[m_PendingInstructionIndex].MinDuration)
+                    && (now - m_ActivationTime) > Instructions[m_ActiveInstructionIndex].MinDuration)
                 {
                     // Yes, activate it now
                     m_ActiveInstructionIndex = m_PendingInstructionIndex;
@@ -318,6 +318,20 @@ namespace Unity.Cinemachine
                 hash = LookupFakeHash(hash, clips[bestClip].clip);
 
             return hash;
+        }
+
+        /// <summary>
+        /// Call this to cancel the current wait time for the pending instruction and activate 
+        /// the pending instruction immediately.
+        /// </summary>
+        public void CancelWait()
+        {
+            if (m_PendingActivationTime != 0 && m_PendingInstructionIndex >= 0 && m_PendingInstructionIndex < Instructions.Length)
+            {
+                m_ActiveInstructionIndex = m_PendingInstructionIndex;
+                m_ActivationTime = CinemachineCore.CurrentTime;
+                m_PendingActivationTime = 0;
+            }
         }
     }
 }

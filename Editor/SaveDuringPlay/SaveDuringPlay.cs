@@ -352,7 +352,7 @@ namespace Unity.Cinemachine.Editor
                     if (mValues.TryGetValue(fullName, out string savedValue)
                         && StringFromLeafObject(value) != savedValue)
                     {
-                        //Debug.Log("Put " + mObjectFullPath + "." + fullName + " = " + mValues[fullName]);
+                        //Debug.Log("Put " + mObjectFullPath + "." + fullName + " = " + mValues[fullName] + " --- was " + StringFromLeafObject(value));
                         value = LeafObjectFromString(type, mValues[fullName].Trim(), roots);
                         return true; // changed
                     }
@@ -373,8 +373,12 @@ namespace Unity.Cinemachine.Editor
         {
             var attrs = fieldInfo.GetCustomAttributes(false);
             for (int i = 0; i < attrs.Length; ++i)
+            {
                 if (attrs[i].GetType().Name.Equals("NoSaveDuringPlayAttribute"))
                     return false;
+                if (attrs[i].GetType().Name.Equals("NonSerializedAttribute"))
+                    return false;
+            }
             return true;
         }
 
@@ -580,7 +584,19 @@ namespace Unity.Cinemachine.Editor
                 }
             }
             if (dirty)
+            {
+                if (!EditorUtility.DisplayDialog(
+                        "Save changes made in Play Mode",
+                        "Some Cinemachine settings that were modified during play mode are being "
+                        + "propagated back to the scene.  Would you like to keep these changes, or undo them?\n\n"
+                        + "Note: if you choose Cancel, then the changes will be undone now.  If you choose Keep, then it "
+                        + "will still be possible to change your mind later by invoking Undo.",
+                        "Keep", "Cancel"))
+                {
+                    Undo.PerformUndo();
+                }
                 UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+            }
             s_SavedStates = null;
         }
     }

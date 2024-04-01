@@ -23,8 +23,18 @@ namespace Unity.Cinemachine
         /// <summary>Priority to use, if Enabled is true</summary>
         public int Value
         {
-            get => Enabled ? m_Value : 0;
+            readonly get => Enabled ? m_Value : 0;
             set { m_Value = value; Enabled = true; }
         }
+
+        /// <summary> Implicit conversion to int </summary>
+        /// <param name="prioritySettings"> The priority settings to convert. </param>
+        /// <returns> The value of the priority settings. </returns>
+        public static implicit operator int(PrioritySettings prioritySettings) => prioritySettings.Value;
+
+        /// <summary> Implicit conversion from int </summary>
+        /// <param name="priority"> The value to initialize the priority settings with. </param> 
+        /// <returns> A new priority settings with the given priority. </returns>
+        public static implicit operator PrioritySettings(int priority) => new () { Value = priority, Enabled = true };
     }
 }

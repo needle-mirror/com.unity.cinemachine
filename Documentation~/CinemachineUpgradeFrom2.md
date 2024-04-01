@@ -51,11 +51,12 @@ Old components have been replaced by new components. These are not renames, they
 - CinemachineCollider is replaced by [CinemachineDeoccluder](CinemachineDeoccluder.md)
 - CinemachineConfiner is replaced by [CinemachineConfiner2D](CinemachineConfiner2D.md) and [CinemachineConfiner3D](CinemachineConfiner3D.md)
 - Cinemachine3rdPersonFollow is replaced by [CinemachineThirdPersonFollow](CinemachineThirdPersonFollow.md).
+- CinemachineSameAsFollowTarget is replaced by [CinemachineRotateWithFollowTarget](CinemachineRotateWithFollowTarget.md).
 
 ### Renamed Components
 
 - Cinemachine3rdPersonAim has been renamed to [CinemachineThirdPersonAim](CinemachineThirdPersonAim.md).
-- CinemachineBlendListCamera has been renamed to [Cinemachine Sequencer Camera](CinemachineBlendListCamera.md).
+- CinemachineBlendListCamera has been renamed to [Cinemachine Sequencer Camera](CinemachineSequencerCamera.md).
 
 ### Renamed Fields 
 
@@ -87,6 +88,11 @@ In CM2, CinemachineBrain would only process CinemachineCameras that were assigne
 
 ![Cinemachine Channels Brain](images/CinemachineChannels-brain.png)
 
+### Lens Mode Override
+
+If your project is using virtual cameras with a Lens Mode Override (e.g. changing between physical and perspective and ortho cameras), then this will stop working until you enable mode override and assign a default lens mode in the CinemachineBrain.
+
+![Default Lens Mode](images/DefaultLensMode.png)
 
 ## Upgrading the Project Data
 

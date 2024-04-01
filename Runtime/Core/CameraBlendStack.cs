@@ -82,6 +82,8 @@ namespace Unity.Cinemachine
                 {
                     // No snapshot required - reset it
                     m_Snapshot.TakeSnapshot(null);
+                    m_SnapshotSource = null;
+                    m_SnapshotBlendWeight = 0;
                     return cam;
                 }
                 // A snapshot is needed
@@ -119,6 +121,8 @@ namespace Unity.Cinemachine
             if (overrideId < 0)
                 overrideId = m_NextFrameId++;
 
+            if (m_FrameStack.Count == 0)
+                m_FrameStack.Add(new StackFrame());
             var frame = m_FrameStack[FindFrame(overrideId, priority)];
             frame.DeltaTimeOverride = deltaTime;
             frame.Source.TimeInBlend = weightB;

@@ -56,6 +56,7 @@ namespace Unity.Cinemachine
     /// <summary>
     /// Property applied to int or float fields to generate a slider in the inspector.
     /// </summary>
+    [Obsolete("Use RangeAttribute instead")]
     public sealed class RangeSliderAttribute : PropertyAttribute 
     { 
         /// <summary>Minimum value for the range slider</summary>
@@ -116,6 +117,11 @@ namespace Unity.Cinemachine
     public sealed class Vector2AsRangeAttribute : PropertyAttribute {}
 
     /// <summary>
+    /// Sets isDelayed to true for each float field of the vector.
+    /// </summary>
+    public sealed class DelayedVectorAttribute : PropertyAttribute {}
+
+    /// <summary>
     /// Attribute used by camera pipeline authoring components to indicate
     /// which stage of the pipeline they belong in.
     /// </summary>
@@ -127,6 +133,33 @@ namespace Unity.Cinemachine
         /// <summary>Constructor: Pipeline Stage is defined here.</summary>
         /// <param name="stage">The stage in the Camera Pipeline in which to position this component</param>
         public CameraPipelineAttribute(CinemachineCore.Stage stage) { Stage = stage; }
+    }
+
+    /// <summary>
+    /// Attribute used by inspector to display warnings about missing targets.
+    /// This can be used on CinemachineComponents and CinemachineExtensions.
+    /// </summary>
+    public sealed class RequiredTargetAttribute : System.Attribute
+    {
+        /// <summary>Choices for which targets are required</summary>
+        public enum RequiredTargets 
+        { 
+            /// <summary>No specific target is required.</summary>
+            None, 
+            /// <summary>Tracking Target is required for the pipeline element to work</summary>
+            Tracking, 
+            /// <summary>LookAt Target is required for the pipeline element to work</summary>
+            LookAt, 
+            /// <summary>LookAt Target is required and must be a ICinemachineTargetGroup for the pipeline element to work</summary>
+            GroupLookAt 
+        };
+
+        /// <summary>Get the stage in the Camera Pipeline in which to position this component</summary>
+        public RequiredTargets RequiredTarget { get; private set; }
+
+        /// <summary>Constructor: Pipeline Stage is defined here.</summary>
+        /// <param name="requiredTarget">Which targets are required</param>
+        public RequiredTargetAttribute(RequiredTargets requiredTarget) { RequiredTarget = requiredTarget; }
     }
 
     /// <summary>

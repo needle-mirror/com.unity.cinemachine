@@ -4,6 +4,37 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2024-04-01
+
+### Fixed
+- Bugfix: index out of range exception when adding a Cm Shot to a timeline track whose CinemachineBrain is inactive.
+- Bugfix: OrbitalFollow with 3-ring setup would inappropriately damp in respose to vertical input if LookAt and Follow were at different vertical positions.
+- Bugfix: StateDrivenCamera min activation time was broken.
+- Bugfix: Solo not updating when brain is in FixedUpdate.
+- Bugfix: Spline roll was being calculated incorrectly when spline was rotated.
+- Bugfix: "Freeze When Blending Out" didn't work when switching betwen two cameras multiple times.
+- Bugfix: Cinemachine cameras would sometimes unnecessarily dirty the scene due to floating-point imprecision when setting transform rotations.
+
+### Added
+- Added CinemachineDecollider to resolve camera intersection with colliders and terrains, without necessarily preserving line-of-sight to target.
+- CinemachineDeoccluder has the option to resolve towards the Follow target instead of the LookAt target.
+- Added CinemachineShotQualityEvaluator which is a standalone version of the evaluation code in Deoccluder.
+- Added StateDrivenCamera.CancelWait() method to cancel the current wait on a pending state change.
+- Added FlyAround sample scene showing a simple fly-around camera.
+- Added IgnoreTimeScale option to InputAxisControllerBase.
+- Added confirmation dialog when exiting play mode, if Save During Play is enabled and changes have been made to saveable properties.
+
+### Changed
+- SplineDolly and SplineCart: position on spline is preserved when units change.
+- SimplePlayerAimController sample upgraded to work on arbitrary surfaces (no longer depends on world up).
+- SimplePlayerController sample has logic to avoid input gimbal lock when player is upside-down relative to the camera.
+- PlayerOnSphere sample is now PlayerOnSurface - can walk on arbitrary surfaces.
+- Axis recentering happens independently on axes with differing recentering tmes, so that input on one axis does not impact the recentering state of the others.
+- FreeLookOnSphericalSurface sample is improved, adding a moving surface and second camera.
+- Replaced SameAsFollowTarget with RotateWithFollowTarget (SameAsFollowTarget still exists but is deprecated).
+- Deoccluder evaluates shots in the Finalize stage instead of Aim.
+
+
 ## [3.0.1] - 2023-11-27
 
 ### Fixed
