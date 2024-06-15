@@ -5,15 +5,15 @@ using UnityEngine.Events;
 namespace Unity.Cinemachine.Samples
 {
     /// <summary>
-    /// This object manages player shooting.  It is expected to be on the player object, 
+    /// This component manages player shooting.  It is expected to be on the player object, 
     /// or on a child SimplePlayerAimController object of the player.
     /// 
-    /// If an AimTargetManager is specified, then the player will aim at that target.
-    /// Otherwise, the player will aim in the forward direction of the player object,
+    /// If an AimTargetManager is specified, then the behaviour aims at that target.
+    /// Otherwise, the behaviour aims in the forward direction of the player object,
     /// or of the SimplePlayerAimController object if it exists and is not decoupled
     /// from the player rotation.
     /// </summary>
-    class SimplePlayerShoot : MonoBehaviour, IInputAxisOwner
+    class SimplePlayerShoot : MonoBehaviour, Unity.Cinemachine.IInputAxisOwner
     {
         [Tooltip("The bullet prefab to instantiate when firing")]
         public GameObject BulletPrefab;
@@ -86,6 +86,9 @@ namespace Unity.Cinemachine.Samples
                 if (AimTargetManager != null)
                     fwd = AimTargetManager.GetAimDirection(transform.position, fwd).normalized;
 
+                var pos = transform.position + fwd;
+                var rot = Quaternion.LookRotation(fwd, transform.up);
+
                 // Because creating and destroying GameObjects is costly, we pool them and recycle
                 // the deactivated ones.  The bullets deactivate themselves after a time.
                 GameObject bullet = null;
@@ -94,17 +97,16 @@ namespace Unity.Cinemachine.Samples
                     if (!m_BulletPool[i].activeInHierarchy) 
                     {
                         bullet = m_BulletPool[i];
+                        bullet.transform.SetPositionAndRotation(pos, rot);
                         m_BulletPool.Remove(bullet);
                     }
                 }
                 // Instantiate a new bullet if none are found in the pool
                 if (bullet == null)
-                    bullet = Instantiate(BulletPrefab);
+                    bullet = Instantiate(BulletPrefab, pos, rot);
 
                 // Off it goes!
                 m_BulletPool.Add(bullet);
-                bullet.transform.SetPositionAndRotation(
-                    transform.position + fwd, Quaternion.LookRotation(fwd, transform.up));
                 bullet.SetActive(true);
                 FireEvent.Invoke();
             }

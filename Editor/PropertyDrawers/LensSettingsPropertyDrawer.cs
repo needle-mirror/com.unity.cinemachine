@@ -86,17 +86,15 @@ namespace Unity.Cinemachine.Editor
             var ux = new VisualElement();
 
             // When foldout is closed, we display the FOV on the same line, for convenience
-            var foldout = new Foldout { text = property.displayName, tooltip = property.tooltip, value = property.isExpanded };
+            var foldout = new Foldout { text = property.displayName, tooltip = property.tooltip };
             foldout.BindProperty(property);
 
-            var outerFovControl = new FovPropertyControl(property, true) { style = { flexGrow = 1 }};
+            var outerFovControl = new FovPropertyControl(property, true);
             ux.Add(new InspectorUtility.FoldoutWithOverlay(
                 foldout, outerFovControl, outerFovControl.ShortLabel) { style = { flexGrow = 1 }});
-            //outerFovControl.OnInitialGeometry(() => outerFovControl.SafeSetIsDelayed());
 
             // Populate the foldout
-            var innerFovControl = foldout.AddChild(new FovPropertyControl(property, false) { style = { flexGrow = 1 }});
-            //innerFovControl.OnInitialGeometry(() => innerFovControl.SafeSetIsDelayed());
+            var innerFovControl = foldout.AddChild(new FovPropertyControl(property, false));
 
             var nearClip = property.FindPropertyRelative(() => s_Def.NearClipPlane);
             foldout.AddChild(new PropertyField(nearClip)).RegisterValueChangeCallback((evt) =>
@@ -181,25 +179,25 @@ namespace Unity.Cinemachine.Editor
 
             public FovPropertyControl(SerializedProperty property, bool hideLabel) : base(hideLabel ? "" : "(fov)")
             {
-                style.flexDirection = FlexDirection.Row;
-
                 m_LensProperty = property;
                 var physicalProp = property.FindPropertyRelative(() => s_Def.PhysicalProperties);
                 m_SensorSizeProperty = physicalProp.FindPropertyRelative(() => s_Def.PhysicalProperties.SensorSize);
 
-                m_Control = Contents.AddChild(new FloatField("") { style = {flexBasis = 20, flexGrow = 2, marginLeft = 0}});
+                m_Control = Contents.AddChild(new FloatField("") 
+                    { style = { flexBasis = 20, flexGrow = 2, marginLeft = hideLabel ? 0 : 3 }});
                 m_Control.RegisterValueChangedCallback(OnControlValueChanged);
                 Label.SetVisible(!hideLabel);
                 Label.AddToClassList("unity-base-field__label--with-dragger");
-                new FieldMouseDragger<float>(m_Control).SetDragZone(Label);
+                new DelayedFriendlyFieldDragger<float>(m_Control) { CancelDelayedWhenDragging = true }.SetDragZone(Label);
+                m_Control.OnInitialGeometry(() => m_Control.SafeSetIsDelayed());
 
                 m_Presets = Contents.AddChild(new PopupField<string>
-                    { tooltip = "Customizable Lens Palette", style = {flexBasis = 20, flexGrow = 1}});
+                    { tooltip = "Customizable Lens Palette", style = { flexBasis = 20, flexGrow = 1 }});
                 m_Presets.RegisterValueChangedCallback(OnPresetValueChanged);
 
                 ShortLabel = new Label("X") { style = { alignSelf = Align.Center, opacity = 0.5f }};
                 ShortLabel.AddToClassList("unity-base-field__label--with-dragger");
-                new FieldMouseDragger<float>(m_Control).SetDragZone(ShortLabel);
+                new DelayedFriendlyFieldDragger<float>(m_Control) { CancelDelayedWhenDragging = true }.SetDragZone(ShortLabel);
 
                 this.TrackPropertyWithInitialCallback(property, OnLensPropertyChanged);
             }

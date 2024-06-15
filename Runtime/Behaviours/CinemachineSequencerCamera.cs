@@ -15,6 +15,7 @@ namespace Unity.Cinemachine
     [DisallowMultipleComponent]
     [ExecuteAlways]
     [ExcludeFromPreset]
+    [SaveDuringPlay]
     [AddComponentMenu("Cinemachine/Cinemachine Sequencer Camera")]
     [HelpURL(Documentation.BaseURL + "manual/CinemachineSequencerCamera.html")]
     public class CinemachineSequencerCamera : CinemachineCameraManagerBase
@@ -53,8 +54,8 @@ namespace Unity.Cinemachine
         [FormerlySerializedAs("m_Instructions")]
         public List<Instruction> Instructions = new ();
 
-        [SerializeField, HideInInspector, FormerlySerializedAs("m_LookAt")] Transform m_LegacyLookAt;
-        [SerializeField, HideInInspector, FormerlySerializedAs("m_Follow")] Transform m_LegacyFollow;
+        [SerializeField, HideInInspector, NoSaveDuringPlay, FormerlySerializedAs("m_LookAt")] Transform m_LegacyLookAt;
+        [SerializeField, HideInInspector, NoSaveDuringPlay, FormerlySerializedAs("m_Follow")] Transform m_LegacyFollow;
 
         float m_ActivationTime = -1; // The time at which the current instruction went live
         int m_CurrentInstruction = 0;
@@ -114,10 +115,8 @@ namespace Unity.Cinemachine
         protected override CinemachineVirtualCameraBase ChooseCurrentCamera(Vector3 worldUp, float deltaTime)
         {
             if (!PreviousStateIsValid)
-            {
                 m_CurrentInstruction = -1;
-                ValidateInstructions();
-            }
+
             AdvanceCurrentInstruction(deltaTime);
             return (m_CurrentInstruction >= 0 && m_CurrentInstruction < Instructions.Count)
                 ? Instructions[m_CurrentInstruction].Camera : null;
@@ -130,21 +129,11 @@ namespace Unity.Cinemachine
         protected override CinemachineBlendDefinition LookupBlend(
             ICinemachineCamera outgoing, ICinemachineCamera incoming) => Instructions[m_CurrentInstruction].Blend;
             
-        /// <summary>Internal API for the inspector editor.</summary>
-        /// // GML todo: make this private, part of UpdateCameraCache()
-        internal void ValidateInstructions()
+        /// <inheritdoc />
+        protected override bool UpdateCameraCache()
         {
             Instructions ??= new ();
-            for (var i = 0; i < Instructions.Count; ++i)
-            {
-                if (Instructions[i].Camera != null
-                    && Instructions[i].Camera.transform.parent != transform)
-                {
-                    var e = Instructions[i];
-                    e.Camera = null;
-                    Instructions[i] = e;
-                }
-            }
+            return base.UpdateCameraCache();
         }
 
         void AdvanceCurrentInstruction(float deltaTime)

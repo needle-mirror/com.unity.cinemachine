@@ -21,6 +21,7 @@ namespace Unity.Cinemachine
     [DisallowMultipleComponent]
     [ExecuteAlways]
     [ExcludeFromPreset]
+    [SaveDuringPlay]
     [AddComponentMenu("Cinemachine/Cinemachine State Driven Camera")]
     [HelpURL(Documentation.BaseURL + "manual/CinemachineStateDrivenCamera.html")]
     public class CinemachineStateDrivenCamera : CinemachineCameraManagerBase
@@ -81,10 +82,17 @@ namespace Unity.Cinemachine
             public int HashOfParent;
         }
         /// <summary>Internal API for the Inspector editor</summary>
-        [HideInInspector][SerializeField] internal ParentHash[] HashOfParent = null;
+        [HideInInspector, SerializeField, NoSaveDuringPlay] private List<ParentHash> HashOfParent = new();
 
-        [SerializeField, HideInInspector, FormerlySerializedAs("m_LookAt")] Transform m_LegacyLookAt;
-        [SerializeField, HideInInspector, FormerlySerializedAs("m_Follow")] Transform m_LegacyFollow;
+        /// <summary>Internal API for the Inspector editor</summary>
+        internal void SetParentHash(List<ParentHash> list)
+        {
+            HashOfParent.Clear();
+            HashOfParent.AddRange(list);
+        }
+
+        [SerializeField, HideInInspector, NoSaveDuringPlay, FormerlySerializedAs("m_LookAt")] Transform m_LegacyLookAt;
+        [SerializeField, HideInInspector, NoSaveDuringPlay, FormerlySerializedAs("m_Follow")] Transform m_LegacyFollow;
 
         float m_ActivationTime = 0;
         int m_ActiveInstructionIndex;
@@ -166,11 +174,6 @@ namespace Unity.Cinemachine
             m_InstructionDictionary = new Dictionary<int, List<int>>();
             for (int i = 0; i < Instructions.Length; ++i)
             {
-                if (Instructions[i].Camera != null
-                    && Instructions[i].Camera.transform.parent != transform)
-                {
-                    Instructions[i].Camera = null;
-                }
                 if (!m_InstructionDictionary.TryGetValue(Instructions[i].FullHash, out var list))
                 {
                     list = new List<int>();
@@ -181,7 +184,7 @@ namespace Unity.Cinemachine
 
             // Create the parent lookup
             m_StateParentLookup = new Dictionary<int, int>();
-            for (int i = 0; HashOfParent != null && i < HashOfParent.Length; ++i)
+            for (int i = 0; HashOfParent != null && i < HashOfParent.Count; ++i)
                 m_StateParentLookup[HashOfParent[i].Hash] = HashOfParent[i].HashOfParent;
 
             // Zap the cached current instructions
@@ -255,7 +258,7 @@ namespace Unity.Cinemachine
                 for (int i = 0; i < instrList.Count; ++i)
                 {
                     var index = instrList[i];
-                    var cam = Instructions[index].Camera;
+                    var cam = index < Instructions.Length ? Instructions[index].Camera : null;
                     if (cam != null && cam.isActiveAndEnabled && cam.Priority.Value > bestPriority)
                     {
                         newInstrIndex = index;

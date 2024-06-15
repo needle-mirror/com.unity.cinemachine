@@ -17,9 +17,14 @@ namespace Unity.Cinemachine
         {
             var ux = new VisualElement();
 
+            ux.Add(new HelpBox("This component is optional and can be removed if you don't need it.  "
+                + "The modifiers you add will override settings for the top and bottom portions "
+                + "of the camera's vertical orbit.",
+                HelpBoxMessageType.Info));
+
             var invalidSrcMsg = ux.AddChild(
-                new HelpBox("<b>This component will be ignored because no applicable target components are present.</b>\n\n"
-                    + "Applicable target components include: "
+                new HelpBox("<b>Component will be ignored because no modifiable targets are present.</b>\n\n"
+                    + "Modifiable target components include: "
                     + InspectorUtility.GetAssignableBehaviourNames(
                         typeof(CinemachineFreeLookModifier.IModifierValueSource)), 
                     HelpBoxMessageType.Warning));
@@ -110,7 +115,9 @@ namespace Unity.Cinemachine
                     warningSymbol.SetVisible(showWarning);
                 });
 
-                return new InspectorUtility.FoldoutWithOverlay(foldout, overlay, null);
+                var ux = new InspectorUtility.FoldoutWithOverlay(foldout, overlay, null);
+                ux.style.marginLeft = 12;
+                return ux;
             }
         }
 
@@ -133,10 +140,8 @@ namespace Unity.Cinemachine
             static ModifierMenuItems()
             {
                 // Get all Modifier types
-                var allTypes
-                    = ReflectionHelpers.GetTypesInAllDependentAssemblies(
-                        (Type t) => typeof(CinemachineFreeLookModifier.Modifier).IsAssignableFrom(t) 
-                        && !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
+                var allTypes = ReflectionHelpers.GetTypesDerivedFrom(typeof(CinemachineFreeLookModifier.Modifier), 
+                    (t) => !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
 
                 s_AllModifiers.Clear();
                 s_ModifierNames.Clear();

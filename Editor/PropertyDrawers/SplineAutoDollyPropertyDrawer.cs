@@ -27,7 +27,7 @@ namespace Unity.Cinemachine.Editor
                 choices = AutoDollyMenuItems.s_ItemNames,
                 style = { flexGrow = 1 }
             });
-            dropdown.AddToClassList(InspectorUtility.kAlignFieldClass);
+            dropdown.AddToClassList(InspectorUtility.AlignFieldClassName);
             dropdown.RegisterValueChangedCallback((evt) => 
             {
                 var index = AutoDollyMenuItems.GetTypeIndex(evt.newValue);
@@ -110,10 +110,8 @@ namespace Unity.Cinemachine.Editor
             static AutoDollyMenuItems()
             {
                 // Get all eligible types
-                var allTypes
-                    = ReflectionHelpers.GetTypesInAllDependentAssemblies(
-                        (Type t) => typeof(SplineAutoDolly.ISplineAutoDolly).IsAssignableFrom(t) 
-                            && !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
+                var allTypes = ReflectionHelpers.GetTypesDerivedFrom(typeof(SplineAutoDolly.ISplineAutoDolly),
+                    (t) => !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
 
                 s_AllItems.Clear();
                 s_AllItems.Add(null);

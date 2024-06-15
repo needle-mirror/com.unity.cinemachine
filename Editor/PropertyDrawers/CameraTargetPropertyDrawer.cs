@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
-using UnityEditor.UIElements;
 
 namespace Unity.Cinemachine.Editor
 {
@@ -16,9 +15,7 @@ namespace Unity.Cinemachine.Editor
             var follow = ux.AddChild(CreateTargetProperty(property.FindPropertyRelative(() => def.TrackingTarget), customProp));
             var lookAt = ux.AddChild(CreateTargetProperty(property.FindPropertyRelative(() => def.LookAtTarget), customProp));
             
-            TrackCustomProp(customProp);
-            ux.TrackPropertyValue(customProp, TrackCustomProp);
-            void TrackCustomProp(SerializedProperty p) => lookAt.SetVisible(p.boolValue);
+            ux.TrackPropertyWithInitialCallback(customProp, (p) => lookAt.SetVisible(p.boolValue));
 
             return ux;
         }
@@ -26,7 +23,7 @@ namespace Unity.Cinemachine.Editor
         VisualElement CreateTargetProperty(SerializedProperty property, SerializedProperty customProp)
         {
             var row = InspectorUtility.PropertyRow(property, out _);
-            row.Add(InspectorUtility.MiniPopupButton(null, new ContextualMenuManipulator((evt) => 
+            row.Contents.Add(InspectorUtility.MiniPopupButton(null, new ContextualMenuManipulator((evt) => 
             {
                 evt.menu.AppendAction("Convert to TargetGroup", 
                     (action) => 

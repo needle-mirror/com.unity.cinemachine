@@ -9,8 +9,12 @@ The Cinemachine package includes sample scenes that you can [import to your proj
 | Sample | Description |
 | :--- | :--- |
 | 2D Samples | Sample scenes illustrating various ways to use Cinemachine in a 2D setting.<br />Includes: `2D Fighters`, `2D Platformer`, `CameraMagnets`. |
-| 3D Samples | Sample scenes illustrating various ways to use Cinemachine in a 3D setting.<br />Includes: `Brain Update Modes`, `ClearShot`, `Custom Blends`, `Cutscene`, `FadeOutNearbyObjects`, `FreeLook Deoccluder`, `FreeLook on Spherical Surface`, `Impulse Wave`, `Lock-on Target`, `MixingCamera`, `RunningRace`, `SplitScreenCar`, `ThirdPersonWithAimMode`, `ThirdPersonWithRoadieRun`. |
+| 3D Samples | Sample scenes illustrating various ways to use Cinemachine in a 3D setting.<br />Includes: `Brain Update Modes`, `ClearShot`, `Custom Blends`, `Cutscene`, `FreeLook Deoccluder`, `FreeLook on Spherical Surface`, `Impulse Wave`, `Lock-on Target`, `MixingCamera`, `RunningRace`, `SplitScreenCar`, `ThirdPersonWithAimMode`, `ThirdPersonWithRoadieRun`. |
 | Input System Samples | Sample scenes illustrating various ways to use Cinemachine with the input system.<br />Includes: `Split Screen Multiplayer`. |
+
+### Simple Player Controller
+
+Several of the samples listed above make use of Cinemachine's [Simple Player Controller](SimplePlayerController.md), a basic but versatile player controller that you can use in your own projects. It is a suite of scripts that you can combine and configure to create character controllers which you can use in different contexts to implement several types of character movement.
 
 ## Tutorials
 

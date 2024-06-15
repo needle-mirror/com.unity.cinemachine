@@ -11,26 +11,27 @@ namespace Unity.Cinemachine
         /// <summary>Check spline container and child spline for null</summary>
         /// <param name="spline">spline container to check</param>
         /// <returns>true if container holds a non-null spline</returns>
-        public static bool IsValid(this SplineContainer spline) => spline != null && spline.Spline != null;
+        public static bool IsValid(this ISplineContainer spline) => spline != null && spline.Splines != null && spline.Splines.Count > 0;
 
         /// <summary>
-        /// Apply to a <see cref="SplineContainer"/>additional roll from <see cref="CinemachineSplineRoll"/>
+        /// Apply to a <see cref="CachedScaledSpline"/>additional roll from <see cref="CinemachineSplineRoll"/>
         /// </summary>
         /// <param name="spline">The spline in question</param>
         /// <param name="roll">The additional roll to apply</param>
         /// <param name="tNormalized">The normalized position on the spline</param>
+        /// <param name="defaultRotation">Used to resolve cases where spline tangent is undefined</param>
         /// <param name="position">returned point on the spline, in spline-local coords</param>
         /// <param name="rotation">returned rotation at the point on the spline, in spline-local coords</param>
         /// <returns>True if the spline position is valid</returns>
         public static bool LocalEvaluateSplineWithRoll(
-            this SplineContainer spline,
-            CinemachineSplineRoll roll,
-            Quaternion defaultRotation,
+            this ISpline spline,
             float tNormalized, 
+            Quaternion defaultRotation,
+            CinemachineSplineRoll roll,
             out Vector3 position, out Quaternion rotation)
         {
-            if (spline.Spline == null || !SplineUtility.Evaluate(
-                spline.Spline, tNormalized, out var localPosition, out var localTangent, out var localUp))
+            if (spline == null || !SplineUtility.Evaluate(
+                spline, tNormalized, out var localPosition, out var localTangent, out var localUp))
             {
                 position = Vector3.zero;
                 rotation = Quaternion.identity;
@@ -63,33 +64,52 @@ namespace Unity.Cinemachine
             // Apply extra roll
             if (roll != null && roll.enabled)
             {
-                float rollValue = roll.Roll.Evaluate(spline.Spline, tNormalized, 
-                    PathIndexUnit.Normalized, new UnityEngine.Splines.Interpolators.LerpFloat());
+                float rollValue = roll.Roll.Evaluate(spline, tNormalized, 
+                    PathIndexUnit.Normalized, new CinemachineSplineRoll.LerpRollData());
                 rotation = Quaternion.AngleAxis(-rollValue, fwd) * rotation;
             }
             return true;
         }
 
         /// <summary>
-        /// Apply to a <see cref="SplineContainer"/>additional roll from <see cref="CinemachineSplineRoll"/>
+        /// Apply to a <see cref="CachedScaledSpline"/>additional roll from <see cref="CinemachineSplineRoll"/>
         /// </summary>
         /// <param name="spline">The spline in question</param>
-        /// <param name="roll">The additional roll to apply</param>
         /// <param name="tNormalized">The normalized position on the spline</param>
+        /// <param name="defaultRotation">Used to resolve cases where spline tangent is undefined</param>
+        /// <param name="roll">The additional roll to apply</param>
         /// <param name="position">returned point on the spline, in world coords</param>
         /// <param name="rotation">returned rotation at the point on the spline, in world coords</param>
         /// <returns>True if the spline position is valid</returns>
         public static bool EvaluateSplineWithRoll(
-            this SplineContainer spline,
-            CinemachineSplineRoll roll,
-            Quaternion defaultRotation,
+            this CachedScaledSpline spline,
+            Transform transform,
             float tNormalized, 
+            Quaternion defaultRotation,
+            CinemachineSplineRoll roll,
             out Vector3 position, out Quaternion rotation)
         {
-            var result = LocalEvaluateSplineWithRoll(spline, roll, defaultRotation, tNormalized, out position, out rotation);
-            position = spline.transform.TransformPoint(position);
-            rotation = spline.transform.rotation * rotation;
+            var result = LocalEvaluateSplineWithRoll(spline, tNormalized, defaultRotation, roll, out position, out rotation);
+            position = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one).MultiplyPoint3x4(position);
+            rotation = transform.rotation * rotation;
             return result;
+        }
+
+        /// <summary>Evaluate a spline's world position and rotation at a normalized spline index</summary>
+        /// <param name="spline">The spline in question</param>
+        /// <param name="tNormalized">The normalized position on the spline</param>
+        /// <param name="position">returned point on the spline, in world coords</param>
+        /// <returns>True if the spline position is valid</returns>
+        public static bool EvaluateSplinePosition(
+            this CachedScaledSpline spline, Transform transform, float tNormalized, out Vector3 position)
+        {
+            if (spline == null || !SplineUtility.Evaluate(spline, tNormalized, out var localPosition, out _, out _))
+            {
+                position = Vector3.zero;
+                return false;
+            }
+            position = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one).MultiplyPoint3x4(localPosition);
+            return true;
         }
         
         /// <summary>
@@ -97,17 +117,14 @@ namespace Unity.Cinemachine
         /// </summary>
         /// <param name="spline">The spline in question</param>
         /// <param name="unit">The spline position is expressed in these units</param>
-        /// <param name="splineLength">The length of the spline, in distance units.  
-        /// Passed as parameter for efficiency because length calculation is slow.
-        /// If a negative value is passed, length will be calculated.</param>
+        /// This is needed because we don't have access to the spline's scale.</param>
         /// <returns></returns>
-        public static float GetMaxPosition(
-            this Spline spline, PathIndexUnit unit, float splineLength = -1)
+        public static float GetMaxPosition(this ISpline spline, PathIndexUnit unit)
         {
             switch (unit)
             {
                 case PathIndexUnit.Distance: 
-                    return splineLength < 0 ? spline.GetLength() : splineLength;
+                    return spline.GetLength();
                 case PathIndexUnit.Knot: 
                 {
                     var knotCount = spline.Count;
@@ -123,19 +140,18 @@ namespace Unity.Cinemachine
         /// <param name="spline">The spline in question</param>
         /// <param name="t">Spline position to sanitize</param>
         /// <param name="unit">The spline position is expressed in these units</param>
-        /// <param name="splineLength">The length of the spline, in distance units.  
-        /// Passed as parameter for efficiency because length calculation is slow.
-        /// If a negative value is passed, length will be calculated.</param>
+        /// This is needed because we don't have access to the spline's scale.</param>
         /// <returns>The clamped position value, respecting the specified units</returns>
-        public static float StandardizePosition(
-            this Spline spline, float t, PathIndexUnit unit, float splineLength = -1)
+        public static float StandardizePosition(this ISpline spline, float t, PathIndexUnit unit, out float maxPos)
         {
-            var max = spline.GetMaxPosition(unit, splineLength);
+            maxPos = spline.GetMaxPosition(unit);
+            if (float.IsNaN(t))
+                return 0;
             if (!spline.Closed)
-                return Mathf.Clamp(t, 0, max);
-            t %= max;
+                return Mathf.Clamp(t, 0, maxPos);
+            t %= maxPos;
             if (t < 0)
-                t += max;
+                t += maxPos;
             return t;
         }
     }

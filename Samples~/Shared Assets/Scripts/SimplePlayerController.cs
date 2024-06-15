@@ -5,7 +5,30 @@ using UnityEngine.Events;
 
 namespace Unity.Cinemachine.Samples
 {
-    public abstract class SimplePlayerControllerBase : MonoBehaviour, IInputAxisOwner
+    /// <summary>
+    /// This is the base class for SimplePlayerController and SimplePlayerController2D.  
+    /// You can also use it as a base class for your custom controllers.  
+    /// It provides the following:
+    /// 
+    /// **Services:**
+    /// 
+    ///  - 2D motion axes (MoveX and MoveZ)
+    ///  - Jump button
+    ///  - Sprint button
+    ///  - API for strafe mode
+    /// 
+    /// **Actions:**
+    /// 
+    ///  - PreUpdate - invoked at the beginning of `Update()`
+    ///  - PostUpdate - invoked at the end of `Update()`
+    ///  - StartJump - invoked when the player starts jumping
+    ///  - EndJump - invoked when the player stops jumping
+    /// 
+    /// **Events:** 
+    /// 
+    ///  - Landed - invoked when the player lands on the ground
+    /// </summary>
+    public abstract class SimplePlayerControllerBase : MonoBehaviour, Unity.Cinemachine.IInputAxisOwner
     {
         [Tooltip("Ground speed when walking")]
         public float Speed = 1f;
@@ -54,12 +77,36 @@ namespace Unity.Cinemachine.Samples
         public abstract bool IsMoving { get; }
     }
 
+    /// <summary>
+    /// Building on top of SimplePlayerControllerBase, this is the 3D character controller.  
+    /// It provides the following services and settings:
+    /// 
+    /// - Damping (applied to the player's velocity, and to the player's rotation)
+    /// - Strafe Mode
+    /// - Gravity
+    /// - Input Frames (which reference frame is used fo interpreting input: Camera, World, or Player)
+    /// - Ground Detection (using raycasts, or delegating to Character Controller)
+    /// - Camera Override (camera is used only for determining the input frame)
+    /// 
+    /// This behaviour should be attached to the player GameObject's root.  It moves the GameObject's 
+    /// transform.  If the GameObject also has a Unity Character Controller component, the Simple Player 
+    /// Controller delegates grounded state and movement to it.  If the GameObject does not have a 
+    /// Character Controller, the Simple Player Controller manages its own movement and does raycasts 
+    /// to test for grounded state.
+    /// 
+    /// Simple Player Controller does its best to interpret User input in the context of the 
+    /// selected reference frame.  Generally, this works well, but in Camera mode, the user
+    /// may potentially transition from being upright relative to the camera to being inverted.  
+    /// When this happens, there can be a discontinuity in the interpretation of the input.  
+    /// The Simple Player Controller has an ad-hoc technique of resolving this discontinuity, 
+    /// (you can see this in the code), but it is only used in this very specific situation.
+    /// </summary>
     public class SimplePlayerController : SimplePlayerControllerBase
     {
-        [Tooltip("How long it takes for the player to change velocity")]
+        [Tooltip("Transition duration (in seconds) when the player changes velocity or rotation.")]
         public float Damping = 0.5f;
 
-        [Tooltip("If true, player will strafe when moving sideways, otherwise will turn to face direction of motion")]
+        [Tooltip("Makes the player strafe when moving sideways, otherwise it turns to face the direction of motion.")]
         public bool Strafe = false;
 
         public enum ForwardModes { Camera, Player, World };
@@ -72,17 +119,17 @@ namespace Unity.Cinemachine.Samples
         public ForwardModes InputForward = ForwardModes.Camera;
 
         [Tooltip("Up direction for computing motion:\n"
-            + "<b>Player</b>: Will move in the Player's local XZ plane.\n"
-            + "<b>World</b>: will move in global XZ plane.")]
+            + "<b>Player</b>: Move in the Player's local XZ plane.\n"
+            + "<b>World</b>: Move in global XZ plane.")]
         public UpModes UpMode = UpModes.World;
 
-        [Tooltip("Override the main camera. Useful for split screen games.")]
+        [Tooltip("If non-null, take the input frame from this camera instead of Camera.main. Useful for split-screen games.")]
         public Camera CameraOverride;
 
-        [Tooltip("Raycasts for ground will detect these layers")]
+        [Tooltip("Layers to include in ground detection via Raycasts.")]
         public LayerMask GroundLayers = 1;
         
-        [Tooltip("Force of gravity in the down direction (m/s/s)")]
+        [Tooltip("Force of gravity in the down direction (m/s^2)")]
         public float Gravity = 10;
 
         const float kDelayBeforeInferringJump = 0.3f;
@@ -97,6 +144,9 @@ namespace Unity.Cinemachine.Samples
 
         // These are part of a strategy to combat input gimbal lock when controlling a player
         // that can move freely on surfaces that go upside-down relative to the camera.
+        // This is only used in the specific situation where the character is upside-down relative to the input frame,
+        // and the input directives become ambiguous.
+        // If the camera and input frame are travelling along with the player, then these are not used.
         bool m_InTopHemisphere = true;
         float m_TimeInHemisphere = 100;
         Vector3 m_LastRawInput;
@@ -109,15 +159,9 @@ namespace Unity.Cinemachine.Samples
         public bool IsJumping => m_IsJumping;
         public Camera Camera => CameraOverride == null ? Camera.main : CameraOverride;
 
-        public bool IsGrounded()
-        {
-            if (m_Controller != null)
-                return m_Controller.isGrounded;
+        public bool IsGrounded() => GetDistanceFromGround(transform.position, UpDirection, 10) < 0.01f;
 
-            // No controller - must compute manually with raycast
-            return GetDistanceFromGround(transform.position, UpDirection, 10) < 0.01f;
-        }
-
+        // Note that m_Controller is an optional component: we'll use it if it's there.
         void Start() => TryGetComponent(out m_Controller);
 
         private void OnEnable()
@@ -188,7 +232,7 @@ namespace Unity.Cinemachine.Samples
 
         // Get the reference frame for the input.  The idea is to map camera fwd/right
         // to the player's XZ plane.  There is some complexity here to avoid
-        // gimbal lock when the player is tilted 180 degrees relative to the camera.
+        // gimbal lock when the player is tilted 180 degrees relative to the input frame.
         Quaternion GetInputFrame(bool inputDirectionChanged)
         {
             // Get the raw input frame, depending of forward mode setting
@@ -204,7 +248,8 @@ namespace Unity.Cinemachine.Samples
             var playerUp = transform.up;
             var up = frame * Vector3.up;
 
-            // Is the player in the top or bottom hemisphere?  This is needed to avoid gimbal lock
+            // Is the player in the top or bottom hemisphere?  This is needed to avoid gimbal lock,
+            // but only when the player is upside-down relative to the input frame.
             const float BlendTime = 2f;
             m_TimeInHemisphere += Time.deltaTime;
             bool inTopHemisphere = Vector3.Dot(up, playerUp) >= 0;
@@ -329,7 +374,7 @@ namespace Unity.Cinemachine.Samples
 
         float GetDistanceFromGround(Vector3 pos, Vector3 up, float max)
         {
-            float kExtraHeight = 2; // start a little above the player in case it's moving down fast
+            float kExtraHeight = m_Controller == null ? 2 : 0; // start a little above the player in case it's moving down fast
             if (Physics.Raycast(pos + up * kExtraHeight, -up, out var hit, 
                     max + kExtraHeight, GroundLayers, QueryTriggerInteraction.Ignore))
                 return hit.distance - kExtraHeight; 

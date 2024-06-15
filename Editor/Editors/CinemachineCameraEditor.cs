@@ -2,6 +2,7 @@
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEditor.EditorTools;
 
 namespace Unity.Cinemachine.Editor
 {
@@ -30,21 +31,8 @@ namespace Unity.Cinemachine.Editor
             cam.Lens = CinemachineMenu.MatchSceneViewCamera(cam.transform);
         }
 
-        void OnEnable()
-        {
-            Undo.undoRedoPerformed += ResetTarget;
-
-            CinemachineSceneToolUtility.RegisterTool(typeof(FoVTool));
-            CinemachineSceneToolUtility.RegisterTool(typeof(FarNearClipTool));
-        }
-
-        void OnDisable()
-        {
-            Undo.undoRedoPerformed -= ResetTarget;
-
-            CinemachineSceneToolUtility.UnregisterTool(typeof(FoVTool));
-            CinemachineSceneToolUtility.UnregisterTool(typeof(FarNearClipTool));
-        }
+        void OnEnable() => Undo.undoRedoPerformed += ResetTarget;
+        void OnDisable() => Undo.undoRedoPerformed -= ResetTarget;
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -53,17 +41,21 @@ namespace Unity.Cinemachine.Editor
             this.AddCameraStatus(ux);
             this.AddTransitionsSection(ux, new () { serializedObject.FindProperty(() => Target.BlendHint) });
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Lens)));
+
+            var defaultTargetLabel = new ObjectField("");
+            defaultTargetLabel.SetEnabled(false);
+            var defaultTargetRow = ux.AddChild(new InspectorUtility.LabeledRow(
+                "Default Target", "The default target is set in the parent object, and will be used if the Tracking Target is None", 
+                defaultTargetLabel));
+            defaultTargetRow.focusable = false;
+            defaultTargetLabel.style.marginLeft = 5;
+            defaultTargetLabel.style.marginRight = -2;
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Target)));
 
             ux.AddHeader("Global Settings");
             this.AddGlobalControls(ux);
 
-            var defaultTargetLabel = new Label() { style = { alignSelf = Align.FlexEnd, opacity = 0.5f }};
-            var row = ux.AddChild(new InspectorUtility.LabeledRow("<b>Procedural Components</b>", "", defaultTargetLabel));
-            row.focusable = false;
-            row.style.paddingTop = InspectorUtility.SingleLineHeight / 2;
-            row.style.paddingBottom = EditorGUIUtility.standardVerticalSpacing;
-
+            ux.AddHeader("Procedural Components");
             this.AddPipelineDropdowns(ux);
 
             ux.AddSpace();
@@ -77,35 +69,62 @@ namespace Unity.Cinemachine.Editor
                 var deltaTime = Application.isPlaying ? Time.deltaTime : -1;
                 Target.InternalUpdateCameraState(brain == null ? Vector3.up : brain.DefaultWorldUp, deltaTime);
                 bool haveDefault = Target.Target.TrackingTarget != Target.Follow;
-                defaultTargetLabel.SetVisible(haveDefault);
+                defaultTargetRow.SetVisible(haveDefault);
                 if (haveDefault)
-                    defaultTargetLabel.text = "Default target: " + Target.Follow.name;
+                    defaultTargetLabel.value = Target.Follow;
                 CmCameraInspectorUtility.SortComponents(target as CinemachineVirtualCameraBase);
             });
 
             return ux;
         }
 
-        void OnSceneGUI()
+        [EditorTool("Field of View Tool", typeof(CinemachineCamera))]
+        class FoVTool : EditorTool
         {
-            var cmCam = Target;
-            if (cmCam == null)
-                return;
+            GUIContent m_IconContent;
+            public override GUIContent toolbarIcon => m_IconContent;
+            void OnEnable()
+            {
+                m_IconContent = new GUIContent
+                {
+                    image = AssetDatabase.LoadAssetAtPath<Texture2D>($"{CinemachineSceneToolHelpers.IconPath}/FOV.png"),
+                    tooltip = "Adjust the Field of View of the Lens",
+                };
+            }
 
-            var originalColor = Handles.color;
-            Handles.color = Handles.preselectionColor;
-            if (CinemachineSceneToolUtility.IsToolActive(typeof(FoVTool)))
+            public override void OnToolGUI(EditorWindow window)
             {
-                CinemachineSceneToolHelpers.FovToolHandle(cmCam, 
-                    new SerializedObject(cmCam).FindProperty(() => cmCam.Lens), 
-                    cmCam.Lens, cmCam.Lens.UseHorizontalFOV);
+                var vcam = target as CinemachineCamera;
+                if (target == null)
+                    return;
+
+                CinemachineSceneToolHelpers.DoFovToolHandle(
+                    vcam, new SerializedObject(vcam).FindProperty(() => vcam.Lens), vcam.Lens, vcam.Lens.UseHorizontalFOV);
             }
-            else if (CinemachineSceneToolUtility.IsToolActive(typeof(FarNearClipTool)))
+        }
+
+        [EditorTool("Far-Near Clip Tool", typeof(CinemachineCamera))]
+        class FarNearClipTool : EditorTool
+        {
+            GUIContent m_IconContent;
+            public override GUIContent toolbarIcon => m_IconContent;
+            void OnEnable()
             {
-                CinemachineSceneToolHelpers.NearFarClipHandle(cmCam,
-                    new SerializedObject(cmCam).FindProperty(() => cmCam.Lens));
+                m_IconContent = new GUIContent
+                {
+                    image = AssetDatabase.LoadAssetAtPath<Texture2D>($"{CinemachineSceneToolHelpers.IconPath}/FarNearClip.png"),
+                    tooltip = "Adjust the Far/Near Clip of the Lens",
+                };
             }
-            Handles.color = originalColor;
+
+            public override void OnToolGUI(EditorWindow window)
+            {
+                var vcam = target as CinemachineCamera;
+                if (target == null)
+                    return;
+
+                CinemachineSceneToolHelpers.DoNearFarClipHandle(vcam, new SerializedObject(vcam).FindProperty(() => vcam.Lens));
+            }
         }
     }
 }

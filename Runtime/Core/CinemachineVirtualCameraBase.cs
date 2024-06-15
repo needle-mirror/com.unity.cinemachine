@@ -25,7 +25,6 @@ namespace Unity.Cinemachine
     /// there is nothing that prevents a virtual camera from controlling multiple
     /// Unity cameras simultaneously.
     /// </summary>
-    [SaveDuringPlay]
     public abstract class CinemachineVirtualCameraBase : MonoBehaviour, ICinemachineCamera
     {
         /// <summary>
@@ -162,7 +161,7 @@ namespace Unity.Cinemachine
             }
         }
 
-        [HideInInspector, SerializeField, FormerlySerializedAs("m_Priority")]
+        [HideInInspector, SerializeField, NoSaveDuringPlay, FormerlySerializedAs("m_Priority")]
         int m_LegacyPriority = 0;
 
         //============================================================================
@@ -746,7 +745,7 @@ namespace Unity.Cinemachine
         public bool FollowTargetChanged { get; private set; }
 
         /// <summary>
-        /// This property is true if the LookAtTarget was changed this frame.
+        /// This property is true if the LookAt was changed this frame.
         /// </summary>
         public bool LookAtTargetChanged { get; private set; }
 

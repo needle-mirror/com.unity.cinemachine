@@ -9,6 +9,7 @@ using UnityEditor.UIElements;
 
 namespace Unity.Cinemachine.Editor
 {
+    [CanEditMultipleObjects]
     [CustomEditor(typeof(CinemachineStateDrivenCamera))]
     class CinemachineStateDrivenCameraEditor : UnityEditor.Editor
     {
@@ -39,7 +40,7 @@ namespace Unity.Cinemachine.Editor
 
             var layerProp = serializedObject.FindProperty(() => Target.LayerIndex);
             var layerSel = ux.AddChild(new PopupField<string>(layerProp.displayName) { tooltip = layerProp.tooltip });
-            layerSel.AddToClassList(InspectorUtility.kAlignFieldClass);
+            layerSel.AddToClassList(InspectorUtility.AlignFieldClassName);
             layerSel.RegisterValueChangedCallback((evt) => 
             {
                 layerProp.intValue = Mathf.Max(0, m_LayerNames.FindIndex(v => v == evt.newValue));
@@ -72,7 +73,6 @@ namespace Unity.Cinemachine.Editor
 
             var list = container.AddChild(new ListView()
             {
-                name = "InstructionList",
                 reorderable = true,
                 reorderMode = ListViewReorderMode.Animated,
                 showAddRemoveFooter = true,
@@ -84,64 +84,73 @@ namespace Unity.Cinemachine.Editor
             var instructions = serializedObject.FindProperty(() => Target.Instructions);
             list.BindProperty(instructions);
 
-            list.makeItem = () => new BindableElement { style = { flexDirection = FlexDirection.Row }};
-            list.bindItem = (row, index) =>
+            // Available camera candidates
+            var availableCameras = new List<Object>();
+
+            list.makeItem = () => 
             {
-                // Remove children - items get recycled
-                for (int i = row.childCount - 1; i >= 0; --i)
-                    row.RemoveAt(i);
+                var row = new BindableElement { style = { flexDirection = FlexDirection.Row }};
 
                 var def = new CinemachineStateDrivenCamera.Instruction();
-                var element = instructions.GetArrayElementAtIndex(index);
 
-                var stateSelProp = element.FindPropertyRelative(() => def.FullHash);
-                int currentState = GetStateHashIndex(stateSelProp.intValue);
+                // This is the real state field, but it's hiddes
+                var hashField = row.AddChild(new IntegerField() { bindingPath = SerializedPropertyHelper.PropertyName(() => def.FullHash) });
+                hashField.SetVisible(false);
+
+                // Create a state selector popup to drive the state field
                 var stateSel = row.AddChild(new PopupField<string> 
                 {
-                    name = $"stateSelector{index}", 
                     choices = m_TargetStateNames, 
-                    tooltip = "The state that will activate the camera" 
+                    tooltip = "The state that will activate the camera"
                 });
-                stateSel.RegisterValueChangedCallback((evt) => 
+
+                hashField.RegisterValueChangedCallback((evt) => 
                 {
-                    if (evt.target == stateSel)
-                    {
-                        var index = stateSel.index;
-                        if (index >= 0 && index < m_TargetStates.Count)
-                            stateSelProp.intValue = index;
-                        evt.StopPropagation();
-                    }
-                });
-                stateSel.TrackPropertyWithInitialCallback(stateSelProp, (p) =>
-                {
-                    var hash = p.intValue;
+                    if (evt.target != hashField)
+                        return;
                     for (int i = 0; i < m_TargetStates.Count; ++i)
                     {
-                        if (hash == m_TargetStates[i])
+                        if (evt.newValue == m_TargetStates[i])
                         {
-                            stateSel.SetValueWithoutNotify(m_TargetStateNames[i]);
-                            return;
+                            stateSel.value = m_TargetStateNames[i];
+                            break;
                         }
                     }
-                    stateSel.SetValueWithoutNotify(m_TargetStateNames[0]);
+                    evt.StopPropagation();
                 });
 
-                var vcamSelProp = element.FindPropertyRelative(() => def.Camera);
-                var vcamSel = row.AddChild(new PopupField<Object> { name = $"vcamSelector{index}", choices = new() });
-                vcamSel.formatListItemCallback = (obj) => obj == null ? "(null)" : obj.name;
-                vcamSel.formatSelectedValueCallback = (obj) => obj == null ? "(null)" : obj.name;
-                vcamSel.TrackPropertyWithInitialCallback(instructions, (p) => UpdateCameraDropdowns());
+                stateSel.RegisterValueChangedCallback((evt) => 
+                {
+                    if (evt.target != stateSel)
+                        return;
+
+                    for (int i = 0; i < m_TargetStateNames.Count; ++i)
+                    {
+                        if (evt.newValue == m_TargetStateNames[i])
+                        {
+                            hashField.value = m_TargetStates[i];
+                            break;
+                        }
+                    }
+                    evt.StopPropagation();
+                });
+
+                var vcamSel = row.AddChild(new PopupField<Object> 
+                {
+                    bindingPath = SerializedPropertyHelper.PropertyName(() => def.Camera), 
+                    choices = availableCameras,
+                    formatListItemCallback = (obj) => obj == null ? "(null)" : obj.name,
+                    formatSelectedValueCallback = (obj) => obj == null ? "(null)" : obj.name
+                });
         
-                var wait = row.AddChild(
-                    new InspectorUtility.CompactPropertyField(element.FindPropertyRelative(() => def.ActivateAfter), " "));
-                var hold = row.AddChild(
-                    new InspectorUtility.CompactPropertyField(element.FindPropertyRelative(() => def.MinDuration), " "));
-                    
+                var wait = row.AddChild(InspectorUtility.CreateDraggableField(() => def.ActivateAfter, row.AddChild(new Label(" ")), out _));
+                wait.SafeSetIsDelayed();
+                var hold = row.AddChild(InspectorUtility.CreateDraggableField(() => def.MinDuration, row.AddChild(new Label(" ")), out _));
+                hold.SafeSetIsDelayed();
+
                 FormatInstructionElement(false, stateSel, vcamSel, wait, hold);
 
-                // Bind must be last
-                ((BindableElement)row).BindProperty(element);
-                vcamSel.BindProperty(vcamSelProp);
+                return row;
             };
 
             container.TrackAnyUserActivity(() =>
@@ -152,7 +161,10 @@ namespace Unity.Cinemachine.Editor
                 var isMultiSelect = targets.Length > 1;
                 multiSelectMsg.SetVisible(isMultiSelect);
                 container.SetVisible(!isMultiSelect);
-                UpdateCameraDropdowns();
+
+                // Gather the camera candidates
+                availableCameras.Clear();
+                availableCameras.AddRange(Target.ChildCameras);
             });
             container.AddSpace();
             this.AddChildCameras(container, null);
@@ -160,27 +172,6 @@ namespace Unity.Cinemachine.Editor
             this.AddExtensionsDropdown(ux);
 
             return ux;
-
-            // Local function
-            void UpdateCameraDropdowns()
-            {
-                var children = Target.ChildCameras;
-                int index = 0;
-                var iter = list.itemsSource.GetEnumerator();
-                while (iter.MoveNext())
-                {
-                    var vcamSel = list.Q<PopupField<Object>>($"vcamSelector{index}");
-                    if (vcamSel != null)
-                    {
-                        vcamSel.choices.Clear();
-for (int i = 0; i < children.Count; ++i)
-    Debug.Log($"vcamSelector{index}: {children[i].name}");
-                        for (int i = 0; i < children.Count; ++i)
-                            vcamSel.choices.Add(children[i]);
-                    }
-                    ++index;
-                }
-            }
 
             // Local function
             static void FormatInstructionElement(
@@ -195,13 +186,12 @@ for (int i = 0; i < children.Count; ++i)
                 e2.style.flexBasis = floatFieldWidth + InspectorUtility.SingleLineHeight; 
                 e2.style.flexGrow = 1;
 
+                floatFieldWidth += isHeader ? InspectorUtility.SingleLineHeight/2 - 1 : 0;
                 e3.style.flexBasis = floatFieldWidth; 
                 e3.style.flexGrow = 0;
 
-                e4.style.marginRight = 4;
                 e4.style.flexBasis = floatFieldWidth; 
                 e4.style.flexGrow = 0;
-                e4.style.unityTextAlign = TextAnchor.MiddleRight;
             }
         }
 
@@ -237,7 +227,7 @@ for (int i = 0; i < children.Count; ++i)
             while (iter.MoveNext())
                 parents.Add(new CinemachineStateDrivenCamera.ParentHash 
                     { Hash = iter.Current.Key, HashOfParent = iter.Current.Value });
-            Target.HashOfParent = parents.ToArray();
+            Target.SetParentHash(parents);
         }
 
         class StateCollector

@@ -43,14 +43,12 @@ namespace Unity.Cinemachine.Editor
             if (sExtensionTypes == null)
             {
                 // Populate the extension list
-                List<Type> exts = new List<Type>();
-                List<string> names = new List<string>();
+                List<Type> exts = new ();
+                List<string> names = new ();
                 exts.Add(null);
                 names.Add("(select)");
-                var allExtensions
-                    = ReflectionHelpers.GetTypesInAllDependentAssemblies(
-                            (Type t) => typeof(CinemachineExtension).IsAssignableFrom(t)
-                            && !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
+                var allExtensions = ReflectionHelpers.GetTypesDerivedFrom(typeof(CinemachineExtension),
+                        (t) => !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
                 foreach (Type t in allExtensions)
                 {
                     exts.Add(t);
@@ -110,7 +108,7 @@ namespace Unity.Cinemachine.Editor
             InspectorUtility.HelpBoxWithButton(
                 "The InputSystem package is installed, but it is not used to control this vcam.", 
                 MessageType.Info,
-                new GUIContent("Add Input\nProvider"), () =>
+                new GUIContent("Add Input Provider"), () =>
                 {
                     Undo.SetCurrentGroupName("Add CinemachineInputProvider");
                     for (int i = 0; i < targets.Length; ++i)
