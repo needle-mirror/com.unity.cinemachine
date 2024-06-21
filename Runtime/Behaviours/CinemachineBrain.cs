@@ -418,7 +418,7 @@ namespace Cinemachine
 
             ComputeCurrentBlend(ref mCurrentLiveCameras, 0);
 
-            if (m_UpdateMethod == UpdateMethod.FixedUpdate)
+            if (Application.isPlaying && m_UpdateMethod == UpdateMethod.FixedUpdate)
             {
                 // Special handling for fixed update: cameras that have been enabled
                 // since the last physics frame must be updated now
@@ -963,10 +963,16 @@ namespace Cinemachine
         {
             CurrentCameraState = state;
             var target = ControlledObject.transform;
+            var pos = target.position;
+            var rot = target.rotation;
             if ((state.BlendHint & CameraState.BlendHintValue.NoPosition) == 0)
-                target.position = state.FinalPosition;
+                pos = state.FinalPosition;
             if ((state.BlendHint & CameraState.BlendHintValue.NoOrientation) == 0)
-                target.rotation = state.FinalOrientation;
+                rot = state.FinalOrientation;
+
+            // Avoid dirtying the scene with insignificant rotations diffs
+            target.ConservativeSetPositionAndRotation(pos, rot);
+
             if ((state.BlendHint & CameraState.BlendHintValue.NoLens) == 0)
             {
                 Camera cam = OutputCamera;
