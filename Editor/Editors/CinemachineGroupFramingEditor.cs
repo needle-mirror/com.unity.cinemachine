@@ -87,11 +87,9 @@ namespace Unity.Cinemachine.Editor
             if (Target == null || !CinemachineCorePrefs.ShowInGameGuides.Value || !Target.isActiveAndEnabled)
                 return;
 
-            if (brain == null || (brain.OutputCamera.activeTexture != null && CinemachineBrain.ActiveBrainCount > 1))
-                return;
-
             var vcam = Target.ComponentOwner;
-            if (!brain.IsValidChannel(vcam) || !brain.IsLiveChild(vcam))
+            if (brain == null || brain != CinemachineCore.FindPotentialTargetBrain(vcam)
+                || !brain.IsLiveChild(vcam) || (brain.OutputCamera.activeTexture != null && CinemachineBrain.ActiveBrainCount > 1))
                 return;
 
             var group = vcam.LookAtTargetAsGroup;

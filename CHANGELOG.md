@@ -4,10 +4,32 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.1.2] - 2024-10-01
+
+### Added
+- Added CinemachineVirtualCameraBaseEditor, to facilitate making conformant inspectors for custom virtual cameras and virtual camera managers.
+- Added Padding option to CinemachineConfiner2D.
+- Added CinemachineSplineSmoother for creating smooth splines suitable for camera paths.  This replicates the behaviour of CinemachineSmoothPath in CM2.
+- Added Easing option to CinemachineSplineRoll.
+- Added SaveDuringPlay support to CinemchineSplineRoll.
+- Added preference option to show spline normals instead of the railroad-track gizmo.
+
+### Changed
+- The presence of a tracking target no longer affects whether the CinemachineCamera state's position and rotation are pushed back to the transform.
+- TargetPositionCache.GetTargetPosition() and TargetPositionCache.GetTargetRotation() are now public, so that custom classes can support cached timeline scrubbing.
+
+### Bugfixes
+- Sometimes a deeply-nested passive camera's position would creep due to precision inaccuracies.
+- When coming out of a cutscene, sometimes the original camera would fail to be restored.
+- Spline roll direction was inverted.
+- The upgrader sometimes failed to delete all obsolete components.
+- The path upgrader was creating knots using Broken instead of Mirrored mode, and was not setting knot rotations correctly.  This resulted in spline Up vectors not always being smooth.
+
+
 ## [3.1.1] - 2024-06-15
 
 ### Added
-- New Rotation Control behaviour SplineDollyLookAtTargets lets you specify LookAt points at desird positions along a Spline Dolly trajectory.
+- New Rotation Control behaviour SplineDollyLookAtTargets lets you specify LookAt points at desired positions along a Spline Dolly trajectory.
 - Added Recenter Target setting to CinemachinePanTilt.
 
 ### Fixed

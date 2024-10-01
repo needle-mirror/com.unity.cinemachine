@@ -1,7 +1,7 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "unity": "2022.3",
   "description": "Smart camera tools for passionate creators. \n\nCinemachine 3 is a newer and better version of Cinemachine, but upgrading an existing project from 2.X will likely require some effort.  If you're considering upgrading an older project, please see our upgrade guide in the user manual.",
   "keywords": [
@@ -50,18 +50,18 @@
     }
   ],
   "relatedPackages": {
-    "com.unity.cinemachine.tests": "3.1.1"
+    "com.unity.cinemachine.tests": "3.1.2"
   },
   "_upm": {
-    "changelog": "### Added\n- New Rotation Control behaviour SplineDollyLookAtTargets lets you specify LookAt points at desird positions along a Spline Dolly trajectory.\n- Added Recenter Target setting to CinemachinePanTilt.\n\n### Fixed\n- Bugfix: InputAxis.TriggerRecentering() function caused the axis to immediately snap to its recenter value.\n- Bugfix: When multiple CM Brains were present, FixedUpdte cameras were sometimes being updated too frequently, resulting in jittery motion.\n- Regression fix: StateDrivenCamera inspector was failing to correctly set the states in the instruction list.\n- Bugfix: Decollider ignored terrain layers when resolving obstacles.\n- Bugfix: The GroupAverage Rotation Mode in CinemachineTargetGroup was not calculated properly.\n- Bugfix: added missing null check in CinemachineTargetGroup.WeightedMemberBoundsForValidMember.\n- Bugfix: added missing null check in CinemachineDeoccluder.PushCameraBack().\n- Bugfix: Cinemachine did not work properly with scaled splines.\n\n### Changed\n- CinemachineGroupFraming now has a compatibility mode so that it can work with CinemachineConfiner2D out of the box.\n- Removed FadeOutNearbyObjects sample scene and shader, because they do not show anythng useful.\n- SimplePlayerController no longer uses PlayerController.isGrounded because it's not reliable outside of FixedUpdate."
+    "changelog": "### Added\n- Added CinemachineVirtualCameraBaseEditor, to facilitate making conformant inspectors for custom virtual cameras and virtual camera managers.\n- Added Padding option to CinemachineConfiner2D.\n- Added CinemachineSplineSmoother for creating smooth splines suitable for camera paths.  This replicates the behaviour of CinemachineSmoothPath in CM2.\n- Added Easing option to CinemachineSplineRoll.\n- Added SaveDuringPlay support to CinemchineSplineRoll.\n- Added preference option to show spline normals instead of the railroad-track gizmo.\n\n### Changed\n- The presence of a tracking target no longer affects whether the CinemachineCamera state's position and rotation are pushed back to the transform.\n- TargetPositionCache.GetTargetPosition() and TargetPositionCache.GetTargetRotation() are now public, so that custom classes can support cached timeline scrubbing.\n\n### Bugfixes\n- Sometimes a deeply-nested passive camera's position would creep due to precision inaccuracies.\n- When coming out of a cutscene, sometimes the original camera would fail to be restored.\n- Spline roll direction was inverted.\n- The upgrader sometimes failed to delete all obsolete components.\n- The path upgrader was creating knots using Broken instead of Mirrored mode, and was not setting knot rotations correctly.  This resulted in spline Up vectors not always being smooth."
   },
   "upmCi": {
-    "footprint": "7680c27f48bc61f6c5b446d9326b4b41d9921e03"
+    "footprint": "f2c0f1ad7ac0e14592b15016fa6e80c424e6ccd2"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/index.html",
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "9e529ae02d9d659c09ff23c6ef5eb058f54ddfad"
+    "revision": "13a4bc8cd360bfd308f28f14da1f58948e9944f7"
   }
 }

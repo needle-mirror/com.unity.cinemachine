@@ -15,7 +15,8 @@ namespace Unity.Cinemachine
     [DisallowMultipleComponent]
     [AddComponentMenu("Cinemachine/Helpers/Cinemachine Spline Roll")]
     [HelpURL(Documentation.BaseURL + "manual/CinemachineSplineRoll.html")]
-    public class CinemachineSplineRoll : MonoBehaviour
+    [SaveDuringPlay]
+    public class CinemachineSplineRoll : MonoBehaviour, ISerializationCallbackReceiver
     {
         /// <summary>Structure to hold roll value for a specific location on the track.</summary>
         [Serializable]
@@ -42,11 +43,36 @@ namespace Unity.Cinemachine
             public static implicit operator RollData(float roll) => new () { Value = roll };
         }
 
-        /// <summary>Interpolator for the RollData</summary>
+        /// <summary>
+        /// When enabled, roll eases into and out of the data point values.  Otherwise, interpolation is linear.
+        /// </summary>
+        [Tooltip("When enabled, roll eases into and out of the data point values.  Otherwise, interpolation is linear.")]
+        public bool Easing = true;
+        
+        /// <summary>
+        /// Get the appropriate interpolator for the RollData, depending on the Easing setting
+        /// </summary>
+        /// <returns>The appropriate interpolator for the RollData, depending on the Easing setting.</returns>
+        public IInterpolator<RollData> GetInterpolator() => Easing ? new LerpRollDataWithEasing() : new LerpRollData();
+
+        /// <summary>Interpolator for the RollData, with no easing between data points.</summary>
         public struct LerpRollData : IInterpolator<RollData>
         {
             /// <inheritdoc/>
             public RollData Interpolate(RollData a, RollData b, float t) => new() { Value = Mathf.Lerp(a.Value, b.Value, t) };
+        }
+
+        /// <summary>Interpolator for the RollData, with easing between data points</summary>
+        public struct LerpRollDataWithEasing : IInterpolator<RollData>
+        {
+            /// <inheritdoc/>
+            public RollData Interpolate(RollData a, RollData b, float t) 
+            {
+                var t2 = t * t;
+                var d = 1f - t;
+                t = 3f * d * t2 + t * t2;
+                return new() { Value = Mathf.Lerp(a.Value, b.Value, t) };
+            }
         }
 
         /// <summary>
@@ -78,7 +104,48 @@ namespace Unity.Cinemachine
             }
         }
 #endif
+
+
+        //============================================================================
+        // Legacy streaming support
+
+        [HideInInspector, SerializeField, NoSaveDuringPlay]
+        int m_StreamingVersion;
+
+        void PerformLegacyUpgrade(int streamedVersion)
+        {
+            if (streamedVersion < 20240101)
+            {
+                // roll values were inverted
+                for (int i = 0; i < Roll.Count; ++i)
+                {
+                    var item = Roll[i];
+                    item.Value = -item.Value;
+                    Roll[i] = item;
+                }
+            }
+        }
+        //============================================================================
+
+        void Reset()
+        {
+            Roll?.Clear();
+            Easing = true;
+        }
+
         void OnEnable() {} // Needed so we can disable it in the editor
+
+        /// <inheritdoc/>
+        public void OnBeforeSerialize() {}
+
+        /// <inheritdoc/>
+        public void OnAfterDeserialize()
+        {
+            // Perform legacy upgrade if necessary
+            if (m_StreamingVersion < CinemachineCore.kStreamingVersion)
+                PerformLegacyUpgrade(m_StreamingVersion);
+            m_StreamingVersion = CinemachineCore.kStreamingVersion;
+        }
 
         /// <summary>Cache for clients that use CinemachineSplineRoll</summary>
         internal struct RollCache

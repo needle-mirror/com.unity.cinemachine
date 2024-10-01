@@ -21,7 +21,7 @@ namespace Unity.Cinemachine
     public static class CinemachineCore
     {
         /// <summary>Data version string.  Used to upgrade from legacy projects</summary>
-        internal const int kStreamingVersion = 20230301;
+        internal const int kStreamingVersion = 20241001;
 
         /// <summary>
         /// The root directory where Cinemachine is installed
@@ -98,6 +98,8 @@ namespace Unity.Cinemachine
 
         /// <summary>Delegate for overriding Unity's default input system.  Returns the value
         /// of the named axis.</summary>
+        /// <param name="axisName">The name of the axis being queried.</param>
+        /// <returns>The value of the axis.</returns>
         public delegate float AxisInputDelegate(string axisName);
 
         /// <summary>Delegate for overriding Unity's default input system.

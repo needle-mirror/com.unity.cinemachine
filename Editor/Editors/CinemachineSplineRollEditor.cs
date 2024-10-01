@@ -21,9 +21,13 @@ namespace Unity.Cinemachine.Editor
                 "This component should be associated with a non-empty spline", 
                 HelpBoxMessageType.Warning);
             ux.Add(invalidHelp);
-            var toolButton = ux.AddChild(new Button(() => ToolManager.SetActiveTool(typeof(SplineRollTool))) 
-                { text = "Edit Data Points in Scene View" });
 
+            var tooltip = "Use the Scene View tool to adjust the roll data points";
+            var buttonRow = ux.AddChild(new InspectorUtility.LabeledRow("Edit in Scene View", tooltip));
+            var toolButton = buttonRow.Contents.AddChild(
+                CinemachineSceneToolHelpers.CreateSceneToolActivationButtonForInspector(
+                    typeof(SplineRollTool), target, SplineRollTool.IconPath, tooltip));
+                    
             ux.TrackAnyUserActivity(() =>
             {
                 var haveSpline = splineData != null && splineData.SplineContainer != null;
@@ -33,9 +37,11 @@ namespace Unity.Cinemachine.Editor
 
             var rollProp = serializedObject.FindProperty(() => splineData.Roll);
             ux.Add(SplineDataInspectorUtility.CreatePathUnitField(rollProp, () => splineData == null ? null : splineData.SplineContainer));
+            ux.Add(new PropertyField(serializedObject.FindProperty(() => splineData.Easing)));
 
             ux.AddHeader("Data Points");
-            var list = ux.AddChild(SplineDataInspectorUtility.CreateDataListField(splineData.Roll, rollProp, () => splineData?.SplineContainer));
+            var list = ux.AddChild(SplineDataInspectorUtility.CreateDataListField(
+                splineData.Roll, rollProp, () => splineData == null ? null : splineData.SplineContainer));
 
             var arrayProp = rollProp.FindPropertyRelative("m_DataPoints");
 
@@ -114,12 +120,14 @@ namespace Unity.Cinemachine.Editor
             // For performance reasons, we only draw a gizmo for the current active game object
             if (Selection.activeGameObject == splineRoll.gameObject)
             {
-                DrawSplineGizmo(splineRoll, CinemachineSplineDollyPrefs.SplineRollColor.Value, 
-                    CinemachineSplineDollyPrefs.SplineWidth.Value, CinemachineSplineDollyPrefs.SplineResolution.Value);
+                DrawSplineGizmo(splineRoll, 
+                    splineRoll.enabled ? CinemachineSplineDollyPrefs.SplineRollColor.Value : Color.gray, 
+                    CinemachineSplineDollyPrefs.SplineWidth.Value, CinemachineSplineDollyPrefs.SplineResolution.Value,
+                    CinemachineSplineDollyPrefs.ShowSplineNormals.Value);
             }
         }
 
-        static void DrawSplineGizmo(CinemachineSplineRoll splineRoll, Color pathColor, float width, int resolution)
+        static void DrawSplineGizmo(CinemachineSplineRoll splineRoll, Color pathColor, float width, int resolution, bool showNormals)
         {
             var splineContainer = splineRoll == null ? null : splineRoll.SplineContainer as SplineContainer;
             if (!splineContainer.IsValid())
@@ -136,7 +144,8 @@ namespace Unity.Cinemachine.Editor
                 || SplineGizmoCache.Instance.RollData != splineRoll.Roll
                 || SplineGizmoCache.Instance.Width != width
                 || SplineGizmoCache.Instance.Resolution != resolution
-                || SplineGizmoCache.Instance.Enabled != splineRoll.enabled)
+                || SplineGizmoCache.Instance.Enabled != splineRoll.enabled
+                || SplineGizmoCache.Instance.ShowNormals != showNormals)
             {
                 var numKnots = splineContainer.Spline.Count;
                 var numSteps = numKnots * resolution;
@@ -145,35 +154,64 @@ namespace Unity.Cinemachine.Editor
 
                 // For efficiency, we create a mesh with the track and draw it in one shot
                 var scaledSpline = new CachedScaledSpline(splineContainer.Spline, transform, Collections.Allocator.Temp);
-                scaledSpline.LocalEvaluateSplineWithRoll(0, Quaternion.identity, splineRoll, out var p, out var q);
-                var w = q * Vector3.right * halfWidth;
+                scaledSpline.LocalEvaluateSplineWithRoll(0, splineRoll, out var p, out var q);
 
-                var indices = new int[2 * 3 * numSteps];
                 numSteps++; // ceil
-                var vertices = new Vector3[2 * numSteps];
+                var vertices = new Vector3[3 * numSteps];
                 var normals = new Vector3[vertices.Length];
+                var indices = new int[showNormals ? 2 * 2 * numSteps : 2 * 3 * numSteps];
                 int vIndex = 0;
-                vertices[vIndex] = p - w; normals[vIndex++] = Vector3.up;
-                vertices[vIndex] = p + w; normals[vIndex++] = Vector3.up;
 
-                int iIndex = 0;
-
-                for (int i = 1; i < numSteps; ++i)
+                if (showNormals)
                 {
-                    var t = i * stepSize;
-                    scaledSpline.LocalEvaluateSplineWithRoll(t, Quaternion.identity, splineRoll, out p, out q);
-                    w = q * Vector3.right * halfWidth;
+                    // Draw line with normals
+                    var w = q * Vector3.up * width;
 
-                    indices[iIndex++] = vIndex - 2;
-                    indices[iIndex++] = vIndex - 1;
+                    vertices[vIndex] = p; normals[vIndex++] = Vector3.up;
+                    vertices[vIndex] = p + w; normals[vIndex++] = Vector3.up;
+
+                    int iIndex = 0;
+                    for (int i = 1; i < numSteps; ++i)
+                    {
+                        var t = i * stepSize;
+                        scaledSpline.LocalEvaluateSplineWithRoll(t, splineRoll, out p, out q);
+                        w = q * Vector3.up * width;
+                        indices[iIndex++] = vIndex - 2;
+                        indices[iIndex++] = vIndex - 1;
+
+                        vertices[vIndex] = p; normals[vIndex++] = Vector3.up;
+                        vertices[vIndex] = p + w; normals[vIndex++] = Vector3.up;
+
+                        indices[iIndex++] = vIndex - 4;
+                        indices[iIndex++] = vIndex - 2;
+                    }
+                }
+                else
+                {
+                    // Draw railroad track
+                    var w = q * Vector3.right * halfWidth;
 
                     vertices[vIndex] = p - w; normals[vIndex++] = Vector3.up;
                     vertices[vIndex] = p + w; normals[vIndex++] = Vector3.up;
 
-                    indices[iIndex++] = vIndex - 4;
-                    indices[iIndex++] = vIndex - 2;
-                    indices[iIndex++] = vIndex - 3;
-                    indices[iIndex++] = vIndex - 1;
+                    int iIndex = 0;
+                    for (int i = 1; i < numSteps; ++i)
+                    {
+                        var t = i * stepSize;
+                        scaledSpline.LocalEvaluateSplineWithRoll(t, splineRoll, out p, out q);
+                        w = q * Vector3.right * halfWidth;
+
+                        indices[iIndex++] = vIndex - 2;
+                        indices[iIndex++] = vIndex - 1;
+
+                        vertices[vIndex] = p - w; normals[vIndex++] = Vector3.up;
+                        vertices[vIndex] = p + w; normals[vIndex++] = Vector3.up;
+
+                        indices[iIndex++] = vIndex - 4;
+                        indices[iIndex++] = vIndex - 2;
+                        indices[iIndex++] = vIndex - 3;
+                        indices[iIndex++] = vIndex - 1;
+                    }
                 }
 
                 var mesh = new Mesh();
@@ -188,7 +226,8 @@ namespace Unity.Cinemachine.Editor
                     RollData = splineRoll.Roll,
                     Width = width,
                     Resolution = resolution,
-                    Enabled = splineRoll.enabled
+                    Enabled = splineRoll.enabled,
+                    ShowNormals = showNormals
                 };
             }
             // Draw the path
@@ -197,7 +236,7 @@ namespace Unity.Cinemachine.Editor
             Gizmos.matrix = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);
             Gizmos.color = pathColor;
             Gizmos.DrawWireMesh(SplineGizmoCache.Instance.Mesh);
-            Gizmos.matrix =matrixOld;
+            Gizmos.matrix = matrixOld;
             Gizmos.color = colorOld;
         }
 
@@ -210,6 +249,7 @@ namespace Unity.Cinemachine.Editor
             public float Width;
             public int Resolution;
             public bool Enabled;
+            public bool ShowNormals;
 
             public static SplineGizmoCache Instance;
 
@@ -244,48 +284,54 @@ namespace Unity.Cinemachine.Editor
         public static Action<CinemachineSplineRoll, int> s_OnDataIndexDragged;
         public static Action<CinemachineSplineRoll, int> s_OnDataLookAtDragged;
 
+        public static string IconPath => $"{CinemachineSceneToolHelpers.IconPath}/CmSplineRollTool@256.png";
+
         void OnEnable()
         {
             m_IconContent = new GUIContent
             {
-                image = AssetDatabase.LoadAssetAtPath<Texture2D>($"{CinemachineSceneToolHelpers.IconPath}/CmSplineRollTool@256.png"),
+                image = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath),
                 tooltip = "Adjust the roll data points along the spline"
             };
         }
 
-        bool GetTargets(out CinemachineSplineRoll splineData, out SplineContainer spline)
+        bool GetTargets(out CinemachineSplineRoll splineData, out SplineContainer spline, out bool enabled)
         {
             splineData = target as CinemachineSplineRoll;
             if (splineData != null)
             {
+                enabled = splineData.enabled;
                 spline = splineData.SplineContainer as SplineContainer;
                 return spline != null && spline.Spline != null;
             }
+            enabled = false;
             spline = null;
             return false;
         }
 
         public override void OnToolGUI(EditorWindow window)
         {
-            if (!GetTargets(out var splineData, out var spline))
+            if (!GetTargets(out var splineData, out var spline, out var enabled))
                 return;
 
             Undo.RecordObject(splineData, "Modifying Roll RollData");
-            var color = Handles.selectedColor;
+            var color = enabled ? Handles.selectedColor : Color.gray;
             using (new Handles.DrawingScope(color))
             {
                 var nativeSpline = new NativeSpline(spline.Spline, spline.transform.localToWorldMatrix);
 
-                int changedIndex = DrawIndexPointHandles(nativeSpline, splineData.Roll);
+                int changedIndex = -1;
+                if (enabled)
+                    changedIndex = DrawIndexPointHandles(nativeSpline, splineData.Roll);
                 if (changedIndex >= 0)
                     s_OnDataIndexDragged?.Invoke(splineData, changedIndex);
-                changedIndex = DrawDataPointHandles(nativeSpline, splineData.Roll);
+                changedIndex = DrawDataPointHandles(nativeSpline, splineData.Roll, enabled);
                 if (changedIndex >= 0)
                     s_OnDataLookAtDragged?.Invoke(splineData, changedIndex);
             }
         }
 
-        int DrawIndexPointHandles(NativeSpline spline, SplineData<CinemachineSplineRoll.RollData> splineData)
+        int DrawIndexPointHandles(ISpline spline, SplineData<CinemachineSplineRoll.RollData> splineData)
         {
             int anchorId = GUIUtility.GetControlID(FocusType.Passive);
             spline.DataPointHandles(splineData);
@@ -310,7 +356,7 @@ namespace Unity.Cinemachine.Editor
         readonly Quaternion m_DefaultHandleOrientation = Quaternion.Euler(270, 0, 0);
         readonly Quaternion m_DefaultHandleOrientationInverse = Quaternion.Euler(90, 0, 0);
 
-        int DrawDataPointHandles(NativeSpline spline, SplineData<CinemachineSplineRoll.RollData> splineData)
+        int DrawDataPointHandles(ISpline spline, SplineData<CinemachineSplineRoll.RollData> splineData, bool enabled)
         {
             int changed = -1;
             int tooltipIndex = -1;
@@ -318,16 +364,16 @@ namespace Unity.Cinemachine.Editor
             {
                 var dataPoint = splineData[i];
                 var t = SplineUtility.GetNormalizedInterpolation(spline, dataPoint.Index, splineData.PathIndexUnit);
-                spline.Evaluate(t, out var position, out var tangent, out var up);
+                spline.LocalEvaluateSplineWithRoll(t, null, out var position, out var rotation); // don't consider roll
 
                 var id = GUIUtility.GetControlID(FocusType.Passive);
-                if (DrawDataPoint(id, position, tangent, up, dataPoint.Value, out var result))
+                if (DrawDataPoint(id, position, rotation, -dataPoint.Value, out var result) && enabled)
                 {
-                    dataPoint.Value = result;
+                    dataPoint.Value = -result;
                     splineData.SetDataPoint(i, dataPoint);
                     changed = i;
                 }
-                if (tooltipIndex < 0 && id == HandleUtility.nearestControl || id == GUIUtility.hotControl)
+                if (enabled && tooltipIndex < 0 && id == HandleUtility.nearestControl || id == GUIUtility.hotControl)
                     tooltipIndex = i;
             }
             if (tooltipIndex >= 0)
@@ -335,13 +381,10 @@ namespace Unity.Cinemachine.Editor
             return changed;
 
             // local function
-            bool DrawDataPoint(int controlID, Vector3 position, Vector3 tangent, Vector3 up, float rollData, out float result)
+            bool DrawDataPoint(int controlID, Vector3 position, Quaternion rotation, float rollData, out float result)
             {
                 result = 0;
-                if (tangent == Vector3.zero)
-                    return false;
-
-                var drawMatrix = Handles.matrix * Matrix4x4.TRS(position, Quaternion.LookRotation(tangent, up), Vector3.one);
+                var drawMatrix = Handles.matrix * Matrix4x4.TRS(position, rotation, Vector3.one);
                 using (new Handles.DrawingScope(drawMatrix)) // use draw matrix, so we work in local space
                 {
                     var localRot = Quaternion.Euler(0, rollData, 0);
@@ -374,13 +417,13 @@ namespace Unity.Cinemachine.Editor
             }
         }
 
-        void DrawTooltip(NativeSpline spline, SplineData<CinemachineSplineRoll.RollData> splineData, int index)
+        void DrawTooltip(ISpline spline, SplineData<CinemachineSplineRoll.RollData> splineData, int index)
         {
             var dataPoint = splineData[index];
             var text = $"Index: {dataPoint.Index}\nRoll: {dataPoint.Value.Value}";
 
             var t = SplineUtility.GetNormalizedInterpolation(spline, dataPoint.Index, splineData.PathIndexUnit);
-            spline.Evaluate(t, out var position, out _, out _);
+            var position = spline.EvaluatePosition(t);
             CinemachineSceneToolHelpers.DrawLabel(position, text);
         }
     }

@@ -35,20 +35,6 @@ namespace Unity.Cinemachine
         /// 
         /// The default priority value is 0. Often it is sufficient to leave the default setting.  
         /// In special cases where you want a CinemachineCamera to have a higher or lower priority value than 0, you can set it here.
-        ///
-        /// <para>
-        /// <b>Example of setting priority value directly:</b>
-        /// <code>
-        /// cam.Priority.Value = 5;
-        /// </code>
-        /// </para>
-        /// 
-        /// <para>
-        /// <b>Example of using the implicit operator to set priority value:</b>
-        /// <code>
-        /// cam.Priority = 5;
-        /// </code>
-        /// </para>
         /// </summary>
         [NoSaveDuringPlay]
         [Tooltip("Priority can be used to control which Cm Camera is live when multiple CM Cameras are "
@@ -695,7 +681,7 @@ namespace Unity.Cinemachine
         /// </summary>
         /// <param name="worldUp">Current World Up direction, as provided by the brain</param>
         /// <param name="lens">Lens settings to serve as base, will be combined with lens from brain, if any</param>
-        /// <returns></returns>
+        /// <returns>A CameraState based on the current transform of this vcam.</returns>
         protected CameraState PullStateFromVirtualCamera(Vector3 worldUp, ref LensSettings lens)
         {
             CameraState state = CameraState.Default;

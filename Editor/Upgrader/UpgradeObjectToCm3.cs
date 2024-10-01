@@ -4,6 +4,7 @@
 
 using System;
 using System.Linq;
+using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Splines;
@@ -253,7 +254,7 @@ namespace Unity.Cinemachine.Editor
             
             foreach (var t in ObsoleteComponentTypesToDelete)
             {
-                var components = go.GetComponentsInChildren(t);
+                var components = go.GetComponentsInChildren(t, true);
                 foreach (var c in components) 
                     Undo.DestroyObjectImmediate(c);
             }
@@ -333,10 +334,9 @@ namespace Unity.Cinemachine.Editor
                     if (c != null)
                         CopyValues(c, Undo.AddComponent(go, c.GetType()) as CinemachineComponentBase);
 
-            // Destroy the hidden child object
-            var owner = vcam.GetComponentOwner();
-            if (owner != null && owner.gameObject != go)
-                UnparentAndDestroy(owner);
+            // Destroy the hidden child object, clean up any leftover pipeline components lurking in the shadows
+            for (var child = vcam.transform.Find("cm"); child != null; child = vcam.transform.Find("cm"))
+                UnparentAndDestroy(child);
 
             return null;
         }
@@ -700,8 +700,7 @@ namespace Unity.Cinemachine.Editor
                 return; // already converted
 
             spline = Undo.AddComponent<SplineContainer>(go);
-            var splineRoll = Undo.AddComponent<CinemachineSplineRoll>(go);
-            splineRoll.Roll = new SplineData<CinemachineSplineRoll.RollData>();
+            CinemachineSplineRoll splineRoll = null;
 
             Undo.RecordObject(pathBase, "Upgrader: disable obsolete");
             pathBase.enabled = false;
@@ -714,14 +713,25 @@ namespace Unity.Cinemachine.Editor
                     spline.Spline = new Spline(waypoints.Length, path.Looped);
                     for (var i = 0; i < waypoints.Length; i++)
                     {
+                        var fwd = waypoints[i].tangent; 
+                        var len = fwd.magnitude;
                         spline.Spline.Add(new BezierKnot
                         {
                             Position = waypoints[i].position,
-                            Rotation = Quaternion.identity,
-                            TangentIn = -waypoints[i].tangent,
-                            TangentOut = waypoints[i].tangent,
+                            Rotation = quaternion.LookRotation(fwd, new float3(0, 1, 0)),
+                            TangentIn = (i == 0 && !path.Looped) ? default : new float3(0, 0, -len),
+                            TangentOut = (i == waypoints.Length - 1 && !path.Looped) ? default : new float3(0, 0, len),
                         });
-                        splineRoll.Roll.Add(new DataPoint<CinemachineSplineRoll.RollData>(i, waypoints[i].roll));
+                        spline.Spline.SetTangentMode(i, TangentMode.Mirrored);
+                        if (waypoints[i].roll != 0 && splineRoll == null)
+                        {
+                            splineRoll = Undo.AddComponent<CinemachineSplineRoll>(go);
+                            splineRoll.Roll = new ();
+                            if (i > 0)
+                                splineRoll.Roll.Add(new DataPoint<CinemachineSplineRoll.RollData>(i - 1, 0));
+                        }
+                        if (splineRoll != null)
+                            splineRoll.Roll.Add(new DataPoint<CinemachineSplineRoll.RollData>(i, -waypoints[i].roll));
                     }
                     break;
                 }
@@ -731,17 +741,27 @@ namespace Unity.Cinemachine.Editor
                     spline.Spline = new Spline(waypoints.Length, smoothPath.Looped);
                     for (var i = 0; i < waypoints.Length; i++)
                     {
-                        var tangent = smoothPath.EvaluateLocalTangent(i); 
-                        tangent /= 3f; // divide by magic number to match spline tangent scale correctly
+                        var fwd = smoothPath.EvaluateLocalTangent(i); 
+                        var len = fwd.magnitude / 3f; // divide by magic number to match spline tangent scale correctly
                         spline.Spline.Add(new BezierKnot
                         {
                             Position = waypoints[i].position,
-                            Rotation = Quaternion.identity,
-                            TangentIn = -tangent,
-                            TangentOut = tangent,
+                            Rotation = quaternion.LookRotation(fwd, new float3(0, 1, 0)),
+                            TangentIn = (i == 0 && !smoothPath.Looped) ? default : new float3(0, 0, -len),
+                            TangentOut = (i == waypoints.Length - 1 && !smoothPath.Looped) ? default : new float3(0, 0, len)
                         });
-                        splineRoll.Roll.Add(new DataPoint<CinemachineSplineRoll.RollData>(i, waypoints[i].roll));
+                        spline.Spline.SetTangentMode(i, TangentMode.Mirrored);
+                        if (waypoints[i].roll != 0 && splineRoll == null)
+                        {
+                            splineRoll = Undo.AddComponent<CinemachineSplineRoll>(go);
+                            splineRoll.Roll = new ();
+                            if (i > 0)
+                                splineRoll.Roll.Add(new DataPoint<CinemachineSplineRoll.RollData>(i - 1, 0));
+                        }
+                        if (splineRoll != null)
+                            splineRoll.Roll.Add(new DataPoint<CinemachineSplineRoll.RollData>(i, -waypoints[i].roll));
                     }
+                    Undo.AddComponent<CinemachineSplineSmoother>(go);
                     break;
                 }
                 default:
