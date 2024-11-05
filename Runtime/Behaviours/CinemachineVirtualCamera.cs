@@ -158,8 +158,12 @@ namespace Cinemachine
 
             // Push the raw position back to the game object's transform, so it
             // moves along with the camera.
+#if UNITY_2021_3_OR_NEWER
+            transform.GetPositionAndRotation(out var pos, out var rot);
+#else
             var pos = transform.position;
             var rot = transform.rotation;
+#endif
             if (Follow != null)
                 pos = m_State.RawPosition;
             if (LookAt != null)
@@ -235,6 +239,10 @@ namespace Cinemachine
         /// The override must do exactly the same thing as the CreatePipeline method in
         /// the CinemachineVirtualCamera class.
         /// </summary>
+        /// <param name="vcam">The virtual cmera for which to create a pipeline</param>
+        /// <param name="name">The name to give to the pipeline object</param>
+        /// <param name="copyFrom">The components to add to the pipeline</param>
+        /// <returns>The newly created pipeline object</returns>
         public delegate Transform CreatePipelineDelegate(
             CinemachineVirtualCamera vcam, string name, CinemachineComponentBase[] copyFrom);
 
@@ -248,6 +256,7 @@ namespace Cinemachine
         /// Override component pipeline destruction.
         /// This needs to be done by the editor to support Undo.
         /// </summary>
+        /// <param name="pipeline">The pipeline object to destroy</param>
         public delegate void DestroyPipelineDelegate(GameObject pipeline);
 
         /// <summary>Destroy any existing pipeline container.</summary>

@@ -95,7 +95,8 @@ namespace Cinemachine
         public CinemachineOrbitalTransposer.BindingMode m_BindingMode
             = CinemachineOrbitalTransposer.BindingMode.SimpleFollowWithWorldUp;
 
-        /// <summary></summary>
+        /// <summary>Controls how taut is the line that connects the rigs' orbits, 
+        /// which determines final placement on the Y axis</summary>
         [Tooltip("Controls how taut is the line that connects the rigs' orbits, which "
             + "determines final placement on the Y axis")]
         [Range(0f, 1f)]
@@ -532,6 +533,10 @@ namespace Cinemachine
         /// This needs to be done by the editor to support Undo.
         /// The override must do exactly the same thing as the CreatePipeline method in this class.
         /// </summary>
+        /// <param name="vcam">The FreeLook for which to create the rig</param>
+        /// <param name="name">The name of the rig</param>
+        /// <param name="copyFrom">Template from which to copy rig settings</param>
+        /// <returns>The created rig</returns>
         public delegate CinemachineVirtualCamera CreateRigDelegate(
             CinemachineFreeLook vcam, string name, CinemachineVirtualCamera copyFrom);
 
@@ -545,6 +550,7 @@ namespace Cinemachine
         /// Override component pipeline destruction.
         /// This needs to be done by the editor to support Undo.
         /// </summary>
+        /// <param name="rig">The rig to destroy</param>
         public delegate void DestroyRigDelegate(GameObject rig);
 
         private void DestroyRigs()
