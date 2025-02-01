@@ -26,7 +26,7 @@ namespace Unity.Cinemachine.Editor
             return t != null && PrefabUtility.IsPartOfPrefabAsset(t);
         }
 
-        static Color s_NormalColor = Color.black;
+        static Color s_NormalColor = Color.white;
         static Color s_NormalBkgColor = Color.black;
         
         /// <summary>Add the camera status controls and indicators in the inspector</summary>
@@ -114,13 +114,10 @@ namespace Unity.Cinemachine.Editor
                     return;
 
                 bool isSolo = CinemachineCore.SoloCamera == (ICinemachineCamera)target;
-                var color = isSolo ? Color.Lerp(s_NormalColor, CinemachineCore.SoloGUIColor(), 0.5f) : s_NormalColor;
-
                 bool isLive = CinemachineCore.IsLive(target);
                 statusText.text = isLive ? "Status: Live"
                     : target.isActiveAndEnabled ? "Status: Standby" : "Status: Disabled";
                 statusText.SetEnabled(isLive);
-                statusText.style.color = color;
 
                 if (!Application.isPlaying)
                     updateMode.SetVisible(false);
@@ -131,9 +128,15 @@ namespace Unity.Cinemachine.Editor
                     updateMode.SetVisible(true);
                 }
 
-                soloButton.style.color = color;
-                soloButton.style.backgroundColor = isSolo 
-                    ? Color.Lerp(s_NormalBkgColor, CinemachineCore.SoloGUIColor(), 0.2f) : s_NormalBkgColor;
+                if (s_NormalBkgColor != Color.black)
+                {
+                    // Do this only if we have captured the "normal" colors
+                    var color = isSolo ? Color.Lerp(s_NormalColor, CinemachineCore.SoloGUIColor(), 0.5f) : s_NormalColor;
+                    statusText.style.color = color;
+                    soloButton.style.color = color;
+                    soloButton.style.backgroundColor = isSolo 
+                        ? Color.Lerp(s_NormalBkgColor, CinemachineCore.SoloGUIColor(), 0.2f) : s_NormalBkgColor;
+                }
 
                 // Refresh the game view if solo and not playing
                 if (isSolo && !Application.isPlaying)
@@ -266,7 +269,7 @@ namespace Unity.Cinemachine.Editor
                         (status) => 
                         {
                             var target = editor.target as CinemachineVirtualCameraBase;
-                            var disable = target == null || target.GetComponent(type) != null;
+                            var disable = target == null || target.HasExtension(type);
                             return disable ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal;
                         }
                     );
@@ -288,7 +291,47 @@ namespace Unity.Cinemachine.Editor
             button.AddManipulator(menu);
             ux.Add(row);
         }
-        
+
+        public static void AddGroupTargetInfoBox(this UnityEditor.Editor editor, VisualElement ux)
+        {
+            if (editor.target is CinemachineVirtualCameraBase target)
+            {
+                var groupHelp = ux.AddChild(new HelpBox(
+                    "Consider adding a Cinemachine Group Framing extension to frame the members of the Target Group.", 
+                    HelpBoxMessageType.Info));
+                groupHelp.SetVisible(false);
+                ux.TrackAnyUserActivity(() =>
+                {
+                    var visible = false;
+                    if (target != null)
+                    {
+                        target.UpdateTargetCache();
+                        if (target.LookAtTargetAsGroup != null)
+                            visible = !target.HasExtension(typeof(CinemachineGroupFraming));
+                    }
+                    groupHelp.SetVisible(visible);
+                });
+            }
+        }
+
+        /// <summary>
+        /// Checks whether a vcam or its vcam parent has an extension of a given type.
+        /// </summary>
+        /// <param name="type">The type of the extension to check for</param>
+        /// <returns>True if the vcam or its parent has an extension of that type</returns>
+        static bool HasExtension(this CinemachineVirtualCameraBase vcam, Type type)
+        {
+            if (vcam.Extensions != null)
+            {
+                for (int i = 0; i < vcam.Extensions.Count; ++i)
+                    if (vcam.Extensions[i].GetType() == type)
+                        return true;
+            }
+            if (vcam.ParentCamera is CinemachineVirtualCameraBase vcamParent)
+                return vcamParent.HasExtension(type);
+            return false;
+        }
+
         [InitializeOnLoad]
         static class PipelineStageMenu
         {
