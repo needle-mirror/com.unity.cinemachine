@@ -49,11 +49,11 @@ namespace Unity.Cinemachine
         // Same As FocusDistance.compute
         struct FocusDistanceParams
         {
-            public uint  VoteBias;		    // 0...15
-            public float DepthTolerance;	// 0.02
-            public float SampleRadius;		// 0.02
-            public float SamplePosX;		// 0
-            public float SamplePosY;		// 0
+            public uint  VoteBias;          // 0...15
+            public float DepthTolerance;    // 0.02
+            public float SampleRadius;       // 0.02
+            public float SamplePosX;         // 0
+            public float SamplePosY;         // 0
             public float DefaultFocusDistance; // current focus distance
         };
         ComputeBuffer m_FocusDistanceParamsCB;
@@ -102,7 +102,7 @@ namespace Unity.Cinemachine
             m_FocusDistanceParams[0].SampleRadius = KernelRadius;
             m_FocusDistanceParams[0].SamplePosX = ScreenPosition.x;
             m_FocusDistanceParams[0].SamplePosY = ScreenPosition.y;
-            m_FocusDistanceParams[0].DefaultFocusDistance 
+            m_FocusDistanceParams[0].DefaultFocusDistance
                 = (PushToCamera || CurrentFocusDistance <= 0) ? Camera.focusDistance : CurrentFocusDistance;
 
             m_FocusDistanceParamsCB.SetData(m_FocusDistanceParams);

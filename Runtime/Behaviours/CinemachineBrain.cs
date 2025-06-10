@@ -67,9 +67,9 @@ namespace Unity.Cinemachine
         public Transform WorldUpOverride;
 
         /// <summary>
-        /// The CinemachineBrain finds the highest-priority CinemachineCamera that outputs 
-        /// to any of the channels selected.  CinemachineCameras that do not output to one 
-        /// of these channels are ignored.  Use this in situations where multiple 
+        /// The CinemachineBrain finds the highest-priority CinemachineCamera that outputs
+        /// to any of the channels selected.  CinemachineCameras that do not output to one
+        /// of these channels are ignored.  Use this in situations where multiple
         /// CinemachineBrains are needed (for example, Split-screen).
         /// </summary>
         [Tooltip("The CinemachineBrain finds the highest-priority CinemachineCamera that outputs to "
@@ -87,7 +87,7 @@ namespace Unity.Cinemachine
             LateUpdate,
             /// <summary>CinemachineCameras are updated according to how the target is updated.</summary>
             SmartUpdate,
-            /// <summary>CinemachineCameras are not automatically updated, client must explicitly call 
+            /// <summary>CinemachineCameras are not automatically updated, client must explicitly call
             /// the CinemachineBrain's ManualUpdate() method.</summary>
             ManualUpdate
         };
@@ -124,7 +124,7 @@ namespace Unity.Cinemachine
         public BrainUpdateMethods BlendUpdateMethod = BrainUpdateMethods.LateUpdate;
 
         /// <summary>Defines the settings for Lens Mode overriding.</summary>
-        [Serializable] 
+        [Serializable]
         public struct LensModeOverrideSettings
         {
             /// <summary>If set, enables CinemachineCameras to override the lens mode of the camera.</summary>
@@ -138,7 +138,7 @@ namespace Unity.Cinemachine
 
         /// <summary>Controls whether CinemachineCameras can change the lens mode.</summary>
         [FoldoutWithEnabledButton]
-        public LensModeOverrideSettings LensModeOverride 
+        public LensModeOverrideSettings LensModeOverride
             = new () { DefaultMode = LensSettings.OverrideModes.Perspective };
 
         /// <summary>
@@ -150,7 +150,7 @@ namespace Unity.Cinemachine
         public CinemachineBlendDefinition DefaultBlend = new (CinemachineBlendDefinition.Styles.EaseInOut, 2f);
 
         /// <summary>
-        /// This is the asset that contains custom settings for blends between 
+        /// This is the asset that contains custom settings for blends between
         /// specific CinemachineCameras in your Scene.
         /// </summary>
         [Tooltip("This is the asset that contains custom settings for blends between "
@@ -172,7 +172,7 @@ namespace Unity.Cinemachine
 #if CINEMACHINE_UIELEMENTS && UNITY_EDITOR
         DebugText m_DebugText;
 #endif
-        
+
         void OnValidate()
         {
             DefaultBlend.Time = Mathf.Max(0, DefaultBlend.Time);
@@ -191,7 +191,7 @@ namespace Unity.Cinemachine
             BlendUpdateMethod = BrainUpdateMethods.LateUpdate;
             LensModeOverride = new LensModeOverrideSettings { DefaultMode = LensSettings.OverrideModes.Perspective };
         }
-       
+
         void Awake()
         {
             ControlledObject.TryGetComponent(out m_OutputCamera);
@@ -239,22 +239,24 @@ namespace Unity.Cinemachine
             CameraUpdateManager.ForgetContext(this);
         }
 
-        void OnSceneLoaded(Scene scene, LoadSceneMode mode) 
-        { 
-            if (Time.frameCount == m_LastFrameUpdated && m_BlendManager.IsInitialized)
-                ManualUpdate();
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (Time.frameCount == m_LastFrameUpdated 
+                    && m_BlendManager.IsInitialized && UpdateMethod != UpdateMethods.ManualUpdate)
+                DoNonFixedUpdate(Time.frameCount);
         }
 
         void OnSceneUnloaded(Scene scene)
         {
-            if (Time.frameCount == m_LastFrameUpdated && m_BlendManager.IsInitialized)
-                ManualUpdate();
+            if (Time.frameCount == m_LastFrameUpdated 
+                    && m_BlendManager.IsInitialized && UpdateMethod != UpdateMethods.ManualUpdate)
+                DoNonFixedUpdate(Time.frameCount);
         }
-        
+
         void LateUpdate()
         {
             if (UpdateMethod != UpdateMethods.ManualUpdate)
-                ManualUpdate();
+                DoNonFixedUpdate(Time.frameCount);
         }
 
         // Instead of FixedUpdate() we have this, to ensure that it happens
@@ -268,7 +270,7 @@ namespace Unity.Cinemachine
                 DoFixedUpdate();
             }
         }
-        
+
 #if UNITY_EDITOR
         /// This is only needed in editor mode to force timeline to call OnGUI while
         /// timeline is up and the game is not running, in order to allow dragging
@@ -336,7 +338,7 @@ namespace Unity.Cinemachine
                     }
                 }
             }
-            
+
             m_DebugText.SetText(sb.ToString());
             CinemachineDebug.ReturnToPool(sb);
         }
@@ -349,12 +351,12 @@ namespace Unity.Cinemachine
         public int SetCameraOverride(
             int overrideId, int priority,
             ICinemachineCamera camA, ICinemachineCamera camB,
-            float weightB, float deltaTime) 
+            float weightB, float deltaTime)
                 => m_BlendManager.SetCameraOverride(overrideId, priority, camA, camB, weightB, deltaTime);
 
         /// <inheritdoc />
         public void ReleaseCameraOverride(int overrideId) => m_BlendManager.ReleaseCameraOverride(overrideId);
-        
+
         /// <summary>Get the default world up for the CinemachineCameras.</summary>
         public Vector3 DefaultWorldUp => (WorldUpOverride != null) ? WorldUpOverride.transform.up : Vector3.up;
 
@@ -362,7 +364,7 @@ namespace Unity.Cinemachine
 
         /// <inheritdoc />
         public string Name => name;
-       
+
         /// <inheritdoc />
         public string Description
         {
@@ -396,7 +398,7 @@ namespace Unity.Cinemachine
 
         /// <inheritdoc />
         public void OnCameraActivated(ICinemachineCamera.ActivationEventParams evt) {} // GML todo: think about this
-        
+
         /// <inheritdoc />
         public bool IsLiveChild(ICinemachineCamera cam, bool dominantChildOnly = false)
         {
@@ -425,12 +427,12 @@ namespace Unity.Cinemachine
         // ============================
 
         /// <summary>
-        /// CinemachineBrain controls this GameObject.  Normally, this is the GameObject to which 
+        /// CinemachineBrain controls this GameObject.  Normally, this is the GameObject to which
         /// the CinemachineBrain component is attached.  However, it is possible to override this
-        /// by setting this property to another GameObject.  If a Camera component is attached to the 
-        /// Controlled GameObject, then that Camera component's lens settings is also driven 
+        /// by setting this property to another GameObject.  If a Camera component is attached to the
+        /// Controlled GameObject, then that Camera component's lens settings is also driven
         /// by the CinemachineBrain.
-        /// If this property is set to null, then CinemachineBrain is controlling the GameObject 
+        /// If this property is set to null, then CinemachineBrain is controlling the GameObject
         /// to which it is attached.  The value of this property always reports as non-null.
         /// </summary>
         public GameObject ControlledObject
@@ -459,15 +461,15 @@ namespace Unity.Cinemachine
                 return m_OutputCamera;
             }
         }
-        
+
         /// <summary>
         /// Get the current active CinemachineCamera.
         /// </summary>
-        public ICinemachineCamera ActiveVirtualCamera 
+        public ICinemachineCamera ActiveVirtualCamera
             => CinemachineCore.SoloCamera ?? m_BlendManager.ActiveVirtualCamera;
 
         /// <summary>
-        /// Call this to reset the current active camera, causing the brain to choose a new 
+        /// Call this to reset the current active camera, causing the brain to choose a new
         /// one without blending.  It is useful, for example, when you want to restart a game level.
         /// </summary>
         public void ResetState() => m_BlendManager.ResetRootFrame();
@@ -482,7 +484,7 @@ namespace Unity.Cinemachine
         /// It is also possible to set the current blend, but this is not a recommended usage
         /// unless it is to set the active blend to null, which forces the completion of the blend.
         /// </summary>
-        public CinemachineBlend ActiveBlend 
+        public CinemachineBlend ActiveBlend
         {
             get => m_BlendManager.ActiveBlend;
             set => m_BlendManager.ActiveBlend = value;
@@ -494,11 +496,11 @@ namespace Unity.Cinemachine
         /// </summary>
         /// <param name="vcam">The CinemachineCamera to check.</param>
         /// <returns>True if the CinemachineCamera is on a channel that is handled by this Brain.</returns>
-        public bool IsValidChannel(CinemachineVirtualCameraBase vcam) 
+        public bool IsValidChannel(CinemachineVirtualCameraBase vcam)
             => vcam != null && ((uint)vcam.OutputChannel & (uint)ChannelMask) != 0;
 
         /// <summary>
-        /// Checks if the CinemachineCamera is live as part of an outgoing blend.  
+        /// Checks if the CinemachineCamera is live as part of an outgoing blend.
         /// Does not check whether the CinemachineCamera is also the current active CinemachineCamera.
         /// </summary>
         /// <param name="cam">The CinemachineCamera to check.</param>
@@ -516,14 +518,68 @@ namespace Unity.Cinemachine
         }
 
         /// <summary>
-        /// Call this method explicitly from an external script to update the CinemachineCameras
-        /// and position the main camera, if the UpdateMode is set to ManualUpdate.
-        /// For other update modes, this method is called automatically, and should not be
-        /// called from elsewhere.
+        /// Updates CinemachineCameras and positions the main camera when UpdateMode is set to ManualUpdate.
+        /// This method should only be called in ManualUpdate mode. For other modes, updates occur 
+        /// automatically and this method should not be called explicitly.
         /// </summary>
+        /// <param name="currentFrame">The current update frmae.  This is a substiture for Time.frameCount.  
+        /// If you're controlling your own player loop and timestep, this parameter indicates the current frame.  
+        /// Each call should increwase this number by 1.</param>
+        /// <param name="deltaTime">The game time that elapsed since the last call to this method.  A value of -1 will 
+        /// cancel previous frame state, effectively cancelling damping and making the CInemachineCameras snap to position.</param>
+        /// <remarks>
+        /// Important usage notes:
+        /// <list type="bullet">
+        /// <item>Never call this method from FixedUpdate.</item>
+        /// <item>This version of the method allows you to explicitly control the update frame count and the deltaTime.</item>
+        /// <item>This method must be called exactly once per update frame - more frequent calls 
+        /// will not update the cameras, and less frequent calls may cause jerky camera movement.</item>
+        /// </list>
+        /// </remarks>
+        public void ManualUpdate(int currentFrame, float deltaTime)
+        {
+#if UNITY_EDITOR
+            if (UpdateMethod != UpdateMethods.ManualUpdate)
+                Debug.LogError("CinemachineBrain.ManualUpdate was called but CinemachineBrain is not in ManualUpdate mode");
+            if (Time.inFixedTimeStep)
+                Debug.LogError("CinemachineBrain.ManualUpdate was called from FixedUpdate");
+#endif
+            var prev = CinemachineCore.UniformDeltaTimeOverride;
+            CinemachineCore.UniformDeltaTimeOverride = deltaTime;
+            DoNonFixedUpdate(currentFrame);
+            CinemachineCore.UniformDeltaTimeOverride = prev;
+        }
+
+        /// <summary>
+        /// Updates CinemachineCameras and positions the main camera when UpdateMode is set to ManualUpdate.
+        /// This method should only be called in ManualUpdate mode. For other modes, updates occur 
+        /// automatically and this method should not be called explicitly.
+        /// </summary>
+        /// <remarks>
+        /// Important usage notes:
+        /// <list type="bullet">
+        /// <item>Never call this method from FixedUpdate.</item>
+        /// <item>This method must be called exactly once per render frame - more frequent calls 
+        /// will not update the cameras, and less frequent calls may cause jerky camera movement.</item>
+        /// <item>This version of the method will automatically track the update frame count and the current delta time.  
+        /// If you want to explicitylt control deltaTime and update frame count, use the version of this method that 
+        /// allows you to specify those values.</item>
+        /// </list>
+        /// </remarks>
         public void ManualUpdate()
         {
-            m_LastFrameUpdated = Time.frameCount;
+#if UNITY_EDITOR
+            if (UpdateMethod != UpdateMethods.ManualUpdate)
+                Debug.LogError("CinemachineBrain.ManualUpdate was called but CinemachineBrain is not in ManualUpdate mode");
+            if (Time.inFixedTimeStep)
+                Debug.LogError("CinemachineBrain.ManualUpdate was called from FixedUpdate");
+#endif
+            DoNonFixedUpdate(Time.frameCount);
+        }
+
+        void DoNonFixedUpdate(int updateFrame)
+        {
+            m_LastFrameUpdated = CinemachineCore.CurrentUpdateFrame = updateFrame;
 
             float deltaTime = GetEffectiveDeltaTime(false);
             if (Application.isPlaying && (UpdateMethod == UpdateMethods.FixedUpdate || Time.inFixedTimeStep))
@@ -597,7 +653,7 @@ namespace Unity.Cinemachine
 
             return fixedDelta ? Time.fixedDeltaTime : Time.deltaTime;
         }
-        
+
         void UpdateVirtualCameras(CameraUpdateManager.UpdateFilter updateFilter, float deltaTime)
         {
             // We always update all active CinemachineCameras
@@ -620,7 +676,7 @@ namespace Unity.Cinemachine
             }
             CameraUpdateManager.s_CurrentUpdateFilter = updateFilter;
         }
-        
+
         /// <summary>
         /// Chooses the default active CinemachineCamera in the case there is no camera override.
         /// </summary>
@@ -639,7 +695,7 @@ namespace Unity.Cinemachine
 
         CinemachineBlendDefinition LookupBlend(ICinemachineCamera fromKey, ICinemachineCamera toKey)
             => CinemachineBlenderSettings.LookupBlend(fromKey, toKey, DefaultBlend, CustomBlends, this);
-            
+
         void ProcessActiveCamera(float deltaTime)
         {
             if (CinemachineCore.SoloCamera != null)
@@ -694,7 +750,7 @@ namespace Unity.Cinemachine
                     cam.farClipPlane = state.Lens.FarClipPlane;
                     cam.orthographicSize = state.Lens.OrthographicSize;
                     cam.fieldOfView = state.Lens.FieldOfView;
-                    
+
 #if CINEMACHINE_RESET_PROJECTION_MATRIX
                     if (!LensModeOverride.Enabled)
                         cam.usePhysicalProperties = isPhysical; // because ResetProjectionMatrix resets it

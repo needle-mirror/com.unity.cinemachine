@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace Unity.Cinemachine
 {
     /// <summary>
-    /// Interface representing something that can be used as a vcam target.  
+    /// Interface representing something that can be used as a vcam target.
     /// It has a transform, a bounding box, and a bounding sphere.
     /// </summary>
     public interface ICinemachineTargetGroup
@@ -152,7 +152,7 @@ namespace Unity.Cinemachine
         // Caches of valid members so we don't keep checking activeInHierarchy
         List<int> m_ValidMembers = new ();
         List<bool> m_MemberValidity = new ();
-        
+
         void OnValidate()
         {
             var count = Targets.Count;
@@ -172,7 +172,7 @@ namespace Unity.Cinemachine
         }
 
         //============================================
-        // Legacy support 
+        // Legacy support
 
         [HideInInspector, SerializeField, NoSaveDuringPlay, FormerlySerializedAs("m_Targets")]
         Target[] m_LegacyTargets;
@@ -204,11 +204,11 @@ namespace Unity.Cinemachine
 
         /// <summary>The axis-aligned bounding box of the group, computed using the
         /// targets positions and radii</summary>
-        public Bounds BoundingBox 
-        { 
+        public Bounds BoundingBox
+        {
             get
             {
-                if (m_LastUpdateFrame != Time.frameCount)
+                if (m_LastUpdateFrame != CinemachineCore.CurrentUpdateFrame)
                     DoUpdate();
                 return m_BoundingBox;
             }
@@ -218,10 +218,10 @@ namespace Unity.Cinemachine
         /// <summary>The bounding sphere of the group, computed using the
         /// targets positions and radii</summary>
         public BoundingSphere Sphere
-        { 
+        {
             get
             {
-                if (m_LastUpdateFrame != Time.frameCount)
+                if (m_LastUpdateFrame != CinemachineCore.CurrentUpdateFrame)
                     DoUpdate();
                 return m_BoundingSphere;
             }
@@ -236,7 +236,7 @@ namespace Unity.Cinemachine
         {
             get
             {
-                if (m_LastUpdateFrame != Time.frameCount)
+                if (m_LastUpdateFrame != CinemachineCore.CurrentUpdateFrame)
                     DoUpdate();
                 return m_ValidMembers.Count == 0;
             }
@@ -276,14 +276,14 @@ namespace Unity.Cinemachine
         /// Get the bounding sphere of a group member, with the weight taken into account.
         /// As the member's weight goes to 0, the position interpolates to the group average position.
         /// Note that this result is only valid after DoUpdate has been called. If members
-        /// are added or removed after that call or change their weights or active state, 
+        /// are added or removed after that call or change their weights or active state,
         /// this will not necessarily return correct information before the next update.
         /// </summary>
         /// <param name="index">Member index</param>
         /// <returns>The weighted bounding sphere</returns>
         public BoundingSphere GetWeightedBoundsForMember(int index)
         {
-            if (m_LastUpdateFrame != Time.frameCount)
+            if (m_LastUpdateFrame != CinemachineCore.CurrentUpdateFrame)
                 DoUpdate();
             if (!IndexIsValid(index) || !m_MemberValidity[index])
                 return Sphere;
@@ -292,14 +292,14 @@ namespace Unity.Cinemachine
 
         /// <summary>The axis-aligned bounding box of the group, in a specific reference frame.
         /// Note that this result is only valid after DoUpdate has been called. If members
-        /// are added or removed after that call or change their weights or active state, 
+        /// are added or removed after that call or change their weights or active state,
         /// this will not necessarily return correct information before the next update.</summary>
         /// <param name="observer">The frame of reference in which to compute the bounding box</param>
         /// <param name="includeBehind">If true, members behind the observer (negative z) will be included</param>
         /// <returns>The axis-aligned bounding box of the group, in the desired frame of reference</returns>
         public Bounds GetViewSpaceBoundingBox(Matrix4x4 observer, bool includeBehind)
         {
-            if (m_LastUpdateFrame != Time.frameCount)
+            if (m_LastUpdateFrame != CinemachineCore.CurrentUpdateFrame)
                 DoUpdate();
             var inverseView = observer;
             if (!Matrix4x4.Inverse3DAffine(observer, ref inverseView))
@@ -347,7 +347,7 @@ namespace Unity.Cinemachine
         /// </summary>
         public void DoUpdate()
         {
-            m_LastUpdateFrame = Time.frameCount;
+            m_LastUpdateFrame = CinemachineCore.CurrentUpdateFrame;
 
             UpdateMemberValidity();
             m_AveragePos = CalculateAveragePosition();
@@ -385,8 +385,8 @@ namespace Unity.Cinemachine
             m_WeightSum = m_MaxWeight = 0;
             for (int i = 0; i < count; ++i)
             {
-                m_MemberValidity.Add(Targets[i].Object != null 
-                        && Targets[i].Weight > UnityVectorExtensions.Epsilon 
+                m_MemberValidity.Add(Targets[i].Object != null
+                        && Targets[i].Weight > UnityVectorExtensions.Epsilon
                         && Targets[i].Object.gameObject.activeInHierarchy);
                 if (m_MemberValidity[i])
                 {
@@ -413,8 +413,8 @@ namespace Unity.Cinemachine
             }
             return pos / m_WeightSum;
         }
-        
-        // Assumes that UpdateMemberValidity() has been called 
+
+        // Assumes that UpdateMemberValidity() has been called
         Bounds CalculateBoundingBox()
         {
             if (m_MaxWeight < UnityVectorExtensions.Epsilon)
@@ -428,7 +428,7 @@ namespace Unity.Cinemachine
             }
             return b;
         }
-        
+
         /// <summary>
         /// Use Ritter's algorithm for calculating an approximate bounding sphere.
         /// Assumes that UpdateMemberValidity() has been called.
@@ -500,7 +500,7 @@ namespace Unity.Cinemachine
         /// Get the local-space angular bounds of the group, from a specific point of view.
         /// Also returns the z depth range of the members.
         /// Note that this result is only valid after DoUpdate has been called. If members
-        /// are added or removed after that call or change their weights or active state, 
+        /// are added or removed after that call or change their weights or active state,
         /// this will not necessarily return correct information before the next update.
         /// </summary>
         /// <param name="observer">Point of view from which to calculate, and in whose
@@ -511,7 +511,7 @@ namespace Unity.Cinemachine
         public void GetViewSpaceAngularBounds(
             Matrix4x4 observer, out Vector2 minAngles, out Vector2 maxAngles, out Vector2 zRange)
         {
-            if (m_LastUpdateFrame != Time.frameCount)
+            if (m_LastUpdateFrame != CinemachineCore.CurrentUpdateFrame)
                 DoUpdate();
             var world2local = observer;
             if (!Matrix4x4.Inverse3DAffine(observer, ref world2local))

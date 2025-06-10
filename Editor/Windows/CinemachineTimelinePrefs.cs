@@ -14,7 +14,7 @@ namespace Unity.Cinemachine.Editor
         public class ScrubbingCacheItem : CinemachineSettings.BoolItem
         {
             public ScrubbingCacheItem(string key, bool defaultValue) : base(key, defaultValue) {}
-            protected override void WritePrefs(bool value) 
+            protected override void WritePrefs(bool value)
             {
                 base.WritePrefs(value);
                 TargetPositionCache.UseCache = value;
@@ -31,7 +31,7 @@ namespace Unity.Cinemachine.Editor
             "For preview scrubbing, caches target positions and pre-simulates each frame to "
                 + "approximate damping and noise playback.  Target position cache is built when timeline is "
                 + "played forward, and used when timeline is scrubbed within the indicated zone. "
-                + "This is a global setting,.");
+                + "This is a global setting.");
 
         static CinemachineTimelinePrefs() => CinemachineSettings.AdditionalCategories += DrawTimelineSettings;
 

@@ -40,13 +40,13 @@ namespace Unity.Cinemachine
         [Tooltip("The camera will not move along its z-axis if the target is within "
             + "this distance of the specified camera distance")]
         public float DeadZoneDepth = 0;
-        
+
         /// <summary>Settings for screen-space composition</summary>
         [Header("Composition")]
         [HideFoldout]
         public ScreenComposerSettings Composition = ScreenComposerSettings.Default;
 
-        /// <summary>Force target to center of screen when this camera activates.  
+        /// <summary>Force target to center of screen when this camera activates.
         /// If false, will clamp target to the edges of the dead zone</summary>
         [Tooltip("Force target to center of screen when this camera activates.  If false, will "
             + "clamp target to the edges of the dead zone")]
@@ -81,13 +81,17 @@ namespace Unity.Cinemachine
         [FoldoutWithEnabledButton]
         public LookaheadSettings Lookahead;
 
+        /// <summary>Internal API for inspector</summary>
+        internal ScreenComposerSettings GetEffectiveComposition => m_PreviousComposition;
+
         const float kMinimumCameraDistance = 0.01f;
 
         /// <summary>State information for damping</summary>
+        internal PositionPredictor m_Predictor = new (); // internal for tests
         Vector3 m_PreviousCameraPosition = Vector3.zero;
-        internal PositionPredictor m_Predictor = new PositionPredictor(); // internal for tests
-        Quaternion m_prevRotation;
-
+        Quaternion m_PreviousRotation;
+        ScreenComposerSettings m_PreviousComposition;
+        float m_PreviousDesiredDistance;
         bool m_InheritingPosition;
 
         void Reset()
@@ -110,13 +114,13 @@ namespace Unity.Cinemachine
             DeadZoneDepth = Mathf.Max(0, DeadZoneDepth);
             Composition.Validate();
         }
-        
+
         ScreenComposerSettings CinemachineFreeLookModifier.IModifiableComposition.Composition
         {
             get => Composition;
             set => Composition = value;
         }
-        
+
         Vector3 CinemachineFreeLookModifier.IModifiablePositionDamping.PositionDamping
         {
             get => Damping;
@@ -128,7 +132,7 @@ namespace Unity.Cinemachine
             get => CameraDistance;
             set => CameraDistance = value;
         }
-        
+
         /// <summary>True if component is enabled and has a valid Follow target</summary>
         public override bool IsValid => enabled && FollowTarget != null;
 
@@ -136,7 +140,7 @@ namespace Unity.Cinemachine
         /// Always returns the Body stage</summary>
         public override CinemachineCore.Stage Stage => CinemachineCore.Stage.Body;
 
-        /// <summary>FramingTransposer algorithm takes camera orientation as input, 
+        /// <summary>FramingTransposer algorithm takes camera orientation as input,
         /// so even though it is a Body component, it must apply after Aim</summary>
         public override bool BodyAppliesAfterAim => true;
 
@@ -166,15 +170,16 @@ namespace Unity.Cinemachine
         public override void ForceCameraPosition(Vector3 pos, Quaternion rot)
         {
             base.ForceCameraPosition(pos, rot);
+            m_Predictor.ApplyRotationDelta(rot * Quaternion.Inverse(m_PreviousRotation));
             m_PreviousCameraPosition = pos;
-            m_prevRotation = rot;
+            m_PreviousRotation = rot;
         }
-        
+
         /// <summary>
         /// Report maximum damping time needed for this component.
         /// </summary>
         /// <returns>Highest damping setting in this component</returns>
-        public override float GetMaxDampTime() => Mathf.Max(Damping.x, Mathf.Max(Damping.y, Damping.z)); 
+        public override float GetMaxDampTime() => Mathf.Max(Damping.x, Mathf.Max(Damping.y, Damping.z));
 
         /// <summary>Notification that this virtual camera is going live.
         /// Base class implementation does nothing.</summary>
@@ -185,12 +190,12 @@ namespace Unity.Cinemachine
         public override bool OnTransitionFromCamera(
             ICinemachineCamera fromCam, Vector3 worldUp, float deltaTime)
         {
-            if (fromCam != null 
-                && (VirtualCamera.State.BlendHint & CameraState.BlendHints.InheritPosition) != 0 
+            if (fromCam != null
+                && (VirtualCamera.State.BlendHint & CameraState.BlendHints.InheritPosition) != 0
                 && !CinemachineCore.IsLiveInBlend(VirtualCamera))
             {
                 m_PreviousCameraPosition = fromCam.State.RawPosition;
-                m_prevRotation = fromCam.State.RawOrientation;
+                m_PreviousRotation = fromCam.State.RawOrientation;
                 m_InheritingPosition = true;
                 return true;
             }
@@ -200,11 +205,13 @@ namespace Unity.Cinemachine
         // Convert from screen coords to normalized orthographic distance coords
         private Rect ScreenToOrtho(Rect rScreen, float orthoSize, float aspect)
         {
-            var r = new Rect();
-            r.yMax = 2 * orthoSize * ((1f-rScreen.yMin) - 0.5f);
-            r.yMin = 2 * orthoSize * ((1f-rScreen.yMax) - 0.5f);
-            r.xMin = 2 * orthoSize * aspect * (rScreen.xMin - 0.5f);
-            r.xMax = 2 * orthoSize * aspect * (rScreen.xMax - 0.5f);
+            var r = new Rect
+            {
+                yMax = 2 * orthoSize * ((1f - rScreen.yMin) - 0.5f),
+                yMin = 2 * orthoSize * ((1f - rScreen.yMax) - 0.5f),
+                xMin = 2 * orthoSize * aspect * (rScreen.xMin - 0.5f),
+                xMax = 2 * orthoSize * aspect * (rScreen.xMax - 0.5f)
+            };
             return r;
         }
 
@@ -236,7 +243,9 @@ namespace Unity.Cinemachine
             if (!previousStateIsValid)
             {
                 m_PreviousCameraPosition = curState.RawPosition;
-                m_prevRotation = curState.RawOrientation;
+                m_PreviousRotation = curState.RawOrientation;
+                m_PreviousDesiredDistance = CameraDistance;
+                m_PreviousComposition = Composition;
                 if (!m_InheritingPosition && CenterOnActivate)
                 {
                     m_PreviousCameraPosition = FollowTargetPosition
@@ -264,14 +273,20 @@ namespace Unity.Cinemachine
             if (!curState.HasLookAt() || curState.ReferenceLookAt == FollowTargetPosition)
                 curState.ReferenceLookAt = followTargetPosition;
 
-            // Allow undamped camera orientation change
-            Quaternion localToWorld = curState.RawOrientation;
+            // Allow undamped camera orientation and distance change
+            var localToWorld = curState.RawOrientation;
             if (previousStateIsValid)
             {
-                var q = localToWorld * Quaternion.Inverse(m_prevRotation);
-                m_PreviousCameraPosition = TrackedPoint + q * (m_PreviousCameraPosition - TrackedPoint);
+                var q = localToWorld * Quaternion.Inverse(m_PreviousRotation);
+                var dir = q * (m_PreviousCameraPosition - TrackedPoint);
+                m_PreviousCameraPosition = TrackedPoint + dir;
+
+                // Don't damp changes to distance setting
+                var distanceChange  = CameraDistance - m_PreviousDesiredDistance;
+                if (Mathf.Abs(distanceChange) > Epsilon)
+                    m_PreviousCameraPosition += dir.normalized * distanceChange;
             }
-            m_prevRotation = localToWorld;
+            m_PreviousRotation = localToWorld;
 
             // Work in camera-local space
             var camPosWorld = m_PreviousCameraPosition;
@@ -291,8 +306,8 @@ namespace Unity.Cinemachine
                 cameraOffset.z = targetZ - cameraMax;
 
             // Move along the XY plane
-            float screenSize = lens.Orthographic 
-                ? lens.OrthographicSize 
+            float screenSize = lens.Orthographic
+                ? lens.OrthographicSize
                 : Mathf.Tan(0.5f * verticalFOV * Mathf.Deg2Rad) * (targetZ - cameraOffset.z);
             var softGuideOrtho = ScreenToOrtho(Composition.DeadZoneRect, screenSize, lens.Aspect);
             if (!previousStateIsValid)
@@ -305,12 +320,21 @@ namespace Unity.Cinemachine
             }
             else
             {
+                // Don't damp change to desired screen position
+                if (Composition.ScreenPosition != m_PreviousComposition.ScreenPosition)
+                {
+                    var delta = Composition.ScreenPosition - m_PreviousComposition.ScreenPosition;
+                    var deltaPos = new Vector3(-delta.x * screenSize * lens.Aspect * 2, delta.y * screenSize * 2, 0);
+                    targetPos += deltaPos;
+                    camPosWorld += localToWorld * deltaPos;
+                }
+
                 // Move it through the soft zone, with damping
                 cameraOffset += OrthoOffsetToScreenBounds(targetPos, softGuideOrtho);
                 cameraOffset = VirtualCamera.DetachedFollowTargetDamp(cameraOffset, Damping, deltaTime);
 
                 // Make sure the real target (not the lookahead one) is still in the frame
-                if (Composition.HardLimits.Enabled 
+                if (Composition.HardLimits.Enabled
                     && (deltaTime < 0 || VirtualCamera.FollowTargetAttachment > 1 - Epsilon))
                 {
                     var hardGuideOrtho = ScreenToOrtho(Composition.HardLimitsRect, screenSize, lens.Aspect);
@@ -321,6 +345,8 @@ namespace Unity.Cinemachine
             }
             curState.RawPosition = camPosWorld + localToWorld * cameraOffset;
             m_PreviousCameraPosition = curState.RawPosition;
+            m_PreviousComposition = Composition;
+            m_PreviousDesiredDistance = CameraDistance;
 
             m_InheritingPosition = false;
         }

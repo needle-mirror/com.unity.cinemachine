@@ -48,7 +48,7 @@ namespace Unity.Cinemachine
                 [Tooltip("Vertical offset from the Follow target's root, in target local space")]
                 public float YOffset;
             }
-            
+
             /// <summary>Use the Follow target when resolving occlusions, instead of the LookAt target.</summary>
             [EnabledProperty]
             public FollowTargetSettings UseFollowTarget;
@@ -110,7 +110,7 @@ namespace Unity.Cinemachine
         static int[] s_ColliderOrderBuffer = new int[kColliderBufferSize];
 
         // Farthest stuff comes first
-        static readonly IComparer<int> s_ColliderBufferSorter = Comparer<int>.Create((a, b) => 
+        static readonly IComparer<int> s_ColliderBufferSorter = Comparer<int>.Create((a, b) =>
         {
             if (s_ColliderDistanceBuffer[a] == s_ColliderDistanceBuffer[b])
                 return 0;
@@ -124,11 +124,11 @@ namespace Unity.Cinemachine
 
         void Reset()
         {
-            CameraRadius = 0.4f; 
+            CameraRadius = 0.4f;
             TerrainResolution = new () { Enabled = true, TerrainLayers = 1, MaximumRaycast = 10, Damping = 0.5f };
             Decollision = new () { Enabled = false, ObstacleLayers = 1, Damping = 0.5f };
         }
-        
+
         /// <summary>Cleanup</summary>
         protected override void OnDestroy()
         {
@@ -140,18 +140,19 @@ namespace Unity.Cinemachine
         /// Report maximum damping time needed for this component.
         /// </summary>
         /// <returns>Highest damping setting in this component</returns>
-        public override float GetMaxDampTime() 
-        { 
+        public override float GetMaxDampTime()
+        {
             return Mathf.Max(
-                Decollision.Enabled ? Decollision.Damping : 0, 
+                Decollision.Enabled ? Decollision.Damping : 0,
                 TerrainResolution.Enabled ? TerrainResolution.Damping : 0);
         }
-        
+
         /// <summary>Per-vcam extra state info</summary>
         class VcamExtraState : VcamExtraStateBase
         {
             public float PreviousTerrainDisplacement;
-            public float PreviousObstacleDisplacement;
+            public float PreviousDistanceFromTarget;
+            public Vector3 PreviouDecollisionDisplacement;
             public Vector3 PreviousCorrectedCameraPosition;
 
             float m_SmoothedDistance;
@@ -169,10 +170,22 @@ namespace Unity.Cinemachine
 
                 if (!haveDisplacement && CinemachineCore.CurrentTime - m_SmoothingStartTime >= smoothingTime)
                     m_SmoothedDistance = m_SmoothingStartTime = 0;
-                    
+
                 return distance;
             }
         };
+
+        /// <summary>
+        /// Force the virtual camera to assume a given position and orientation
+        /// </summary>
+        /// <param name="vcam">Virtual camera being warped warp</param>
+        /// <param name="pos">World-space position to take</param>
+        /// <param name="rot">World-space orientation to take</param>
+        public override void ForceCameraPosition(CinemachineVirtualCameraBase vcam, Vector3 pos, Quaternion rot) 
+        {
+            var extra = GetExtraState<VcamExtraState>(vcam);
+            extra.PreviousCorrectedCameraPosition = pos;
+        }
 
         /// <summary>
         /// Callback to do the collision resolution and shot evaluation
@@ -202,7 +215,7 @@ namespace Unity.Cinemachine
                     deltaTime = -1;
 
                 // Resolve terrains
-                extra.PreviousTerrainDisplacement = TerrainResolution.Enabled 
+                extra.PreviousTerrainDisplacement = TerrainResolution.Enabled
                     ? ResolveTerrain(extra, state.GetCorrectedPosition(), up, deltaTime) : 0;
                 state.PositionCorrection += extra.PreviousTerrainDisplacement * up;
 
@@ -218,7 +231,7 @@ namespace Unity.Cinemachine
 
                         // Resolve terrains again, just in case the decollider messed it up.
                         // No damping this time.
-                        var terrainDisplacement = TerrainResolution.Enabled 
+                        var terrainDisplacement = TerrainResolution.Enabled
                             ? ResolveTerrain(extra, state.GetCorrectedPosition(), up, -1) : 0;
                         if (Mathf.Abs(terrainDisplacement) > Epsilon)
                         {
@@ -227,7 +240,7 @@ namespace Unity.Cinemachine
                         }
                     }
                 }
-                
+
                 // Restore screen composition
                 var newCamPos = state.GetCorrectedPosition();
                 if (hasLookAt && !(initialCamPos - newCamPos).AlmostZero())
@@ -262,14 +275,14 @@ namespace Unity.Cinemachine
             }
             return resolutuionTargetPoint;
         }
-        
+
         // Returns distance to move the camera in the up directon to stay on top of terrain
         float ResolveTerrain(VcamExtraState extra, Vector3 camPos, Vector3 up, float deltaTime)
         {
             float displacement = 0;
             if (RuntimeUtility.SphereCastIgnoreTag(
-                    new Ray(camPos + TerrainResolution.MaximumRaycast * up, -up), 
-                    CameraRadius + Epsilon, out var hitInfo, 
+                    new Ray(camPos + TerrainResolution.MaximumRaycast * up, -up),
+                    CameraRadius + Epsilon, out var hitInfo,
                     TerrainResolution.MaximumRaycast, TerrainResolution.TerrainLayers, string.Empty))
             {
                 displacement = TerrainResolution.MaximumRaycast - hitInfo.distance + Epsilon;
@@ -278,13 +291,13 @@ namespace Unity.Cinemachine
             if (deltaTime >= 0 && TerrainResolution.Damping > Epsilon)
             {
                 if (displacement < extra.PreviousTerrainDisplacement)
-                    displacement = extra.PreviousTerrainDisplacement 
-                        + Damper.Damp(displacement - extra.PreviousTerrainDisplacement, 
+                    displacement = extra.PreviousTerrainDisplacement
+                        + Damper.Damp(displacement - extra.PreviousTerrainDisplacement,
                             TerrainResolution.Damping, deltaTime);
             }
             return displacement;
         }
- 
+
         Vector3 DecollideCamera(Vector3 cameraPos, Vector3 lookAtPoint)
         {
             // Don't handle layers already taken care of by terrain resolution
@@ -346,34 +359,42 @@ namespace Unity.Cinemachine
         }
 
         Vector3 ApplySmoothingAndDamping(
-            Vector3 displacement, Vector3 lookAtPoint, 
+            Vector3 displacement, Vector3 lookAtPoint,
             Vector3 oldCamPos, VcamExtraState extra, float deltaTime)
         {
-            var dir = oldCamPos + displacement - lookAtPoint;
-            var distance = float.MaxValue;
+            var newOffset = oldCamPos + displacement - lookAtPoint;
+            var newOffsetMag = float.MaxValue;
             if (deltaTime >= 0)
             {
-                distance = dir.magnitude;
-                if (distance > CameraRadius)
+                newOffsetMag = newOffset.magnitude;
+                if (newOffsetMag > CameraRadius)
                 {
                     // Apply smoothing
-                    dir /= distance;
+                    var newOffsetDir = newOffset / newOffsetMag;
                     if (Decollision.SmoothingTime > Epsilon)
                     {
-                        distance = extra.UpdateDistanceSmoothing(distance, Decollision.SmoothingTime, !displacement.AlmostZero());
-                        displacement = (lookAtPoint + dir * distance) - oldCamPos;
+                        newOffsetMag = extra.UpdateDistanceSmoothing(newOffsetMag, Decollision.SmoothingTime, !displacement.AlmostZero());
+                        displacement = (lookAtPoint + newOffsetDir * newOffsetMag) - oldCamPos;
                     }
 
                     // Apply damping
-                    if (Decollision.Damping > Epsilon && distance > extra.PreviousObstacleDisplacement)
+                    if (Decollision.Damping > Epsilon && newOffsetMag > extra.PreviousDistanceFromTarget)
                     {
-                        distance = extra.PreviousObstacleDisplacement 
-                            + Damper.Damp(distance - extra.PreviousObstacleDisplacement, Decollision.Damping, deltaTime);
-                        displacement = (lookAtPoint + dir * distance) - oldCamPos;
+                        // Avoid introducing spurious damping when the camera changed position relative to the target.
+                        // We calculate the previous offset from target in two ways, and take the one that's closest
+                        // to the current desired offset.
+                        var prevOffsetMag = extra.PreviousDistanceFromTarget;
+                        var prevOffsetMag2 = (oldCamPos - lookAtPoint).magnitude - extra.PreviouDecollisionDisplacement.magnitude;
+                        if (Mathf.Abs(newOffsetMag - prevOffsetMag2) < Mathf.Abs(newOffsetMag - prevOffsetMag))
+                            prevOffsetMag = prevOffsetMag2;
+
+                        newOffsetMag = prevOffsetMag + Damper.Damp(newOffsetMag - prevOffsetMag, Decollision.Damping, deltaTime);
+                        displacement = (lookAtPoint + newOffsetDir * newOffsetMag) - oldCamPos;
                     }
                 }
             }
-            extra.PreviousObstacleDisplacement = distance;
+            extra.PreviousDistanceFromTarget = newOffsetMag;
+            extra.PreviouDecollisionDisplacement = displacement;
             return displacement;
         }
     }

@@ -10,8 +10,7 @@ A functional Cinemachine setup involves three main types of elements:
 * A [**Cinemachine Brain**](#cinemachine-brain) which enables the Cinemachine functionality in the Unity Camera, and
 * One or multiple [**Cinemachine Cameras**](#cinemachine-cameras) which take turns controlling the Unity Camera according to their status.
 
-![](images/concept-base.png)  
-_Cinemachine setup example: the Unity Camera with its Cinemachine Brain component and three Cinemachine Cameras._
+![Cinemachine setup example: the Unity Camera with its Cinemachine Brain component and three Cinemachine Cameras.](images/concept-base.png)
 
 ## Unity Camera
 
@@ -36,6 +35,8 @@ The Cinemachine Cameras (formerly named _Virtual Cameras_) are GameObjects that 
 When a Cinemachine Cameras takes control of the Unity Camera, it dynamically overrides its properties and behavior, which affects:
 * Where the Unity Camera is positioned in the Scene.
 * What the Unity Camera aims at.
+* The Unity Camera's lens settings (field of view, clipping planes, etc).
+* The Unity Camera's post-processing profiles (if used).
 * How the Unity Camera behaves through time.
 
 ### Cinemachine Camera GameObjects
@@ -46,12 +47,11 @@ Cinemachine Camera GameObjects are separate from the Unity Camera GameObject.
 * They must include a [Cinemachine Camera component](CinemachineCamera.md).
 * They can include additional Cinemachine components to manage [procedural motion](concept-procedural-motion.md) and add extended functionality.
 
-![](images/CinemachineSceneHierarchy.png)  
-_Hierarchy example: a Scene containing a Unity Camera with Cinemachine Brain and multiple Cinemachine Cameras._
+![Hierarchy example: a Scene containing a Unity Camera with Cinemachine Brain and multiple Cinemachine Cameras.](images/CinemachineSceneHierarchy.png)
 
 ### Single or multiple Cinemachine Cameras
 
-You can create as many Cinemachine Cameras as required for your project, but you can also get a fully functional setup with a single Cinemachine Camera, depending on your needs. For example: 
+You can create as many Cinemachine Cameras as required for your project, but you can also get a fully functional setup with a single Cinemachine Camera, depending on your needs. For example:
 
 * If you want the Unity Camera to follow a single character, you can use a single Cinemachine Camera and set it up with a follow behavior that corresponds to your needs. In the end, this Cinemachine Camera will be the only one to control the Unity Camera.
 

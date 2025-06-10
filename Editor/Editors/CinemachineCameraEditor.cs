@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -42,7 +42,7 @@ namespace Unity.Cinemachine.Editor
             var defaultTargetLabel = new ObjectField("");
             defaultTargetLabel.SetEnabled(false);
             var defaultTargetRow = ux.AddChild(new InspectorUtility.LabeledRow(
-                "Default Target", "The default target is set in the parent object, and will be used if the Tracking Target is None", 
+                "Default Target", "The default target is set in the parent object, and will be used if the Tracking Target is None",
                 defaultTargetLabel));
             defaultTargetRow.focusable = false;
             defaultTargetLabel.style.marginLeft = 2;
@@ -56,13 +56,15 @@ namespace Unity.Cinemachine.Editor
             ux.AddHeader("Procedural Components");
             this.AddPipelineDropdowns(ux);
 
-            ux.TrackAnyUserActivity(() => 
+            ux.TrackAnyUserActivity(() =>
             {
                 if (Target == null)
                     return; // object deleted
-                var brain = CinemachineCore.FindPotentialTargetBrain(Target);
-                var deltaTime = Application.isPlaying ? Time.deltaTime : -1;
-                Target.InternalUpdateCameraState(brain == null ? Vector3.up : brain.DefaultWorldUp, deltaTime);
+                if (!Application.isPlaying)
+                {
+                    var brain = CinemachineCore.FindPotentialTargetBrain(Target);
+                    Target.InternalUpdateCameraState(brain == null ? Vector3.up : brain.DefaultWorldUp, -1);
+                }
                 bool haveDefault = Target.Target.TrackingTarget != Target.Follow;
                 defaultTargetRow.SetVisible(haveDefault);
                 if (haveDefault)

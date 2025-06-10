@@ -5,6 +5,7 @@ using UnityEditor.Timeline;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Playables;
+using UnityEditor.SceneManagement;
 
 namespace Unity.Cinemachine.Editor
 {
@@ -12,9 +13,9 @@ namespace Unity.Cinemachine.Editor
     class CinemachineShotClipEditor : ClipEditor
     {
         [InitializeOnLoad]
-        class EditorInitialize 
-        { 
-            static EditorInitialize() { CinemachinePlayableMixer.GetMasterPlayableDirector = GetMasterDirector; } 
+        class EditorInitialize
+        {
+            static EditorInitialize() { CinemachinePlayableMixer.GetMasterPlayableDirector = GetMasterDirector; }
             static PlayableDirector GetMasterDirector() { return TimelineEditor.masterDirector; }
         }
         public delegate double TimelineGlobalToLocalTimeDelegate(double globalTime);
@@ -65,13 +66,24 @@ namespace Unity.Cinemachine.Editor
             base.OnCreate(clip, track, clonedFrom);
             if (CinemachineTimelinePrefs.AutoCreateShotFromSceneView.Value)
             {
-                var asset = clip.asset as CinemachineShot;
-                var vcam = CinemachineShotEditor.CreatePassiveVcamFromSceneView();
-                var d = TimelineEditor.inspectedDirector;
-                if (d != null && d.GetReferenceValue(asset.VirtualCamera.exposedName, out bool idValid) == null)
+                var director = TimelineEditor.inspectedDirector;
+                if (director != null)
                 {
-                    asset.VirtualCamera.exposedName = System.Guid.NewGuid().ToString();
-                    d.SetReferenceValue(asset.VirtualCamera.exposedName, vcam);
+                    var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+                    bool isPrefabOrInPrefabMode = (PrefabUtility.IsPartOfPrefabAsset(director) 
+                        || (prefabStage != null && prefabStage.IsPartOfPrefabContents(director.gameObject))
+                        && !PrefabUtility.IsPartOfPrefabInstance(director.gameObject));
+                    if (!isPrefabOrInPrefabMode)
+                    {
+                        var asset = clip.asset as CinemachineShot;
+                        var vcam = CinemachineShotEditor.CreatePassiveVcamFromSceneView();
+                        var d = TimelineEditor.inspectedDirector;
+                        if (d != null && d.GetReferenceValue(asset.VirtualCamera.exposedName, out bool idValid) == null)
+                        {
+                            asset.VirtualCamera.exposedName = System.Guid.NewGuid().ToString();
+                            d.SetReferenceValue(asset.VirtualCamera.exposedName, vcam);
+                        }
+                    }
                 }
             }
         }
@@ -82,7 +94,7 @@ namespace Unity.Cinemachine.Editor
         {
             base.DrawBackground(clip, region);
 
-            if (Application.isPlaying || !TargetPositionCache.UseCache 
+            if (Application.isPlaying || !TargetPositionCache.UseCache
                 || TargetPositionCache.CacheMode == TargetPositionCache.Mode.Disabled
                 || TimelineEditor.inspectedDirector == null)
             {
@@ -101,7 +113,7 @@ namespace Unity.Cinemachine.Editor
                 float end = (float)region.endTime;
                 cacheRange.Start = Mathf.Max((float)clip.ToLocalTime(cacheRange.Start), start);
                 cacheRange.End = Mathf.Min((float)clip.ToLocalTime(cacheRange.End), end);
-                
+
                 var r = region.position;
                 var a = r.x + r.width * (cacheRange.Start - start) / (end - start);
                 var b = r.x + r.width * (cacheRange.End - start) / (end - start);
@@ -115,9 +127,9 @@ namespace Unity.Cinemachine.Editor
             {
                 var r = region.position;
                 var t = clip.ToLocalTime(TimelineGlobalToLocalTime(TimelineEditor.masterDirector.time));
-                var pos = r.x + r.width 
+                var pos = r.x + r.width
                     * (float)((t - region.startTime) / (region.endTime - region.startTime));
-    
+
                 var s = EditorStyles.miniLabel.CalcSize(m_Uncached);
                 r.width = s.x; r.x = pos - r.width / 2;
                 var c = GUI.color;

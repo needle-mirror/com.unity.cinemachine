@@ -21,13 +21,13 @@ namespace Unity.Cinemachine.Editor
             this.AddMissingCmCameraHelpBox(ux);
 
             var boundsHelp = ux.AddChild(new HelpBox(
-                "Bounding Shape must be a PolygonCollider2D, BoxCollider2D, or CompositeCollider2D.", 
+                "Bounding Shape 2D must be a PolygonCollider2D, BoxCollider2D, or CompositeCollider2D.",
                 HelpBoxMessageType.Warning));
             var polygonsHelp = ux.AddChild(new HelpBox(
-                "CompositeCollider2D geometry type must be Polygons.", 
+                "CompositeCollider2D geometry type must be Polygons.",
                 HelpBoxMessageType.Warning));
             var invalidCollider2D = ux.AddChild(new HelpBox(
-                "The input Collider2D is not valid; it has no points.", 
+                "The input Collider2D is not valid; it has no points.",
                 HelpBoxMessageType.Warning));
 
             var volumeProp = serializedObject.FindProperty(() => Target.BoundingShape2D);
@@ -35,14 +35,14 @@ namespace Unity.Cinemachine.Editor
             ux.TrackAnyUserActivity(() =>
             {
                 var c = volumeProp.objectReferenceValue;
-                boundsHelp.SetVisible(c != null && c is not (PolygonCollider2D or BoxCollider2D or CompositeCollider2D));
+                boundsHelp.SetVisible(c is not (PolygonCollider2D or BoxCollider2D or CompositeCollider2D));
                 polygonsHelp.SetVisible(c is CompositeCollider2D cc && cc.geometryType != CompositeCollider2D.GeometryType.Polygons);
-                invalidCollider2D.SetVisible(c != null && Target.IsConfinerOvenNull());
+                invalidCollider2D.SetVisible(c != null && Target.BoundingShapeIsBaked && Target.IsConfinerOvenNull());
             });
-            
+
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.Damping)));
             ux.Add(new PropertyField(serializedObject.FindProperty(() => Target.SlowingDistance)));
-            
+
             var oversizedCameraHelp = ux.AddChild(new HelpBox(
                 "The camera window is too big for the confiner. Enable the Oversize Window option.",
                 HelpBoxMessageType.Info));
@@ -55,10 +55,10 @@ namespace Unity.Cinemachine.Editor
                 + "\n\nTo fix this, reduce the number of points in the confining shape, "
                 + "or set the MaxWindowSize parameter to limit skeleton computation.",
                 HelpBoxMessageType.Warning));
-            
+
             UpdateBakingProgress();
             ux.schedule.Execute(UpdateBakingProgress).Every(250); // GML todo: is there a better way to do this?
-            void UpdateBakingProgress() 
+            void UpdateBakingProgress()
             {
                 if (Target == null)
                     return; // target deleted
@@ -78,15 +78,18 @@ namespace Unity.Cinemachine.Editor
                 bakeTimeout.SetVisible(timedOut);
             }
 
-            ux.Add(new Button(() => 
+            ux.Add(new Button(() =>
             {
-                Target.InvalidateBoundingShapeCache();
-                EditorUtility.SetDirty(Target);
+                for (int i = 0; i < targets.Length; i++)
+                {
+                    (targets[i] as CinemachineConfiner2D).InvalidateBoundingShapeCache();
+                    EditorUtility.SetDirty(targets[i]);
+                }
             })
-            { 
+            {
                 text = "Invalidate Bounding Shape Cache",
-                tooltip = "Invalidates confiner2D cache, so a new one is computed next frame.\n" 
-                    + "Call this when the input bounding shape changes " 
+                tooltip = "Invalidates confiner2D cache, so a new one is computed next frame.\n"
+                    + "Call this when the input bounding shape changes "
                     + "(non-uniform scale, rotation, or points are moved, added or deleted)."
             });
 

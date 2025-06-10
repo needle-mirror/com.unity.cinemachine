@@ -1,11 +1,11 @@
-﻿#if !CINEMACHINE_NO_CM2_SUPPORT
+#if !CINEMACHINE_NO_CM2_SUPPORT
 using System;
 using UnityEngine;
 
 namespace Unity.Cinemachine
 {
     /// <summary>
-    /// This is an add-on behaviour that globally maps the touch control 
+    /// This is an add-on behaviour that globally maps the touch control
     /// to standard input channels, such as mouse X and mouse Y.
     /// Drop it on any game object in your scene.
     /// </summary>

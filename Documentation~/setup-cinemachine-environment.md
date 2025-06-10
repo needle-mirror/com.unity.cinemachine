@@ -28,7 +28,7 @@ When you create a first Cinemachine Camera in a Scene, Unity automatically adds 
 2. In the Inspector, verify that the GameObject includes a [Cinemachine Brain](CinemachineBrain.md) component.
 
 > [!NOTE]
-> You can manually add the Cinemachine Brain component as any other component to the Unity Camera GameObject if needed, but remember that only one Unity Camera in the Scene must have a Cinemachine Brain. 
+> You can manually add the Cinemachine Brain component as any other component to the Unity Camera GameObject if needed, but remember that only one Unity Camera in the Scene must have a Cinemachine Brain.
 
 > [!NOTE]
 > Once the Cinemachine Brain is present, the Unity Camera's transform and lens settings are locked and cannot be changed directly in the Camera inspector. You can only change these properties of the camera by changing the corresponding properties of the CinemachineCamera.
@@ -54,3 +54,7 @@ Here are potential tasks you might want to do now:
 * [Create multiple Cinemachine Cameras and manage transitions between them](setup-multiple-cameras.md).
 * [Create a Cinemachine Camera with procedural behavior: example for a camera that follows a character](setup-procedural-behavior.md).
 * [Manage a choreographed sequence of Cinemachine Camera shots with Timeline](setup-timeline.md).
+
+## Additional resources
+
+* [Preview and author a Cinemachine Camera in first person](preview-and-author-in-first-person.md)

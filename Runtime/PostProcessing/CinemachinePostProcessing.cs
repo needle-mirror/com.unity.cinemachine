@@ -1,4 +1,4 @@
-﻿#if CINEMACHINE_POST_PROCESSING_V2
+#if CINEMACHINE_POST_PROCESSING_V2
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
@@ -53,7 +53,7 @@ namespace Unity.Cinemachine
             Camera
         };
 
-        /// <summary>If the profile has the appropriate overrides, will set the base focus 
+        /// <summary>If the profile has the appropriate overrides, will set the base focus
         /// distance to be the distance from the selected target to the camera.
         /// The Focus Offset field will then modify that distance</summary>
         [Tooltip("If the profile has the appropriate overrides, will set the base focus "
@@ -67,7 +67,7 @@ namespace Unity.Cinemachine
         [FormerlySerializedAs("m_FocusTarget")]
         public Transform FocusTarget;
 
-        /// <summary>Offset from target distance, to be used with Focus Tracks Target.  
+        /// <summary>Offset from target distance, to be used with Focus Tracks Target.
         /// Offsets the sharpest point away from the location of the focus target</summary>
         [Tooltip("Offset from target distance, to be used with Focus Tracks Target.  "
             + "Offsets the sharpest point away from the location of the focus target.")]
@@ -194,7 +194,7 @@ namespace Unity.Cinemachine
                                 if (focusTarget != null)
                                     focusDistance += (state.GetFinalPosition() - focusTarget.position).magnitude;
                             }
-                            CalculatedFocusDistance = state.Lens.PhysicalProperties.FocusDistance 
+                            CalculatedFocusDistance = state.Lens.PhysicalProperties.FocusDistance
                                 = dof.focusDistance.value = Mathf.Max(0.01f, focusDistance);
                         }
                     }
@@ -214,7 +214,7 @@ namespace Unity.Cinemachine
                 return;
             // Debug.Log("Camera cut event");
             PostProcessLayer postFX = GetPPLayer(brain);
-            if (postFX != null)
+            if (postFX != null && postFX.isActiveAndEnabled)
                 postFX.ResetHistory();
         }
 
@@ -250,8 +250,8 @@ namespace Unity.Cinemachine
                     v.weight = b.Weight;
                     ++numPPblendables;
                 }
-#if false // set this to true to force first weight to 1
-                // If more than one volume, then set the frst one's weight to 1
+#if !CINEMACHINE_TRANSPARENT_POST_PROCESSING_BLENDS
+                // If more than one volume, then set the first one's weight to 1 so that it's opaque
                 if (numPPblendables > 1)
                     firstVolume.weight = 1;
 #endif
@@ -332,13 +332,13 @@ namespace Unity.Cinemachine
 
 #if UNITY_EDITOR
         [UnityEditor.InitializeOnLoad]
-        class EditorInitialize 
-        { 
-            static EditorInitialize() 
-            { 
+        class EditorInitialize
+        {
+            static EditorInitialize()
+            {
                 UnityEditor.EditorApplication.playModeStateChanged += (pmsc) => CleanupLookupTable();
-                InitializeModule(); 
-            } 
+                InitializeModule();
+            }
         }
 #endif
         [RuntimeInitializeOnLoadMethod]

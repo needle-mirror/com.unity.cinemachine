@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
@@ -18,11 +18,15 @@ namespace Unity.Cinemachine.Editor
         {
             var ux = new VisualElement();
 
+            var brainModesWarning = ux.AddChild(new HelpBox("The <b>Fixed Update</b> setting of Blend Update Method is intended "
+                + "to be used only when the Update Method is also <b>Fixed Update</b>, to address specific blending issues.\n"
+                + "<b>Late Update</b> is usually the recommended setting.", HelpBoxMessageType.Warning));
+
             // Show the active camera and blend
             var row = ux.AddChild(new InspectorUtility.LeftRightRow());
             row.Left.Add(new Label("Live Camera")
                 { tooltip = "The Cm Camera that is currently active", style = { alignSelf = Align.Center, flexGrow = 1 }});
-            var liveCamera = row.Right.AddChild(new ObjectField() 
+            var liveCamera = row.Right.AddChild(new ObjectField()
                 { objectType = typeof(CinemachineVirtualCameraBase), style = { flexGrow = 1, flexShrink = 1 }});
             row.SetEnabled(false);
 
@@ -42,6 +46,13 @@ namespace Unity.Cinemachine.Editor
                     return;
                 liveCamera.value = Target.ActiveVirtualCamera as CinemachineVirtualCameraBase;
                 liveBlend.value = Target.ActiveBlend != null ? Target.ActiveBlend.Description : string.Empty;
+            });
+            ux.TrackAnyUserActivity(() =>
+            {
+                if (target == null)
+                    return;
+                brainModesWarning.SetVisible(Target.BlendUpdateMethod == CinemachineBrain.BrainUpdateMethods.FixedUpdate
+                    && Target.UpdateMethod != CinemachineBrain.UpdateMethods.FixedUpdate);
             });
 
             return ux;
@@ -92,7 +103,7 @@ namespace Unity.Cinemachine.Editor
 
             var originalMatrix = Gizmos.matrix;
             var originalGizmoColour = Gizmos.color;
-            
+
             Gizmos.color = color;
             Gizmos.matrix = transform;
             if (ortho)

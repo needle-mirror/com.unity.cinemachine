@@ -72,7 +72,7 @@ namespace Unity.Cinemachine
             [FormerlySerializedAs("m_DecayTime")]
             public float DecayTime; // Must be >= 0
 
-            /// <summary>If checked, signal amplitude scaling will also be applied to the time 
+            /// <summary>If checked, signal amplitude scaling will also be applied to the time
             /// envelope of the signal.  Bigger signals will last longer</summary>
             [Tooltip("If checked, signal amplitude scaling will also be applied to the time "
                 + "envelope of the signal.  Stronger signals will last longer.")]
@@ -224,9 +224,9 @@ namespace Unity.Cinemachine
             public float CustomDissipation;
 
             /// <summary>
-            /// The speed (m/s) at which the impulse propagates through space.  High speeds 
-            /// allow listeners to react instantaneously, while slower speeds allow listeners in the 
-            /// scene to react as if to a wave spreading from the source.  
+            /// The speed (m/s) at which the impulse propagates through space.  High speeds
+            /// allow listeners to react instantaneously, while slower speeds allow listeners in the
+            /// scene to react as if to a wave spreading from the source.
             /// </summary>
             public float PropagationSpeed;
 
@@ -290,7 +290,7 @@ namespace Unity.Cinemachine
                 {
                     float distance = use2D ? Vector2.Distance(listenerPosition, Position)
                         : Vector3.Distance(listenerPosition, Position);
-                    float time = Instance.CurrentTime - StartTime 
+                    float time = Instance.CurrentTime - StartTime
                         - distance / Mathf.Max(1, PropagationSpeed);
                     float scale = Envelope.GetValueAt(time) * DistanceDecay(distance);
                     if (scale != 0)
@@ -338,13 +338,14 @@ namespace Unity.Cinemachine
         List<ImpulseEvent> m_ExpiredEvents;
         List<ImpulseEvent> m_ActiveEvents;
 
-        /// <summary>Get the signal perceived by a listener at a given location</summary>
-        /// <param name="listenerLocation">Where the listener is, in world coords</param>
-        /// <param name="distance2D">True if distance calculation should ignore Z</param>
-        /// <param name="channelMask">Only Impulse signals on channels in this mask will be considered</param>
-        /// <param name="pos">The combined position impulse signal resulting from all signals active on the specified channels</param>
-        /// <param name="rot">The combined rotation impulse signal resulting from all signals active on the specified channels</param>
-        /// <returns>true if non-trivial signal is returned</returns>
+        /// <summary>Get the signal perceived by a listener at a given location.  The effects from all 
+        /// contributing signals are combined together.</summary>
+        /// <param name="listenerLocation">Where the listener is, in world coords.</param>
+        /// <param name="distance2D">True if distance calculation should ignore Z.</param>
+        /// <param name="channelMask">Only Impulse signals on channels in this mask will be considered.</param>
+        /// <param name="pos">The combined position impulse signal resulting from all signals active on the specified channels.</param>
+        /// <param name="rot">The combined rotation impulse signal resulting from all signals active on the specified channels.</param>
+        /// <returns>true if non-trivial signal is returned.</returns>
         public bool GetImpulseAt(
             Vector3 listenerLocation, bool distance2D, int channelMask,
             out Vector3 pos, out Quaternion rot)
@@ -356,25 +357,22 @@ namespace Unity.Cinemachine
             {
                 for (int i = m_ActiveEvents.Count - 1; i >= 0; --i)
                 {
-                    ImpulseEvent e = m_ActiveEvents[i];
-                    // Prune invalid or expired events
+                    var e = m_ActiveEvents[i];
                     if (e == null || e.Expired)
                     {
+                        // Prune invalid or expired events
                         m_ActiveEvents.RemoveAt(i);
                         if (e != null)
                         {
                             // Recycle it
-                            if (m_ExpiredEvents == null)
-                                m_ExpiredEvents = new List<ImpulseEvent>();
+                            m_ExpiredEvents ??= new ();
                             e.Clear();
                             m_ExpiredEvents.Add(e);
                         }
                     }
                     else if ((e.Channel & channelMask) != 0)
                     {
-                        Vector3 pos0 = Vector3.zero;
-                        Quaternion rot0 = Quaternion.identity;
-                        if (e.GetDecayedSignal(listenerLocation, distance2D, out pos0, out rot0))
+                        if (e.GetDecayedSignal(listenerLocation, distance2D, out var pos0, out var rot0))
                         {
                             nontrivialResult = true;
                             pos += pos0;
@@ -386,11 +384,67 @@ namespace Unity.Cinemachine
             return nontrivialResult;
         }
 
+        /// <summary>Get the signal perceived by a listener at a given location.  
+        /// Only the signal with the greatest amplitude is considered, all others are ignored.</summary>
+        /// <param name="listenerLocation">Where the listener is, in world coords.</param>
+        /// <param name="distance2D">True if distance calculation should ignore Z.</param>
+        /// <param name="channelMask">Only Impulse signals on channels in this mask are considered.</param>
+        /// <param name="pos">The combined position impulse signal resulting from all signals active on the specified channels.</param>
+        /// <param name="rot">The combined rotation impulse signal resulting from all signals active on the specified channels.</param>
+        /// <returns>true if non-trivial signal is returned.</returns>
+        public bool GetStrongestImpulseAt(
+            Vector3 listenerLocation, bool distance2D, int channelMask,
+            out Vector3 pos, out Quaternion rot)
+        {
+            bool nontrivialResult = false;
+            var strongestPos = Vector3.zero;
+            var strongestRot = Quaternion.identity;
+
+            if (m_ActiveEvents != null)
+            {
+                float strongestPosMagnitude = 0f;
+
+                for (int i = m_ActiveEvents.Count - 1; i >= 0; --i)
+                {
+                    var e = m_ActiveEvents[i];
+                    if (e == null || e.Expired)
+                    {
+                        // Prune invalid or expired events
+                        m_ActiveEvents.RemoveAt(i);
+                        if (e != null)
+                        {
+                            // Recycle it
+                            m_ExpiredEvents ??= new ();
+                            e.Clear();
+                            m_ExpiredEvents.Add(e);
+                        }
+                    }
+                    else if ((e.Channel & channelMask) != 0)
+                    {
+                        if (e.GetDecayedSignal(listenerLocation, distance2D, out var pos0, out var rot0))
+                        {
+                            nontrivialResult = true;
+                            float posMagnitude = pos0.sqrMagnitude;
+                            if (posMagnitude > strongestPosMagnitude)
+                            {
+                                strongestPosMagnitude = posMagnitude;
+                                strongestPos = pos0;
+                                strongestRot = rot0;
+                            }
+                        }
+                    }
+                }
+            }
+            pos = strongestPos;
+            rot = strongestRot;
+            return nontrivialResult;
+        }
+        
         /// <summary>Set this to ignore time scaling so impulses can progress while the game is paused</summary>
         public bool IgnoreTimeScale;
 
         /// <summary>
-        /// This is the Impulse system's current time.  
+        /// This is the Impulse system's current time.
         /// Takes into account whether impulse is ignoring time scale.
         /// </summary>
         public float CurrentTime => IgnoreTimeScale ? Time.realtimeSinceStartup : CinemachineCore.CurrentTime;

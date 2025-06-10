@@ -8,7 +8,7 @@ Use the Cinemachine Post Processing [extension](concept-procedural-motion.md#ext
 
 The Cinemachine Post Processing extension holds a Post-Processing Profile asset to apply to a CinemachineCamera when it is activated. If the camera is blending with another CinemachineCamera, then the blend weight is applied to the Post Process effects also.
 
-Before attaching post processing profiles to CinemachineCameras, you first need to set up your project to use post processing. 
+Before attaching post processing profiles to CinemachineCameras, you first need to set up your project to use post processing.
 
 To set up a project to use Post Processing V2 with Cinemachine:
 
@@ -23,6 +23,10 @@ To add a Post Process profile to a CinemachineCamera
 4. Select your CinemachineCamera in the [Scene](https://docs.unity3d.com/Manual/UsingTheSceneView.html) view or [Hierarchy](https://docs.unity3d.com/Manual/Hierarchy.html) window.
 
 5. In the [Inspector](https://docs.unity3d.com/Manual/UsingTheInspector.html), choose __Add Extension > CinemachinePostProcessing__, then configre the Profile asset to have the effects you want when this CinemachineCamera is live.
+
+
+> [!NOTE]
+> In some cases, particularly when blending to and from empty profiles, you might get a sudden change or pop in the effects.  If this happens, the best solution is to avoid blending to and from empty profiles by adding effects with default settings.  If this is not practical, then you can add `CINEMACHINE_TRANSPARENT_POST_PROCESSING_BLENDS` to your project's scripting defines.  However, this has the side effect of making postprocessing blends more transparent in their center, possibly revealing global effects behind them.
 
 ## Properties:
 

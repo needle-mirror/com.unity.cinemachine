@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using System.Collections.Generic;
 using System;
 using System.Reflection;
@@ -17,7 +17,7 @@ namespace Unity.Cinemachine
         {
             var ux = new VisualElement();
 
-            ux.Add(new HelpBox("This component is optional and can be removed if you don't need it.  "
+            var instructionsMsg = ux.AddChild(new HelpBox("This component is optional and can be removed if you don't need it.  "
                 + "The modifiers you add will override settings for the top and bottom portions "
                 + "of the camera's vertical orbit.",
                 HelpBoxMessageType.Info));
@@ -26,30 +26,34 @@ namespace Unity.Cinemachine
                 new HelpBox("<b>Component will be ignored because no modifiable targets are present.</b>\n\n"
                     + "Modifiable target components include: "
                     + InspectorUtility.GetAssignableBehaviourNames(
-                        typeof(CinemachineFreeLookModifier.IModifierValueSource)), 
+                        typeof(CinemachineFreeLookModifier.IModifierValueSource)),
                     HelpBoxMessageType.Warning));
 
-            var controllersProperty = serializedObject.FindProperty(() => Target.Modifiers);
-            ux.Add(new Label(controllersProperty.displayName) { tooltip = controllersProperty.tooltip });
+            ux.Add(new PropertyField(serializedObject.FindProperty(nameof(Target.Easing))));
+
+            var controllersProperty = serializedObject.FindProperty(nameof(Target.Modifiers));
+            ux.Add(new Label(controllersProperty.displayName) 
+                { tooltip = controllersProperty.tooltip , style = { marginLeft = 3, marginTop = 6 }});
             var list = ux.AddChild(new ListView()
             {
-                reorderable = true,
+                reorderable = false,
                 showAddRemoveFooter = true,
                 showBorder = true,
                 showBoundCollectionSize = false,
                 showFoldoutHeader = false,
-                virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight
+                virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
+                style = { marginLeft = 3 }
             });
             list.BindProperty(controllersProperty);
 
             // Convert the add button to a popup selector
             var button = list.Q<Button>("unity-list-view__add-button");
-            var manipulator = new ContextualMenuManipulator((evt) => 
+            var manipulator = new ContextualMenuManipulator((evt) =>
             {
                 for (int i = 0; i < ModifierMenuItems.s_ModifierNames.Count; ++i)
                 {
                     var type = ModifierMenuItems.s_AllModifiers[i];
-                    evt.menu.AppendAction(ModifierMenuItems.s_ModifierNames[i], 
+                    evt.menu.AppendAction(ModifierMenuItems.s_ModifierNames[i],
                         (action) =>
                         {
                             Undo.RecordObject(Target, "add modifier");
@@ -57,7 +61,7 @@ namespace Unity.Cinemachine
                             m.RefreshCache(Target.ComponentOwner);
                             m.Reset(Target.ComponentOwner);
                             Target.Modifiers.Add(m);
-                        }, 
+                        },
                         (status) =>
                         {
                             // Enable item if not already present
@@ -73,7 +77,15 @@ namespace Unity.Cinemachine
             button.AddManipulator(manipulator);
             button.clickable = null;
 
-            ux.TrackAnyUserActivity(() => invalidSrcMsg.SetVisible(Target != null && !Target.HasValueSource()));
+            ux.TrackAnyUserActivity(() => 
+            {
+                if (Target == null)
+                    return;
+                var hasModifiableSource = Target.HasValueSource();
+                var hasModifiers = Target.Modifiers.Count > 0;
+                invalidSrcMsg.SetVisible(!hasModifiableSource);
+                instructionsMsg.SetVisible(hasModifiableSource && !hasModifiers);
+            });
 
             return ux;
         }
@@ -107,7 +119,7 @@ namespace Unity.Cinemachine
                     childProperty.NextVisible(false);
                 }
 
-                foldout.TrackAnyUserActivity(() => 
+                foldout.TrackAnyUserActivity(() =>
                 {
                     var showWarning = m != null && !m.HasRequiredComponent;
                     noComponentsMsg.SetVisible(showWarning);
@@ -131,16 +143,16 @@ namespace Unity.Cinemachine
                         return s_ModifierNames[j];
                 return "(none)"; // should never get here
             }
-        
+
             // These lists are synchronized
             public static List<Type> s_AllModifiers = new ();
             public static List<string> s_ModifierNames = new ();
 
-            // This code dynamically discovers eligible classes and builds the menu data 
+            // This code dynamically discovers eligible classes and builds the menu data
             static ModifierMenuItems()
             {
                 // Get all Modifier types
-                var allTypes = ReflectionHelpers.GetTypesDerivedFrom(typeof(CinemachineFreeLookModifier.Modifier), 
+                var allTypes = ReflectionHelpers.GetTypesDerivedFrom(typeof(CinemachineFreeLookModifier.Modifier),
                     (t) => !t.IsAbstract && t.GetCustomAttribute<ObsoleteAttribute>() == null);
 
                 s_AllModifiers.Clear();

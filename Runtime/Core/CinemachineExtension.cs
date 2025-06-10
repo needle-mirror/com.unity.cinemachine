@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -5,7 +6,7 @@ namespace Unity.Cinemachine
 {
     /// <summary>
     /// Base class for a CinemachineCamera extension module.
-    /// Hooks into the Cinemachine Pipeline.  Use this to add extra processing 
+    /// Hooks into the Cinemachine Pipeline.  Use this to add extra processing
     /// to the vcam, modifying its generated state
     /// </summary>
     public abstract class CinemachineExtension : MonoBehaviour
@@ -56,8 +57,8 @@ namespace Unity.Cinemachine
         {
             var extensions = Resources.FindObjectsOfTypeAll<CinemachineExtension>();
             // Sort by execution order
-            System.Array.Sort(extensions, (x, y) => 
-                UnityEditor.MonoImporter.GetExecutionOrder(UnityEditor.MonoScript.FromMonoBehaviour(y)) 
+            System.Array.Sort(extensions, (x, y) =>
+                UnityEditor.MonoImporter.GetExecutionOrder(UnityEditor.MonoScript.FromMonoBehaviour(y))
                     - UnityEditor.MonoImporter.GetExecutionOrder(UnityEditor.MonoScript.FromMonoBehaviour(x)));
             for (int i = 0; i < extensions.Length; ++i)
                 extensions[i].ConnectToVcam(true);
@@ -110,9 +111,9 @@ namespace Unity.Cinemachine
         /// <param name="stage">The current pipeline stage</param>
         /// <param name="state">The current virtual camera state</param>
         /// <param name="deltaTime">The current applicable deltaTime</param>
-        protected abstract void PostPipelineStageCallback(
+        protected virtual void PostPipelineStageCallback(
             CinemachineVirtualCameraBase vcam,
-            CinemachineCore.Stage stage, ref CameraState state, float deltaTime);
+            CinemachineCore.Stage stage, ref CameraState state, float deltaTime) {}
 
         /// <summary>This is called to notify the extension that a target got warped,
         /// so that the extension can update its internal state to make the camera
@@ -124,11 +125,20 @@ namespace Unity.Cinemachine
             CinemachineVirtualCameraBase vcam, Transform target, Vector3 positionDelta) {}
 
         /// <summary>
-        /// Force the virtual camera to assume a given position and orientation
+        /// Force the virtual camera to assume a given position and orientation.  This API is obsolete.
+        /// Implement ForceCameraPosition(CinemachineVirtualCameraBase vcam, Vector3 pos, Quaternion rot) instead.
         /// </summary>
         /// <param name="pos">World-space position to take</param>
         /// <param name="rot">World-space orientation to take</param>
         public virtual void ForceCameraPosition(Vector3 pos, Quaternion rot) {}
+
+        /// <summary>
+        /// Force the virtual camera to assume a given position and orientation.
+        /// </summary>
+        /// <param name="vcam">Virtual camera being warped warp</param>
+        /// <param name="pos">World-space position to take</param>
+        /// <param name="rot">World-space orientation to take</param>
+        public virtual void ForceCameraPosition(CinemachineVirtualCameraBase vcam, Vector3 pos, Quaternion rot) {}
 
         /// <summary>Notification that this virtual camera is going live.
         /// Base class implementation must be called by any overridden method.</summary>
@@ -145,7 +155,7 @@ namespace Unity.Cinemachine
         /// </summary>
         /// <returns>Highest damping setting in this extension</returns>
         public virtual float GetMaxDampTime() => 0;
-        
+
         /// <summary>Because extensions can be placed on manager cams and will in that
         /// case be called for all the vcam children, vcam-specific state information
         /// should be stored here.  Just define a class to hold your state info

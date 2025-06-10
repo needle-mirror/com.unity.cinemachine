@@ -35,8 +35,8 @@ namespace Unity.Cinemachine.Editor
 
             var header = ux.AddChild(new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = -2 } });
             FormatElement(true,
-                header.AddChild(new Label("From")), 
-                header.AddChild(new Label("To")), 
+                header.AddChild(new Label("From")),
+                header.AddChild(new Label("To")),
                 header.AddChild(new Label("Blend")));
             header.AddToClassList("unity-collection-view--with-border");
 
@@ -70,7 +70,7 @@ namespace Unity.Cinemachine.Editor
                 onCamerasUpdated?.Invoke();
             });
 
-            list.makeItem = () => 
+            list.makeItem = () =>
             {
                 var def = new CinemachineBlenderSettings.CustomBlend();
                 var row = new BindableElement { style = { flexDirection = FlexDirection.Row }};
@@ -86,17 +86,17 @@ namespace Unity.Cinemachine.Editor
                     var container = new VisualElement { style = { flexDirection = FlexDirection.Row, flexGrow = 1 }};
                     var textField = container.AddChild(new TextField { bindingPath = bindingPath, isDelayed = true, style = { flexGrow = 1, flexBasis = 20 }});
 
-                    var warning = container.AddChild(InspectorUtility.MiniHelpIcon($"No in-scene camera matches this name"));
+                    var warning = container.AddChild(InspectorUtility.MiniHelpIcon($"No candidate camera matches this name"));
                     textField.RegisterValueChangedCallback((evt) => OnCameraUpdated());
                     onCamerasUpdated += OnCameraUpdated;
                     void OnCameraUpdated()
                     {
-                        warning.tooltip = $"No in-scene camera matches \"{textField.value}\"";
+                        warning.tooltip = $"No candidate camera matches \"{textField.value}\"";
                         warning.SetVisible(availableCameras.FindIndex(x => x == textField.value) < 0);
                     };
 
                     var popup = container.AddChild(InspectorUtility.MiniDropdownButton(
-                        "Choose from currently-available cameras", new ContextualMenuManipulator((evt) => 
+                        "Choose from currently-available cameras", new ContextualMenuManipulator((evt) =>
                     {
                         for (int i = 0; i < availableCameras.Count; ++i)
                             evt.menu.AppendAction(availableCameras[i], (action) => textField.value = action.name);
@@ -112,13 +112,13 @@ namespace Unity.Cinemachine.Editor
             static void FormatElement(bool isHeader, VisualElement e1, VisualElement e2, VisualElement e3)
             {
                 e1.style.marginLeft = isHeader ? 2 * InspectorUtility.SingleLineHeight - 3: 0;
-                e1.style.flexBasis = InspectorUtility.SingleLineHeight; 
+                e1.style.flexBasis = InspectorUtility.SingleLineHeight;
                 e1.style.flexGrow = 3;
-                
-                e2.style.flexBasis = 1; 
+
+                e2.style.flexBasis = 1;
                 e2.style.flexGrow = 3;
 
-                e3.style.flexBasis = 1; 
+                e3.style.flexBasis = 1;
                 e3.style.flexGrow = 2;
             }
         }

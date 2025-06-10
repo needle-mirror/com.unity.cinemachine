@@ -34,12 +34,14 @@ namespace Unity.Cinemachine.Editor
             var layerProp = serializedObject.FindProperty(() => Target.LayerIndex);
             var layerSel = ux.AddChild(new PopupField<string>(layerProp.displayName) { tooltip = layerProp.tooltip });
             layerSel.AddToClassList(InspectorUtility.AlignFieldClassName);
-            layerSel.RegisterValueChangedCallback((evt) => 
+            layerSel.RegisterValueChangedCallback((evt) =>
             {
                 layerProp.intValue = Mathf.Max(0, m_LayerNames.FindIndex(v => v == evt.newValue));
                 serializedObject.ApplyModifiedProperties();
             });
             var noTargetHelp = ux.AddChild(new HelpBox("An Animated Target is required.", HelpBoxMessageType.Warning));
+
+            UpdateTargetStates();
 
             ux.TrackAnyUserActivity(() =>
             {
@@ -50,9 +52,9 @@ namespace Unity.Cinemachine.Editor
                 layerSel.SetValueWithoutNotify(m_LayerNames[layerProp.intValue]);
                 noTargetHelp.SetVisible(Target.AnimatedTarget == null);
             });
-            
+
             var multiSelectMsg = ux.AddChild(new HelpBox(
-                "Child Cameras and State Instructions cannot be displayed when multiple objects are selected.", 
+                "Child Cameras and State Instructions cannot be displayed when multiple objects are selected.",
                 HelpBoxMessageType.Info));
 
             var container = ux.AddChild(new VisualElement() { style = { marginTop = 6 }});
@@ -60,8 +62,8 @@ namespace Unity.Cinemachine.Editor
             var vcam = Target;
             var header = container.AddChild(new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = -2 } });
             FormatInstructionElement(true,
-                header.AddChild(new Label("State")), 
-                header.AddChild(new Label("Camera")), 
+                header.AddChild(new Label("State")),
+                header.AddChild(new Label("Camera")),
                 header.AddChild(new Label("Wait")),
                 header.AddChild(new Label("Min")));
             header.AddToClassList("unity-collection-view--with-border");
@@ -79,7 +81,7 @@ namespace Unity.Cinemachine.Editor
             var instructions = serializedObject.FindProperty(() => Target.Instructions);
             list.BindProperty(instructions);
 
-            list.makeItem = () => 
+            list.makeItem = () =>
             {
                 var row = new BindableElement { style = { flexDirection = FlexDirection.Row }};
 
@@ -90,13 +92,13 @@ namespace Unity.Cinemachine.Editor
                 hashField.SetVisible(false);
 
                 // Create a state selector popup to drive the state field
-                var stateSel = row.AddChild(new PopupField<string> 
+                var stateSel = row.AddChild(new PopupField<string>
                 {
-                    choices = m_TargetStateNames, 
+                    choices = m_TargetStateNames,
                     tooltip = "The state that will activate the camera"
                 });
 
-                hashField.RegisterValueChangedCallback((evt) => 
+                hashField.RegisterValueChangedCallback((evt) =>
                 {
                     if (evt.target != hashField)
                         return;
@@ -111,7 +113,7 @@ namespace Unity.Cinemachine.Editor
                     evt.StopPropagation();
                 });
 
-                stateSel.RegisterValueChangedCallback((evt) => 
+                stateSel.RegisterValueChangedCallback((evt) =>
                 {
                     if (evt.target != stateSel)
                         return;
@@ -153,21 +155,21 @@ namespace Unity.Cinemachine.Editor
                 bool isHeader, VisualElement e1, VisualElement e2, VisualElement e3, VisualElement e4)
             {
                 var floatFieldWidth = EditorGUIUtility.singleLineHeight * 3f;
-                
+
                 e1.style.marginLeft = isHeader ? 2 * InspectorUtility.SingleLineHeight - 3 : 0;
-                e1.style.flexBasis = floatFieldWidth + InspectorUtility.SingleLineHeight; 
+                e1.style.flexBasis = floatFieldWidth + InspectorUtility.SingleLineHeight;
                 e1.style.flexGrow = 1;
                 e1.style.flexShrink = 0;
-                
-                e2.style.flexBasis = floatFieldWidth + InspectorUtility.SingleLineHeight; 
+
+                e2.style.flexBasis = floatFieldWidth + InspectorUtility.SingleLineHeight;
                 e2.style.flexGrow = 1;
                 e2.style.flexShrink = 0;
 
                 floatFieldWidth += isHeader ? InspectorUtility.SingleLineHeight/2 - 1 : 0;
-                e3.style.flexBasis = floatFieldWidth; 
+                e3.style.flexBasis = floatFieldWidth;
                 e3.style.flexGrow = 0;
 
-                e4.style.flexBasis = floatFieldWidth; 
+                e4.style.flexBasis = floatFieldWidth;
                 e4.style.flexGrow = 0;
             }
         }
@@ -188,8 +190,8 @@ namespace Unity.Cinemachine.Editor
             var ac = GetControllerFromAnimator(Target.AnimatedTarget);
             var collector = new StateCollector();
             collector.CollectStates(ac, Target.LayerIndex);
-            m_TargetStates = collector.States;
-            m_TargetStateNames = collector.StateNames;
+            m_TargetStates.Clear(); m_TargetStates.AddRange(collector.States);
+            m_TargetStateNames.Clear(); m_TargetStateNames.AddRange(collector.StateNames);
             m_StateIndexLookup = collector.StateIndexLookup;
 
             m_LayerNames.Clear();
@@ -202,7 +204,7 @@ namespace Unity.Cinemachine.Editor
             List<CinemachineStateDrivenCamera.ParentHash> parents = new();
             var iter = collector.StateParentLookup.GetEnumerator();
             while (iter.MoveNext())
-                parents.Add(new CinemachineStateDrivenCamera.ParentHash 
+                parents.Add(new CinemachineStateDrivenCamera.ParentHash
                     { Hash = iter.Current.Key, HashOfParent = iter.Current.Value });
             Target.SetParentHash(parents);
         }

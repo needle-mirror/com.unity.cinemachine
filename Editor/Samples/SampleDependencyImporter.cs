@@ -7,6 +7,8 @@ using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEditor.PackageManager.UI;
+
+
 #if CINEMACHINE_URP || CINEMACHINE_HDRP
 using UnityEditor.Rendering;
 #endif
@@ -18,6 +20,7 @@ namespace Unity.Cinemachine.Editor
     class SampleDependencyImporter : IPackageManagerExtension
     {
         const string k_CinemachinePackageName = "com.unity.cinemachine";
+
         PackageInfo m_PackageInfo;
         IEnumerable<Sample> m_Samples;
         SampleConfiguration m_SampleConfiguration;
@@ -40,7 +43,7 @@ namespace Unity.Cinemachine.Editor
             {
                 m_PackageInfo = packageInfo;
                 m_Samples = Sample.FindByPackage(packageInfo.name, packageInfo.version);
-                if (TryLoadSampleConfiguration(m_PackageInfo, out m_SampleConfiguration)) 
+                if (TryLoadSampleConfiguration(m_PackageInfo, out m_SampleConfiguration))
                     SamplePostprocessor.AssetImported += LoadAssetDependencies;
             }
             else if (!cmPackageInfo)
@@ -67,6 +70,7 @@ namespace Unity.Cinemachine.Editor
         AddRequest m_PackageAddRequest;
         int m_PackageDependencyIndex;
         List<string> m_PackageDependencies = new ();
+
         void LoadAssetDependencies(string assetPath)
         {
             if (m_SampleConfiguration != null)
@@ -82,26 +86,24 @@ namespace Unity.Cinemachine.Editor
                             // Import common asset dependencies
                             assetsImported = ImportAssetDependencies(
                                 m_PackageInfo, m_SampleConfiguration.SharedAssetDependencies, out var sharedDestinations);
-                            
+
                             // Import sample-specific asset dependencies
                             assetsImported |= ImportAssetDependencies(
                                 m_PackageInfo, sampleEntry.AssetDependencies, out var localDestinations);
 
-
                             if (assetsImported)
                             {
-                                AssetDatabase.Refresh();
-                                var uniqueFolders = new HashSet<string>(sharedDestinations.Concat(localDestinations));
-                                ConvertMaterials(uniqueFolders);
-                                FixAssets(uniqueFolders, m_PackageInfo);
+                                // Tell the postprocessor to process them, after domain reload
+                                DomainReloadProcessor.SetPostprocessingFolders(
+                                    new HashSet<string>(sharedDestinations.Concat(localDestinations)));
                             }
-                            
+
                             // Import common amd sample specific package dependencies
                             m_PackageDependencyIndex = 0;
                             m_PackageDependencies = new List<string>(m_SampleConfiguration.SharedPackageDependencies);
                             m_PackageDependencies.AddRange(sampleEntry.PackageDependencies);
-                            
-                            if (m_PackageDependencies.Count != 0 && 
+
+                            if (m_PackageDependencies.Count != 0 &&
                                 DoDependenciesNeedToBeImported(out var dependenciesToImport))
                             {
                                 if (PromptUserImportDependencyConfirmation(dependenciesToImport))
@@ -116,25 +118,26 @@ namespace Unity.Cinemachine.Editor
                         }
                         break;
                     }
-                } 
+                }
 
                 if (assetsImported)
                     AssetDatabase.Refresh();
             }
-            
+
             // local functions
             bool DoDependenciesNeedToBeImported(out List<string> packagesToImport)
             {
                 packagesToImport = new List<string>();
                 foreach (var packageName in m_PackageDependencies)
                 {
-                    if (!m_PackageChecker.ContainsPackage(packageName)) 
+                    if (!m_PackageChecker.ContainsPackage(packageName))
                         packagesToImport.Add(packageName);
                 }
 
                 return packagesToImport.Count != 0;
             }
-            
+
+            // Called from EditorApplication.update
             void ImportPackageDependencies()
             {
                 if (m_PackageAddRequest != null && !m_PackageAddRequest.IsCompleted)
@@ -149,7 +152,7 @@ namespace Unity.Cinemachine.Editor
                     EditorApplication.update -= ImportPackageDependencies;
                 }
             }
-            
+
             static bool ImportAssetDependencies(PackageInfo packageInfo, string[] paths, out List<string> destinations)
             {
                 destinations = new List<string>();
@@ -162,7 +165,7 @@ namespace Unity.Cinemachine.Editor
                     var dependencyPath = Path.GetFullPath($"Packages/{packageInfo.name}/Samples~/{path}");
                     if (Directory.Exists(dependencyPath))
                     {
-                        var copyTo = 
+                        var copyTo =
                             $"{Application.dataPath}/Samples/{packageInfo.displayName}/{packageInfo.version}/{path}";
                         CopyDirectory(dependencyPath, copyTo);
                         destinations.Add(copyTo);
@@ -179,88 +182,11 @@ namespace Unity.Cinemachine.Editor
                     "Import Sample Package Dependencies",
                     "These samples contain package dependencies that your project does not have: \n" +
                     dependencies.Aggregate("", (current, dependency) => current + (dependency + "\n")),
-                    "Import samples and their dependencies", 
+                    "Import samples and their dependencies",
                     "Import samples without their dependencies");
             }
         }
 
-        static void ConvertMaterials(IEnumerable<string> folders)
-        {
-#if CINEMACHINE_URP || CINEMACHINE_HDRP
-            const string materialFolder = "Materials";
-            foreach (var folder in folders)
-            {
-                var materialDir = new DirectoryInfo(folder + "/" + materialFolder);
-                if (!materialDir.Exists)
-                    continue;
-                var materialInfos = materialDir.GetFiles("*.mat");
-                foreach (var matInfo in materialInfos)
-                {
-                    var localPath = matInfo.FullName[Application.dataPath.Length..];
-                    var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/" + localPath);
-
-                    MaterialUpgrader.Upgrade(material, 
-#if CINEMACHINE_URP
-                    new UnityEditor.Rendering.Universal.StandardUpgrader(material.shader.name), 
-#elif CINEMACHINE_HDRP
-                    UnityEditor.Rendering.HighDefinition.MaterialUpgradeHelper.GetHDRPMaterialUpgraders(),
-#endif
-                    MaterialUpgrader.UpgradeFlags.None);
-                }
-            }
-#endif
-        }
-        
-        static void FixAssets(IEnumerable<string> folders, PackageInfo packageInfo)
-        {
-#if CINEMACHINE_UNITY_INPUTSYSTEM
-            foreach (var folder in folders)
-            {
-                var inputSystemFixPath = Path.GetFullPath($"Packages/{packageInfo.name}/Samples~/InputSystem~/");
-                ReplaceAssets(inputSystemFixPath, folder);
-            }
-#endif
-#if CINEMACHINE_HDRP
-            foreach (var folder in folders)
-            {
-                var hdrpFixPath = Path.GetFullPath($"Packages/{packageInfo.name}/Samples~/HDRP~/");
-                ReplaceAssets(hdrpFixPath, folder);
-            }
-#endif
-            
-#if CINEMACHINE_HDRP || CINEMACHINE_UNITY_INPUTSYSTEM
-            // local function
-            static void ReplaceAssets(string fixPath, string prefabFolder)
-            {
-                var fixDirectory = new DirectoryInfo(fixPath);
-                var prefabPath = prefabFolder + "/Prefabs/";
-                var prefabDir = new DirectoryInfo(prefabPath);
-                if (!fixDirectory.Exists || !prefabDir.Exists)
-                    return;
-                
-                // fix prefab assets
-                var fixPrefabs = fixDirectory.GetFiles("*.prefab");
-                foreach (var prefab in fixPrefabs)
-                {
-                    var brokenPrefab = prefabPath + prefab.Name;
-                    if (File.Exists(brokenPrefab))
-                    {
-                        var fixedPrefabContents = PrefabUtility.LoadPrefabContents(fixPath + prefab.Name);
-                        PrefabUtility.SaveAsPrefabAsset(fixedPrefabContents, brokenPrefab);
-                        PrefabUtility.UnloadPrefabContents(fixedPrefabContents);
-                    }
-                }
-
-                // fix other assets
-                var assets = fixDirectory.GetFiles("*.asset*"); // assets and their meta files
-                foreach (var asset in assets)
-                    asset.CopyTo(prefabFolder + "/" + asset.Name);
-            }
-#endif
-        }
-
-        
-        
         /// <summary>Copies a directory from the source to target path. Overwrites existing directories.</summary>
         static void CopyDirectory(string sourcePath, string targetPath)
         {
@@ -290,20 +216,20 @@ namespace Unity.Cinemachine.Editor
                 CopyDirectory(child.FullName, newDirectoryPath);
             }
         }
-        
+
         /// <summary>An AssetPostProcessor which will raise an event when a new asset is imported.</summary>
         class SamplePostprocessor : AssetPostprocessor
         {
             public static event Action<string> AssetImported;
 
-            static void OnPostprocessAllAssets(string[] importedAssets, 
+            static void OnPostprocessAllAssets(string[] importedAssets,
                 string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
             {
                 foreach (var importedAsset in importedAssets)
                     AssetImported?.Invoke(importedAsset);
             }
         }
-        
+
         /// <summary>A configuration class defining information related to samples for the package.</summary>
         [Serializable]
         class SampleConfiguration
@@ -324,7 +250,7 @@ namespace Unity.Cinemachine.Editor
             public SampleEntry GetEntry(Sample sample) =>
                 SampleEntries?.FirstOrDefault(t => sample.resolvedPath.EndsWith(t.Path));
         }
-        
+
         class PackageChecker
         {
             ListRequest m_Request;
@@ -339,21 +265,21 @@ namespace Unity.Cinemachine.Editor
             {
                 if (m_Request != null && !m_Request.IsCompleted)
                     return; // need to wait for previous request to finish
-                
+
                 m_Request = Client.List(true);
                 EditorApplication.update += WaitForRequestToComplete;
             }
- 
+
             void WaitForRequestToComplete()
             {
                 if (m_Request.IsCompleted)
                 {
-                    if (m_Request.Status == StatusCode.Success) 
+                    if (m_Request.Status == StatusCode.Success)
                         m_Packages = m_Request.Result;
                     EditorApplication.update -= WaitForRequestToComplete;
                 }
             }
- 
+
             public bool ContainsPackage(string packageName)
             {
                 // Check each package and package dependency for packageName
@@ -365,8 +291,127 @@ namespace Unity.Cinemachine.Editor
                     if (package.dependencies.Any(dependencyInfo => string.Compare(dependencyInfo.name, packageName) == 0))
                         return true;
                 }
- 
+
                 return false;
+            }
+        }
+
+        // Fix up some known assets for compatibility with InputSystem/HDRP/URP
+        class DomainReloadProcessor : AssetPostprocessor 
+        {
+            const string k_Key = "CinemachineSamplesImporter_FoldersToPostprocess";
+
+            [Serializable] class StringArrayWrapper { public string[] Data; }
+
+            static public void SetPostprocessingFolders(IEnumerable<string> folders)
+            {
+                var wrapper = new StringArrayWrapper { Data = folders.ToArray() };
+                EditorPrefs.SetString(k_Key, JsonUtility.ToJson(wrapper));
+            }
+
+            static void OnPostprocessAllAssets(
+                string[] importedAssets, string[] deletedAssets, 
+                string[] movedAssets, string[] movedFromAssetPaths, 
+                bool didDomainReload)
+            {
+                if (didDomainReload && EditorPrefs.HasKey(k_Key))
+                {
+                    // This is called after domain reload is complete.  Safe to process prefabs here.
+                    string json = EditorPrefs.GetString(k_Key);
+                    var wrapper = JsonUtility.FromJson<StringArrayWrapper>(json);
+                    bool didSomething = false;
+                    if (wrapper.Data != null && wrapper.Data.Length > 0) 
+                    {
+                        foreach (var folder in wrapper.Data)
+                        {
+#if CINEMACHINE_URP || CINEMACHINE_HDRP
+                            didSomething |= ConvertBultinMaterials(folder);
+#endif
+#if CINEMACHINE_UNITY_INPUTSYSTEM
+                            didSomething |= ReplacePrefabs(Path.GetFullPath($"{CinemachineCore.kPackageRoot}/Samples~/InputSystem~/"), folder);
+                            didSomething |= CopyAssets(Path.GetFullPath($"{CinemachineCore.kPackageRoot}/Samples~/InputSystem~/"), folder);
+#endif
+#if CINEMACHINE_HDRP
+                            didSomething |= ReplacePrefabs(Path.GetFullPath($"{CinemachineCore.kPackageRoot}/Samples~/HDRP~/"), folder);
+                            didSomething |= CopyAssets(Path.GetFullPath($"{CinemachineCore.kPackageRoot}/Samples~/HDRP~/"), folder);
+#endif
+                        }
+                    }
+                    EditorPrefs.DeleteKey(k_Key);
+                    if (didSomething)
+                        AssetDatabase.Refresh();
+                }
+            }
+
+#if CINEMACHINE_URP || CINEMACHINE_HDRP
+            // Convert builtin material to URP or HDRP
+            static bool ConvertBultinMaterials(string folder)
+            {
+                bool didSomething = false;
+                var materialDir = new DirectoryInfo(folder + "/Materials");
+                if (materialDir.Exists)
+                {
+                    var materialInfos = materialDir.GetFiles("*.mat");
+                    foreach (var matInfo in materialInfos)
+                    {
+                        var localPath = matInfo.FullName[Application.dataPath.Length..];
+                        var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/" + localPath);
+
+                        MaterialUpgrader.Upgrade(material,
+#if CINEMACHINE_URP
+                            new UnityEditor.Rendering.Universal.StandardUpgrader(material.shader.name),
+#elif CINEMACHINE_HDRP
+                            UnityEditor.Rendering.HighDefinition.MaterialUpgradeHelper.GetHDRPMaterialUpgraders(),
+#endif
+                            MaterialUpgrader.UpgradeFlags.None);
+                        didSomething = true;
+                    }
+                }
+                return didSomething;
+            }
+#endif
+
+            static bool ReplacePrefabs(string srcFolder, string dstFolder)
+            {
+                bool didSomething = false;
+                var srcDirectory = new DirectoryInfo(srcFolder);
+
+                dstFolder += "/Prefabs/";
+                var prefabDir = new DirectoryInfo(dstFolder);
+                if (!srcDirectory.Exists || !prefabDir.Exists)
+                    return false;
+
+                // fix prefab assets
+                var fixPrefabs = srcDirectory.GetFiles("*.prefab");
+                foreach (var prefab in fixPrefabs)
+                {
+                    var brokenPrefab = dstFolder + prefab.Name;
+                    if (File.Exists(brokenPrefab))
+                    {
+                        var fixedPrefabContents = PrefabUtility.LoadPrefabContents(srcFolder + prefab.Name);
+                        if (PrefabUtility.SaveAsPrefabAsset(fixedPrefabContents, brokenPrefab) == null)
+                            Debug.Log($"Error saving {brokenPrefab}");
+                        PrefabUtility.UnloadPrefabContents(fixedPrefabContents);
+                        didSomething = true;
+                    }
+                }
+                return didSomething;
+            }
+
+            static bool CopyAssets(string srcFolder, string dstFolder)
+            {
+                bool didSomething = false;
+                var srcDirectory = new DirectoryInfo(srcFolder);
+                if (!srcDirectory.Exists)
+                    return false;
+
+                var assets = srcDirectory.GetFiles("*.asset*"); // assets and their meta files
+                foreach (var asset in assets)
+                {
+                    asset.CopyTo(dstFolder + "/" + asset.Name);
+                    didSomething = true;
+                }
+                return didSomething;
             }
         }
     }

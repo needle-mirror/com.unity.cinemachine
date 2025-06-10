@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using System.Collections.Generic;
+using UnityEditor.Timeline;
+using UnityEditor.SceneManagement;
 
 namespace Unity.Cinemachine.Editor
 {
@@ -12,6 +14,8 @@ namespace Unity.Cinemachine.Editor
     class CinemachineShotEditor : UnityEditor.Editor
     {
         CinemachineShot Target => target as CinemachineShot;
+
+        bool m_IsPrefabOrInPrefabMode;
 
         [InitializeOnLoad]
         class SyncCacheEnabledSetting
@@ -23,7 +27,7 @@ namespace Unity.Cinemachine.Editor
         {
             var vcam = CinemachineMenu.CreatePassiveCmCamera("CinemachineCamera", null, false);
             vcam.StandbyUpdate = CinemachineVirtualCameraBase.StandbyUpdateMode.Never;
-#if false 
+#if false
             // GML this is too bold.  What if timeline is a child of something moving?
             // also, SetActive(false) prevents the animator from being able to animate the object
             vcam.gameObject.SetActive(false);
@@ -32,6 +36,19 @@ namespace Unity.Cinemachine.Editor
                 Undo.SetTransformParent(vcam.transform, d.transform, "");
 #endif
             return vcam;
+        }
+
+        private void OnEnable()
+        {
+            var director = TimelineEditor.inspectedDirector;
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            m_IsPrefabOrInPrefabMode = director == null;
+            if (!m_IsPrefabOrInPrefabMode)
+            {
+                m_IsPrefabOrInPrefabMode = !PrefabUtility.IsPartOfPrefabInstance(director)
+                    && (PrefabUtility.IsPartOfPrefabAsset(director) 
+                        || (prefabStage != null && prefabStage.IsPartOfPrefabContents(director.gameObject)));
+            }
         }
 
 #if CINEMACHINE_TIMELINE_1_8_2
@@ -47,7 +64,7 @@ namespace Unity.Cinemachine.Editor
             static Dictionary<System.Type, bool> s_EditorExpanded = new ();
 
             UnityEditor.Editor m_Editor;
-            
+
             public Object Target { get; private set; }
             public Foldout Foldout { get; private set; }
 
@@ -67,7 +84,7 @@ namespace Unity.Cinemachine.Editor
                 Foldout = new Foldout { text = type.Name, value = expanded, style = { marginTop = 4, marginLeft = 0 }};
                 Foldout.AddToClassList("clip-inspector-custom-properties__foldout"); // make it pretty
                 Foldout.Add(new InspectorElement(m_Editor) { style = { paddingLeft = 0, paddingRight = 0 }});
-                Foldout.RegisterValueChangedCallback((evt) => 
+                Foldout.RegisterValueChangedCallback((evt) =>
                 {
                     if (evt.target == Foldout)
                         s_EditorExpanded[type] = evt.newValue;
@@ -100,8 +117,8 @@ namespace Unity.Cinemachine.Editor
             m_ParentElement = new VisualElement();
 
             // Auto-create shots
-            var toggle = m_ParentElement.AddChild(new Toggle(CinemachineTimelinePrefs.s_AutoCreateLabel.text) 
-            { 
+            var toggle = m_ParentElement.AddChild(new Toggle(CinemachineTimelinePrefs.s_AutoCreateLabel.text)
+            {
                 tooltip = CinemachineTimelinePrefs.s_AutoCreateLabel.tooltip,
                 value = CinemachineTimelinePrefs.AutoCreateShotFromSceneView.Value
             });
@@ -110,34 +127,44 @@ namespace Unity.Cinemachine.Editor
 
             // Cached scrubbing
             var row = m_ParentElement.AddChild(new InspectorUtility.LeftRightRow());
-            row.Left.AddChild(new Label(CinemachineTimelinePrefs.s_ScrubbingCacheLabel.text) 
-            { 
-                tooltip = CinemachineTimelinePrefs.s_ScrubbingCacheLabel.tooltip, 
+            row.Left.AddChild(new Label(CinemachineTimelinePrefs.s_ScrubbingCacheLabel.text)
+            {
+                tooltip = CinemachineTimelinePrefs.s_ScrubbingCacheLabel.tooltip,
                 style = { alignSelf = Align.Center, flexGrow = 1 }
             });
-            var cacheToggle = row.Right.AddChild(new Toggle 
-            { 
+            var cacheToggle = row.Right.AddChild(new Toggle
+            {
                 tooltip = CinemachineTimelinePrefs.s_ScrubbingCacheLabel.tooltip,
                 value = CinemachineTimelinePrefs.UseScrubbingCache.Value,
                 style = { flexGrow = 0, marginRight = 5 }
             });
-            row.Right.Add(new Label { text = "(experimental)", style = { flexGrow = 1, alignSelf = Align.Center } });
-            var clearCacheButton = row.Right.AddChild(new Button 
+            var clearCacheButton = row.Right.AddChild(new Button
             {
                 text = "Clear",
-                style = { flexGrow = 0, alignSelf = Align.Center, marginLeft = 5 }
+                style = { flexGrow = 0, alignSelf = Align.Center, marginLeft = 5, marginRight = 0 }
             });
             clearCacheButton.RegisterCallback<ClickEvent>((evt) => TargetPositionCache.ClearCache());
             clearCacheButton.SetEnabled(CinemachineTimelinePrefs.UseScrubbingCache.Value);
-            cacheToggle.RegisterValueChangedCallback((evt) => 
+            cacheToggle.RegisterValueChangedCallback((evt) => CinemachineTimelinePrefs.UseScrubbingCache.Value = evt.newValue);
+            InspectorUtility.ContinuousUpdate(m_ParentElement, () => 
             {
-                CinemachineTimelinePrefs.UseScrubbingCache.Value = evt.newValue;
-                clearCacheButton.SetEnabled(evt.newValue);
+                cacheToggle.SetEnabled(!Application.isPlaying);
+                clearCacheButton.SetEnabled(
+                    CinemachineTimelinePrefs.UseScrubbingCache.Value 
+                    && !TargetPositionCache.IsEmpty 
+                    && !Application.isPlaying);
             });
 
-            // Camera Reference - we do it in IMGUI until the ExposedReference UITK bugs are fixed
             m_ParentElement.AddSpace();
+            if (m_IsPrefabOrInPrefabMode)
+                m_ParentElement.Add(new HelpBox(
+                    "Only Cinemachine Cameras inside the prefab may be assigned.", 
+                    HelpBoxMessageType.Info));
+
+            // Camera Reference
             var vcamProperty = serializedObject.FindProperty(() => Target.VirtualCamera);
+#if true
+            // we do it in IMGUI until the ExposedReference UITK bugs are fixed
             row = m_ParentElement.AddChild(new InspectorUtility.LeftRightRow());
             row.Left.AddChild(new Label("Cinemachine Camera") 
             { 
@@ -150,8 +177,11 @@ namespace Unity.Cinemachine.Editor
                 EditorGUILayout.PropertyField(vcamProperty, GUIContent.none);
                 if (EditorGUI.EndChangeCheck())
                     serializedObject.ApplyModifiedProperties();
-            }) { style = { flexGrow = 1, marginBottom = 2 }} );
-            m_CreateButton = row.Right.AddChild(new Button(() => 
+            }) { style = { flexGrow = 1, marginTop = 2, marginBottom = 3, marginLeft = 2 }} );
+#else
+            row = m_ParentElement.AddChild(InspectorUtility.PropertyRow(vcamProperty, out _, "Cinemachine Camera"));
+#endif
+            m_CreateButton = row.Right.AddChild(new Button(() =>
             {
                 vcamProperty.exposedReferenceValue = CreatePassiveVcamFromSceneView();
                 vcamProperty.serializedObject.ApplyModifiedProperties();
@@ -159,9 +189,8 @@ namespace Unity.Cinemachine.Editor
             {
                 text = "Create",
                 tooltip = "Create a passive Cinemachine camera matching the scene view",
-                style = { flexGrow = 0, alignSelf = Align.Center, marginLeft = 5 }
+                style = { flexGrow = 0, alignSelf = Align.Center, marginLeft = 5, marginBottom = 2, marginRight = 0 }
             });
-
             // Display name
             m_ParentElement.Add(new PropertyField(serializedObject.FindProperty(() => Target.DisplayName)));
             m_ParentElement.AddSpace();
@@ -178,7 +207,9 @@ namespace Unity.Cinemachine.Editor
                 return;
 
             var vcamProperty = serializedObject.FindProperty(() => Target.VirtualCamera);
-            m_CreateButton.SetVisible(vcamProperty.exposedReferenceValue as CinemachineVirtualCameraBase == null);
+            if (vcamProperty == null)
+                return;
+            m_CreateButton.SetVisible(!m_IsPrefabOrInPrefabMode && vcamProperty.exposedReferenceValue as CinemachineVirtualCameraBase == null);
             var vcam = vcamProperty.exposedReferenceValue as CinemachineVirtualCameraBase;
 
             m_ComponentsCache.Clear();
@@ -230,21 +261,22 @@ namespace Unity.Cinemachine.Editor
             else
                 CinemachineTimelinePrefs.UseScrubbingCache.Value = EditorGUI.Toggle(
                     r, CinemachineTimelinePrefs.s_ScrubbingCacheLabel, CinemachineTimelinePrefs.UseScrubbingCache.Value);
-            r.x += r.width; r.width = rect.width - r.width;
-            var buttonWidth = GUI.skin.button.CalcSize(m_ClearText).x;
-            r.width -= buttonWidth;
-            EditorGUI.LabelField(r, "(experimental)");
-            r.x += r.width; r.width =buttonWidth;
+            r.x += r.width + 6; r.width = GUI.skin.button.CalcSize(m_ClearText).x;
             GUI.enabled &= !TargetPositionCache.IsEmpty;
             if (GUI.Button(r, m_ClearText))
                 TargetPositionCache.ClearCache();
             GUI.enabled = true;
 
             EditorGUILayout.Space();
+
+            if (m_IsPrefabOrInPrefabMode)
+                EditorGUILayout.HelpBox(
+                    "Only Cinemachine Cameras inside the prefab may be assigned, and the Property must be Exposed.", 
+                    MessageType.Info);
+
             var vcamProperty = serializedObject.FindProperty(() => Target.VirtualCamera);
-            CinemachineVirtualCameraBase vcam
-                = vcamProperty.exposedReferenceValue as CinemachineVirtualCameraBase;
-            if (vcam != null)
+            CinemachineVirtualCameraBase vcam = vcamProperty.exposedReferenceValue as CinemachineVirtualCameraBase;
+            if (m_IsPrefabOrInPrefabMode || vcam != null)
                 EditorGUILayout.PropertyField(vcamProperty, s_CmCameraLabel);
             else
             {
@@ -271,7 +303,7 @@ namespace Unity.Cinemachine.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.HelpBox(
-                "For best inspector display, please upgrade Timeline to version 1.8.2 or later", 
+                "For best inspector display, please upgrade Timeline to version 1.8.2 or later",
                 MessageType.Info);
 
             EditorGUI.BeginChangeCheck();
