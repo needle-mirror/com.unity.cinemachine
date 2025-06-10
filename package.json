@@ -1,9 +1,9 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "2.10.3",
-  "unity": "2019.4",
-  "description": "Smart camera tools for passionate creators. \n\nNew starting from 2.7.1: Are you looking for the Cinemachine menu? It has moved to the GameObject menu.\n\nIMPORTANT NOTE: If you are upgrading from the legacy Asset Store version of Cinemachine, delete the Cinemachine asset from your project BEFORE installing this version from the Package Manager.",
+  "version": "2.10.4",
+  "unity": "2022.3",
+  "description": "Smart camera tools for passionate creators. \n\n--- ATTENTION ---\nUpgrading a project from Cinemachine 2.x to Cinemachine 3.x is not automatic and not trivial.\nDon't do it unless you're willing to put in the required effort.\n\n> For more details, refer to the upgrade guide:\nhttps://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/CinemachineUpgradeFrom2.html\n--------------------\n\n\n",
   "keywords": [
     "camera",
     "follow",
@@ -40,15 +40,15 @@
     }
   ],
   "_upm": {
-    "changelog": "- Regression fix: Small changes to camera position and rotation were being filtered out."
+    "changelog": "- Bugfix: FramingTransposer with a dead zone would sometimes drift.\n- Cinemachine Shot Editor no longer displays UX to create cameras when editing a prefab.\n- Added CINEMACHINE_TRANSPARENT_POST_PROCESSING_BLENDS scripting define to tune the PostProcessing blend behaviour."
   },
   "upmCi": {
-    "footprint": "9814721d0e5893b85395c9a3c2017c9bbd5444ae"
+    "footprint": "7b7362ac6eb184ee848d65124046adf4333ceb1d"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@2.10/manual/index.html",
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "fa616229e5cf36a8c640e862aff6eb686dbef444"
+    "revision": "87d5dbb847c5fae7125aa05286e81b6bb012076f"
   }
 }
