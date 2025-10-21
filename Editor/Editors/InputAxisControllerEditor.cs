@@ -10,6 +10,12 @@ namespace Unity.Cinemachine.Editor
         public override VisualElement CreateInspectorGUI()
         {
             var ux = new VisualElement();
+
+#if ENABLE_LEGACY_INPUT_MANAGER && CINEMACHINE_UNITY_INPUTSYSTEM
+            ux.AddChild(new HelpBox("Old and new input systems are both active.  For simplicity and clarity, "
+                    + "it's recommended to activate only one of them.\nYou can do this in Player Settings > Active Input Handling.",
+                HelpBoxMessageType.Info));
+#endif
             var prop = serializedObject.GetIterator();
             if (prop.NextVisible(true))
                 InspectorUtility.AddRemainingProperties(ux, prop);
@@ -157,25 +163,34 @@ namespace Unity.Cinemachine.Editor
             list.BindProperty(property);
 
             var isEmptyMessage = ux.AddChild(new HelpBox(
-                "<b>This component will be ignored because no applicable target components are present.</b>\n\n"
-                    + "Applicable target components include: "
+                "This component will be ignored because no applicable targets are present.\n"
+                    + "<b>You can remove this component.\n</b>Applicable target components include: "
                     + InspectorUtility.GetAssignableBehaviourNames(typeof(IInputAxisOwner)),
                 HelpBoxMessageType.Warning));
-            list.TrackPropertyWithInitialCallback(
-                property, (p) => isEmptyMessage.SetVisible(p.serializedObject != null && p.arraySize == 0));
+
+            list.TrackPropertyWithInitialCallback(property, (p) => 
+            {
+                bool isEmpty = p.IsDeletedObject() || p.arraySize == 0;
+                isEmptyMessage.SetVisible(isEmpty);
+                list.SetVisible(!isEmpty);
+            });
 
             // Synchronize the controller list
             ux.TrackAnyUserActivity(() =>
             {
-                if (property.serializedObject == null)
-                    return; // object deleted
+                if (property.IsDeletedObject())
+                    return;
                 var targets = property.serializedObject.targetObjects;
                 for (int i = 0; i < targets.Length; ++i)
                 {
-                    if (targets[i] is IInputAxisController target && !target.ControllersAreValid())
+                    var obj = targets[i];
+                    if (obj is IInputAxisController target && !target.ControllersAreValid())
                     {
-                        Undo.RecordObject(targets[i], "SynchronizeControllers");
-                        target.SynchronizeControllers();
+                        EditorApplication.delayCall += () =>
+                        {
+                            Undo.RecordObject(obj, "SynchronizeControllers");
+                            target.SynchronizeControllers();
+                        };
                     }
                 }
             });

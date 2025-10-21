@@ -1,7 +1,7 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "3.1.4",
+  "version": "3.1.5",
   "unity": "2022.3",
   "description": "Smart camera tools for passionate creators. \n\nCinemachine 3 is a newer and better version of Cinemachine, but upgrading an existing project from 2.X will likely require some effort.  If you're considering upgrading an older project, please see our upgrade guide in the user manual.",
   "keywords": [
@@ -51,18 +51,18 @@
     }
   ],
   "relatedPackages": {
-    "com.unity.cinemachine.tests": "3.1.4"
+    "com.unity.cinemachine.tests": "3.1.5"
   },
   "_upm": {
-    "changelog": "### Bugfixes\n- Deoccluder did not always properly reset its state.\n- Deoccluder and Decollider were introducing spurious damping when the FreeLook orbit size changed.\n- Mac only: Some dropdowns and popups in Cinemachine inspectors did not work consistently.\n- Regression fix: Confiner2D was not always confining when a camera was newly activated.\n- RotationComposer and PositionComposer no longer damp in response to composition changes from the FreeLookModifier.\n- Fixed sample asset selection at import depending on current render pipeline and input configuration.  You need to re-import the samples to fix any existing issues.\n- Confiner2D was behaving inconsistently for large sized bounding boxes due to precision issues.\n- StateDrivenCamera inspector was not populating the states in the instruction list correctly.\n- Fixed a number of issues causing ForceCameraPosition to not behave as expected.\n- Maximizing an inspector which contained custom blends would generate console errors and cause the inspector to be unresponsive.\n\n### Changed\n- Cinemachine Shot Editor for Timeline no longer displays improper UX to create cameras when editing a prefab.\n- The game-view composer guides dynamically reflect the current composition when a FreeLookModifier is changing it.\n- When a FreeLookModifier is enabled for composition, the game-view composer guides are no longer draggable.\n \n### Added\n- Added Easing setting to FreeLookModifier, to smooth the transition between top and bottom FreeLook hemispheres.\n- Added an overload for `CinemachineBrain.ManualUpdate` which takes a custom frame count and deltaTime, allowing more customized control over the game loop.\n- Added `CINEMACHINE_TRANSPARENT_POST_PROCESSING_BLENDS` scripting define to tune the PostProcessing blend behaviour.\n- Added Signal Combination Mode to Impulse Listener, to allow combining multiple impulse signals in different ways."
+    "changelog": "### Bugfixes\n- Correct blend time was not always used when backing out of a blend-in-progress.\n- CinemachineVolumeSettings: changes to Focal Length and Aperture settings were not being applied while auto-focus was enabled.\n- InheritPosition was not inheriting the camera position in all cases.\n- Rotation Composer damping was not being applied when the Orbital Follow's Binding Mode was Lazy Follow.\n- GroupFraming extension did not respect PreviousStateIsValid flag, so could not be reset dynamically.\n- When blending between a 3rdPerson camera without a look-at target and a camera with a look-at target, the blend was incorrect.\n- ForceCameraPosition was not working properly for LazyFollow cameras.\n- Teleporting a camera with a nonzero Target Offset was not smooth.\n- Exceptions were sometimes generated when an OrbitalFollow component was deleted.\n- Input Axis Controller was losing user input after a play-mode domain reload.\n- Input Axis Controller was not always reading composite actions correctly.\n- CinemachineConfiner2D.BakeBoundingShape() was leaving confiner with a not-fully-baked shape.\n\n### Added\n- Added `CinemachineConfiner2D.CameraWasDisplaced()` and `CinemachineConfiner2D.GetCameraDisplacementDistance()` methods.\n- Added `InputAxisControllerBase.GetController()` method, to conveniently fetch an Input Controller having a specific name.\n- Added `InputAxisControllerBase.TriggerRecentering()` to trigger recentering of an axis having a specific name.\n- Added \"Recenter\" button to input axis inspector, to immediately center the axis.\n- Added PerspectiveToOrthoCustomBlend sample scene.\n- Added new Portals sample scene to illustrate camera teleportation.\n\n### Changed\n- Input Axis recentering only operates when the game is playing."
   },
   "upmCi": {
-    "footprint": "b8f4b0ff24373c6ab79f9e2ad7ef68dc4ee40117"
+    "footprint": "97bad7301ce2eb33b7ad1a2425d62f77f32ba287"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/index.html",
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "b5d928f5923583585b11d5c17531ff59c8c971c9"
+    "revision": "d7806ea0a8dabee74ce34a8d2d2cfa659d729046"
   }
 }

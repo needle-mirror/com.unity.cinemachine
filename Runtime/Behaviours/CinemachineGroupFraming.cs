@@ -139,12 +139,14 @@ namespace Unity.Cinemachine
             public float PreviousOrthoSize;
 #endif
 
-            public void Reset()
+            public void Reset(ref CameraState state)
             {
                 PosAdjustment = Vector3.zero;
                 RotAdjustment = Vector2.zero;
                 FovAdjustment = 0;
-                Stage = CinemachineCore.Stage.Finalize;
+#if CINEMACHINE_PHYSICS_2D
+                PreviousOrthoSize = state.Lens.OrthographicSize;
+#endif
             }
         };
 
@@ -165,10 +167,8 @@ namespace Unity.Cinemachine
             CinemachineCore.Stage stage, ref CameraState state, float deltaTime)
         {
             var extra = GetExtraState<VcamExtraState>(vcam);
-            if (!vcam.PreviousStateIsValid)
-                extra.Reset();
 
-            if (extra.Stage == CinemachineCore.Stage.Finalize || !Application.isPlaying)
+            if (!vcam.PreviousStateIsValid || !Application.isPlaying)
             {
 #if CINEMACHINE_PHYSICS_2D
                 // We have a special compatibility mode for Confiner2D, because it is a common use-case
@@ -198,6 +198,8 @@ namespace Unity.Cinemachine
             if (group == null || !group.IsValid)
                 return;
 
+            if (!vcam.PreviousStateIsValid)
+                extra.Reset(ref state);
             if (state.Lens.Orthographic)
                 OrthoFraming(vcam, group, extra, ref state, deltaTime);
             else

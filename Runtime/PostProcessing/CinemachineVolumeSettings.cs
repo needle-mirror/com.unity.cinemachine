@@ -104,7 +104,11 @@ namespace Unity.Cinemachine
                 {
                     var itemCopy = Instantiate(source.components[i]);
                     profile.components.Add(itemCopy);
+#if UNITY_EDITOR
+#pragma warning disable CS0618 // Type or member is obsolete
                     profile.isDirty = true;
+#pragma warning restore CS0618
+#endif
                 }
                 ProfileCopy = profile;
             }
@@ -182,8 +186,7 @@ namespace Unity.Cinemachine
                     {
                         if (extra.ProfileCopy == null)
                             extra.CreateProfileCopy(Profile);
-                        profile = extra.ProfileCopy;
-                        if (profile.TryGet(out DepthOfField dof))
+                        if (extra.ProfileCopy.TryGet(out DepthOfField dof))
                         {
                             float focusDistance = FocusOffset;
                             if (FocusTracking == FocusTrackingMode.LookAtTarget)
@@ -203,8 +206,21 @@ namespace Unity.Cinemachine
                             CalculatedFocusDistance = focusDistance = Mathf.Max(0, focusDistance);
                             dof.focusDistance.value = focusDistance;
                             state.Lens.PhysicalProperties.FocusDistance = focusDistance;
-                            profile.isDirty = true;
+#if CINEMACHINE_URP
+                            if (profile.TryGet(out DepthOfField srcDof))
+                            {
+                                dof.aperture.value = srcDof.aperture.value;
+                                dof.focalLength.value = srcDof.focalLength.value;
+                            }
+#endif
+
+#if UNITY_EDITOR
+#pragma warning disable CS0618 // Type or member is obsolete
+                            extra.ProfileCopy.isDirty = true;
+#pragma warning restore CS0618
+#endif
                         }
+                        profile = extra.ProfileCopy;
                     }
                     // Apply the post-processing
                     state.AddCustomBlendable(new CameraState.CustomBlendableItems.Item { Custom = profile, Weight = Weight });

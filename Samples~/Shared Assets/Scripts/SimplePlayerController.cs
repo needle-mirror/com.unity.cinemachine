@@ -73,6 +73,14 @@ namespace Unity.Cinemachine.Samples
             axes.Add(new () { DrivenAxis = () => ref Sprint, Name = "Sprint" });
         }
 
+        protected virtual void OnValidate()
+        {
+            MoveX.Validate();
+            MoveZ.Validate();
+            Jump.Validate();
+            Sprint.Validate();
+        }
+
         public virtual void SetStrafeMode(bool b) {}
         public abstract bool IsMoving { get; }
     }
@@ -101,7 +109,7 @@ namespace Unity.Cinemachine.Samples
     /// The Simple Player Controller has an ad-hoc technique of resolving this discontinuity,
     /// (you can see this in the code), but it is only used in this very specific situation.
     /// </summary>
-    public class SimplePlayerController : SimplePlayerControllerBase
+    public class SimplePlayerController : SimplePlayerControllerBase, ITeleportable
     {
         [Tooltip("Transition duration (in seconds) when the player changes velocity or rotation.")]
         public float Damping = 0.5f;
@@ -379,6 +387,19 @@ namespace Unity.Cinemachine.Samples
                     max + kExtraHeight, GroundLayers, QueryTriggerInteraction.Ignore))
                 return hit.distance - kExtraHeight;
             return max + 1;
+        }
+
+        // ITeleportable implementation
+        public void Teleport(Vector3 newPos, Quaternion newRot)
+        {
+            if (m_Controller != null)
+                m_Controller.enabled = false;
+            var rot = transform.rotation;
+            var rotDelta = newRot * Quaternion.Inverse(rot);
+            m_CurrentVelocityXZ = rotDelta * m_CurrentVelocityXZ;
+            transform.SetPositionAndRotation(newPos, newRot);
+            if (m_Controller != null)
+                m_Controller.enabled = true;
         }
     }
 }

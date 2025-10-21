@@ -45,12 +45,12 @@ namespace Unity.Cinemachine.Editor
             var shaderDisplay = ux.AddChild(new PropertyField(computeShaderProp));
             shaderDisplay.SetEnabled(false);
 
-            var importHelp = ux.AddChild(InspectorUtility.HelpBoxWithButton(
+            var importHelp = ux.AddChild(new HelpBox(
                 $"The {k_ComputeShaderName} shader needs to be imported into "
                     + "the project. It will be imported by default into the Assets root.  "
                     + "After importing, you can move it elsewhere but don't rename it.",
-                    HelpBoxMessageType.Warning,
-                "Import\nShader", () =>
+                    HelpBoxMessageType.Warning));
+            importHelp.AddButton("Import\nShader", () =>
             {
                 // Check if it's already imported, just in case
                 var shader = FindShader();
@@ -65,13 +65,13 @@ namespace Unity.Cinemachine.Editor
                     shader = AssetDatabase.LoadAssetAtPath<ComputeShader>(shaderAssetPath);
                 }
                 AssignShaderToTarget(shader);
-            }));
+            });
 #endif
 
             ux.TrackPropertyWithInitialCallback(focusTargetProp, (p) =>
             {
-                if (p.serializedObject == null)
-                    return; // object deleted
+                if (p.IsDeletedObject())
+                    return;
                 var mode = (CinemachineAutoFocus.FocusTrackingMode)p.intValue;
                 customTarget.SetVisible(mode == CinemachineAutoFocus.FocusTrackingMode.CustomTarget);
                 offset.SetVisible(mode != CinemachineAutoFocus.FocusTrackingMode.None);
@@ -98,8 +98,8 @@ namespace Unity.Cinemachine.Editor
             // Make the import box disappear after import
             ux.TrackPropertyWithInitialCallback(computeShaderProp, (p) =>
             {
-                if (p.serializedObject == null)
-                    return; // object deleted
+                if (p.IsDeletedObject())
+                    return;
                 var mode = (CinemachineAutoFocus.FocusTrackingMode)focusTargetProp.intValue;
                 importHelp.SetVisible(mode == CinemachineAutoFocus.FocusTrackingMode.ScreenCenter
                     && p.objectReferenceValue == null);

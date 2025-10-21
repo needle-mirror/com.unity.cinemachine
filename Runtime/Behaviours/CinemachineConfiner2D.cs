@@ -12,7 +12,9 @@ namespace Unity.Cinemachine
     /// of the virtual camera.  It will confine the camera's position such that the screen edges stay
     /// within a shape defined by a 2D polygon.  This will work for orthographic or perspective cameras,
     /// provided that the camera's forward vector remains parallel to the bounding shape's normal,
-    /// i.e. that the camera is looking straight at the polygon, and not obliquely at it.
+    /// i.e. that the camera is looking straight at the polygon, and not obliquely at it.  If the camera is
+    /// looking obliquely at the  polygon, confining will still occur but not precisely at the polyon edges.
+    /// In this situation, you can adjust the polygon until the desired confining occurs.
     ///
     /// When confining the camera, the camera's view size at the polygon plane is considered, and
     /// also its aspect ratio. Based on this information and the input polygon, a second (smaller)
@@ -121,6 +123,19 @@ namespace Unity.Cinemachine
         [FoldoutWithEnabledButton]
         public OversizeWindowSettings OversizeWindow;
 
+        /// <summary>See whether the virtual camera has been moved by the confiner</summary>
+        /// <param name="vcam">The virtual camera in question.  This might be different from the
+        /// virtual camera that owns the confiner, in the event that the camera has children</param>
+        /// <returns>True if the virtual camera has been repositioned</returns>
+        public bool CameraWasDisplaced(CinemachineVirtualCameraBase vcam) => GetCameraDisplacementDistance(vcam) > 0;
+
+        /// <summary>See how far virtual camera has been moved by the confiner</summary>
+        /// <param name="vcam">The virtual camera in question.  This might be different from the
+        /// virtual camera that owns the confiner, in the event that the camera has children</param>
+        /// <returns>True if the virtual camera has been repositioned</returns>
+        public float GetCameraDisplacementDistance(CinemachineVirtualCameraBase vcam)
+            => GetExtraState<VcamExtraState>(vcam).PreviousDisplacement.magnitude;
+            
         class VcamExtraState : VcamExtraStateBase
         {
             public ConfinerOven.BakedSolution BakedSolution;
@@ -255,12 +270,16 @@ namespace Unity.Cinemachine
         /// than 5 baking seconds have elapsed.</returns>
         public bool BakeBoundingShape(CinemachineVirtualCameraBase vcam, float maxTimeInSeconds)
         {
-            if (!m_ShapeCache.ValidateCache(BoundingShape2D, OversizeWindow, vcam.State.Lens.Aspect, out _))
+            if (!m_ShapeCache.ValidateCache(BoundingShape2D, OversizeWindow, vcam.State.Lens.Aspect, out bool baked))
                 return false; // invalid path
             if (m_ShapeCache.ConfinerOven == null)
                 return false;
+            m_ShapeCache.ForceBaked = baked;
             if (m_ShapeCache.ConfinerOven.State == ConfinerOven.BakingState.BAKING)
+            {
                 m_ShapeCache.ConfinerOven.BakeConfiner(maxTimeInSeconds);
+                m_ShapeCache.ForceBaked = m_ShapeCache.ConfinerOven.State == ConfinerOven.BakingState.BAKED;
+            }
             return m_ShapeCache.ConfinerOven.State == ConfinerOven.BakingState.BAKED;
         }
 
@@ -395,6 +414,7 @@ namespace Unity.Cinemachine
             Matrix4x4 m_BakedToWorld; // defines baked space
             Collider2D m_BoundingShape2D;
 
+            public bool ForceBaked;
 
             /// <summary>
             /// Invalidates shapeCache
@@ -423,7 +443,8 @@ namespace Unity.Cinemachine
                 OversizeWindowSettings oversize, float aspectRatio,
                 out bool confinerStateChanged)
             {
-                confinerStateChanged = false;
+                confinerStateChanged = ForceBaked;
+                ForceBaked = false;
 
                 if (IsValid(boundingShape2D, oversize, aspectRatio))
                 {

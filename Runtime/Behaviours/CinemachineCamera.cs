@@ -137,8 +137,6 @@ namespace Unity.Cinemachine
         /// <param name="rot">World-space orientation to take</param>
         public override void ForceCameraPosition(Vector3 pos, Quaternion rot)
         {
-            PreviousStateIsValid = false;
-
             UpdatePipelineCache();
             for (int i = 0; i < m_Pipeline.Length; ++i)
                 if (m_Pipeline[i] != null)
@@ -146,6 +144,10 @@ namespace Unity.Cinemachine
 
             m_State.RawPosition = pos;
             m_State.RawOrientation = rot;
+
+            // Push the raw position back to the game object's transform, so it
+            // moves along with the camera.
+            transform.ConservativeSetPositionAndRotation(pos, rot);
 
             base.ForceCameraPosition(pos, rot);
         }
