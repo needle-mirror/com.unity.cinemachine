@@ -1,1 +1,54 @@
-{"name":"com.unity.cinemachine","displayName":"Cinemachine","version":"2.10.5","unity":"2022.3","description":"Smart camera tools for passionate creators. \n\n--- ATTENTION ---\nUpgrading a project from Cinemachine 2.x to Cinemachine 3.x is not automatic and not trivial.\nDon't do it unless you're willing to put in the required effort.\n\n> For more details, refer to the upgrade guide:\nhttps://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/CinemachineUpgradeFrom2.html\n--------------------\n\n\n","keywords":["camera","follow","rig","fps","cinematography","aim","orbit","cutscene","cinematic","collision","freelook","cinemachine","compose","composition","dolly","track","clearshot","noise","framing","handheld","lens","impulse"],"category":"cinematography","dependencies":{"com.unity.test-framework":"1.1.31"},"samples":[{"displayName":"Cinemachine Example Scenes","description":"Sample scenes illustrating various ways to use Cinemachine","path":"Samples~/Cinemachine Example Scenes"}],"_upm":{"changelog":"- Bugfix: FramingTransposer with a dead zone would sometimes drift.\n- Cinemachine Shot Editor no longer displays UX to create cameras when editing a prefab.\n- Added CINEMACHINE_TRANSPARENT_POST_PROCESSING_BLENDS scripting define to tune the PostProcessing blend behaviour."},"upmCi":{"footprint":"7b7362ac6eb184ee848d65124046adf4333ceb1d"},"documentationUrl":"https://docs.unity3d.com/Packages/com.unity.cinemachine@2.10/manual/index.html","repository":{"url":"https://github.com/Unity-Technologies/com.unity.cinemachine.git","type":"git","revision":"87d5dbb847c5fae7125aa05286e81b6bb012076f"}}
+{
+  "name": "com.unity.cinemachine",
+  "displayName": "Cinemachine",
+  "version": "2.10.6",
+  "unity": "2022.3",
+  "description": "Smart camera tools for passionate creators. \n\n--- ATTENTION ---\nUpgrading a project from Cinemachine 2.x to Cinemachine 3.x is not automatic and not trivial.\nDon't do it unless you're willing to put in the required effort.\n\n> For more details, refer to the upgrade guide:\nhttps://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/CinemachineUpgradeFrom2.html\n--------------------\n\n\n",
+  "keywords": [
+    "camera",
+    "follow",
+    "rig",
+    "fps",
+    "cinematography",
+    "aim",
+    "orbit",
+    "cutscene",
+    "cinematic",
+    "collision",
+    "freelook",
+    "cinemachine",
+    "compose",
+    "composition",
+    "dolly",
+    "track",
+    "clearshot",
+    "noise",
+    "framing",
+    "handheld",
+    "lens",
+    "impulse"
+  ],
+  "category": "cinematography",
+  "dependencies": {
+    "com.unity.test-framework": "1.1.31"
+  },
+  "samples": [
+    {
+      "displayName": "Cinemachine Example Scenes",
+      "description": "Sample scenes illustrating various ways to use Cinemachine",
+      "path": "Samples~/Cinemachine Example Scenes"
+    }
+  ],
+  "_upm": {
+    "changelog": "- Converted code using InstanceID references and API to EntityID."
+  },
+  "upmCi": {
+    "footprint": "ab4bbad06b429890eb403b74eeaee207d89fda3e"
+  },
+  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@2.10/manual/index.html",
+  "repository": {
+    "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
+    "type": "git",
+    "revision": "12f52e0b6d85a7c55bf8053b146e40fe62247808"
+  }
+}
