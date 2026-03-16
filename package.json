@@ -1,7 +1,7 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "2.10.6",
+  "version": "2.10.7",
   "unity": "2022.3",
   "description": "Smart camera tools for passionate creators. \n\n--- ATTENTION ---\nUpgrading a project from Cinemachine 2.x to Cinemachine 3.x is not automatic and not trivial.\nDon't do it unless you're willing to put in the required effort.\n\n> For more details, refer to the upgrade guide:\nhttps://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/CinemachineUpgradeFrom2.html\n--------------------\n\n\n",
   "keywords": [
@@ -43,12 +43,12 @@
     "changelog": "- Converted code using InstanceID references and API to EntityID."
   },
   "upmCi": {
-    "footprint": "ab4bbad06b429890eb403b74eeaee207d89fda3e"
+    "footprint": "a6134cce46a99fe104af90a70d1ee54977b34523"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@2.10/manual/index.html",
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "12f52e0b6d85a7c55bf8053b146e40fe62247808"
+    "revision": "4be77edd6ca4aaed917a706557301ad78d57c550"
   }
 }
