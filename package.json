@@ -1,7 +1,7 @@
 {
   "name": "com.unity.cinemachine",
   "displayName": "Cinemachine",
-  "version": "3.1.6",
+  "version": "3.1.7",
   "unity": "2022.3",
   "description": "Smart camera tools for passionate creators. \n\nCinemachine 3 is a newer and better version of Cinemachine, but upgrading an existing project from 2.X will likely require some effort.  If you're considering upgrading an older project, please see our upgrade guide in the user manual.",
   "keywords": [
@@ -51,18 +51,18 @@
     }
   ],
   "relatedPackages": {
-    "com.unity.cinemachine.tests": "3.1.6"
+    "com.unity.cinemachine.tests": "3.1.7"
   },
   "_upm": {
-    "changelog": "### Bugfixes\n- Fixed look at being ignored in third person camera when camera is navel gazing.\n- Fixed error when both HDRP and URP rendering pipelines are added to a project.\\\n- Fixed outdated warning on RotationComposerComponent.\n- Fixed GC Alloc in CinemachineInputAxisController.Update().\n- Fixed ForceCameraPosition regression in CinemachineFollow/CinemachineOrbitalFollow/CinemachineTransposer/CinemachineOrbitalTransposer to allow looking away from targets.\n\n### Changed\n- Converted code using InstanceID references and API to EntityID."
+    "changelog": "### Bugfixes\n- Fixed stack frame snapshot not resetting when CameraBlendStack completed blend.\n- Fixed blend cancellation not taking into account updates to \"cancelled\" camera state\n- Added a null check to avoid an issue when deleting a CinemachineCamera with a CinemachinePixelPerfect extension.\n\n### Changed\n- Added support for fast enter play mode."
   },
   "upmCi": {
-    "footprint": "6dc8acadce3d110263039c01f57b757182f33a77"
+    "footprint": "e08504e947ba1c2ca454c767e1eee8fab2476460"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/index.html",
   "repository": {
     "url": "https://github.com/Unity-Technologies/com.unity.cinemachine.git",
     "type": "git",
-    "revision": "293f7764a9c6e9f087fad05023a586dcfdc1939b"
+    "revision": "8cb586bf217170b0035e42685880fe1fdefc9729"
   }
 }
