@@ -1,5 +1,7 @@
 # Procedural Motion
 
+[!include[](includes/package-version-message.md)]
+
 On its own, a Cinemachine Camera is a **passive** GameObject that acts as a camera placeholder that you can, for example:
 * Place in a fixed location with a static aim.
 * Parent to another GameObject to make it move and rotate along with it.
@@ -44,6 +46,7 @@ For example, the [Deoccluder](CinemachineDeoccluder.md) extension moves a camera
 Here is the list of all available Cinemachine Camera Extensions:
 
   * [Cinemachine Auto Focus](CinemachineAutoFocus.md)
+  * [Cinemachine Camera Offset](CinemachineCameraOffset.md)
   * [Cinemachine Confiner 3D](CinemachineConfiner3D.md)
   * [Cinemachine Confiner 2D](CinemachineConfiner2D.md)
   * [Cinemachine Decollider](CinemachineDecollider.md)
@@ -58,7 +61,6 @@ Here is the list of all available Cinemachine Camera Extensions:
   * [Cinemachine Storyboard](CinemachineStoryboard.md)
   * [Cinemachine Third Person Aim](CinemachineThirdPersonAim.md)
   * [Cinemachine Volume Settings](CinemachineVolumeSettings.md)
-  <!---* Cinemachine Camera Offset (component/extension, missing in docs)--->
 
 
 ## Target GameObject tracking
